@@ -34,6 +34,7 @@ end
 local fire = hud:button("Fire", "射撃", 784, 190, 82, 82)
 fire.BackgroundColor3, fire.TextColor3 = Theme.Orange, Theme.Ink
 fire.InputBegan:Connect(function(input)
+    if not playing() then return end
     if input.UserInputType == Enum.UserInputType.Touch then
         touchFire, shooting = input, true
         presentation:setCombatAim(true)
@@ -63,20 +64,26 @@ hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, function() sp
 for name, button in pairs(hud.buttons) do
     if name ~= "Fire" then button.Activated:Connect(function() presentation.audio:play("Button") end) end
 end
-local function mouseOnEvolutionCard(input)
+local function mouseOnEvolutionPanel(input)
     if not hud.draft.Visible then return false end
     local position = input.Position
-    for _, card in ipairs(hud.draftCards) do
-        local origin, size = card.AbsolutePosition, card.AbsoluteSize
-        if position.X >= origin.X and position.X <= origin.X + size.X
-            and position.Y >= origin.Y and position.Y <= origin.Y + size.Y then return true end
-    end
-    return false
+    local origin, size = hud.draft.AbsolutePosition, hud.draft.AbsoluteSize
+    return position.X >= origin.X and position.X <= origin.X + size.X
+        and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
 end
 UserInputService.InputBegan:Connect(function(input, processed)
-    if processed or (input.UserInputType == Enum.UserInputType.MouseButton1 and mouseOnEvolutionCard(input)) then return end
+    if input.KeyCode == Enum.KeyCode.Tab then
+        if not UserInputService:GetFocusedTextBox() and state
+            and (state.phase == "Active" or state.phase == "FinalZone") then
+            spectateIndex = spectateIndex + 1
+        end
+        return
+    end
+    if processed then return end
+    if not playing() or ((input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.MouseButton2) and mouseOnEvolutionPanel(input)) then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true
-    elseif input.UserInputType == Enum.UserInputType.MouseButton2 and playing() then
+    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
         presentation:setAimHeld(true)
         if state.me.sprinting then send("Sprint", false) end
     end
@@ -91,8 +98,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif key == Enum.KeyCode.X then buildType = "Floor"
     elseif key == Enum.KeyCode.C then buildType = "Ramp"
     elseif key == Enum.KeyCode.LeftControl or key == Enum.KeyCode.RightControl then posture()
-    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then cancelAim(); send("Sprint", true)
-    elseif key == Enum.KeyCode.Tab then spectateIndex = spectateIndex + 1 end
+    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then cancelAim(); send("Sprint", true) end
 end)
 UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then send("Sprint", false) end
@@ -122,7 +128,7 @@ local function aim()
     local center = hud.crosshair.AbsolutePosition + hud.crosshair.AbsoluteSize / 2
     -- Aim uses the camera before cosmetic recoil. Restore the displayed frame immediately.
     local displayFrame = camera.CFrame
-    if presentation.applied then camera.CFrame = displayFrame*presentation.applied:Inverse() end
+    if presentation.camera == camera and presentation.applied then camera.CFrame = displayFrame*presentation.applied:Inverse() end
     local ray = camera:ScreenPointToRay(center.X, center.Y)
     camera.CFrame = displayFrame
     local params = RaycastParams.new()
@@ -166,7 +172,10 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     end
     state = s
     presentation:snapshot(s)
-    if not playing() then shooting, touchFire = false, nil end
+    if not playing() then
+        shooting, touchFire = false, nil
+        cancelAim()
+    end
     if s.phase ~= "Active" and s.phase ~= "FinalZone" then damageFeedback:clear() end
     local draft = s.me and s.me.evolutionDraft
     if not draft or draft.id ~= submittedEvolutionDraft then submittedEvolutionDraft = nil end
@@ -195,7 +204,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     end
 end)
 remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId, roundId)
-    if kind == "Notice" then hud:toast(a)
+    if kind == "Notice" and state and a == state.roundId then hud:toast(b)
     elseif kind == "Pickup" and playing() and a == state.roundId then
         presentation.audio:play(b == "Epic" and "EpicPickup" or b == "Rare" and "RarePickup" or "Pickup")
     elseif kind == "SlideSound" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then

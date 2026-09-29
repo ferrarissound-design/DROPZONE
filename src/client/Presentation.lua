@@ -162,7 +162,7 @@ function Presentation:step(dt)
     local aimAlpha = 1-math.exp(-Config.AimRecovery*dt)
     local me = self.me
     local aimIntent = self.aimHeld or self.combatAimHeld or now < (self.combatAimUntil or 0)
-    local aimAllowed = not me.sprinting and not me.sliding and me.evolutionDraft == nil
+    local aimAllowed = not me.sprinting and not me.sliding
     self.aimActive = aimIntent and aimAllowed
     self.aimBlend = self.aimBlend + ((self.aimActive and 1 or 0)-self.aimBlend)*aimAlpha
     local targetFov = self.aimActive and Config.AimFov or me.sliding and Config.SlideFov or me.sprinting and Config.SprintFov or 0

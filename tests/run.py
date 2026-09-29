@@ -73,8 +73,32 @@ assert 'ReplicatedStorage:GetChildren()' in server_source and 'child.Name == "Dr
 assert 'remotes:GetChildren()' in server_source and 'child:IsA("RemoteEvent")' in server_source
 print('PASS: Studio/Rojo startup deduplicates the remote folder and events')
 
-assert 'and Theme.Orange or Theme.Paper' in client
-print('PASS: hit marker restores the shared themed crosshair color')
+assert 'and Theme.Cyan or Theme.Paper' in client
+print('PASS: hit marker restores the shared aim crosshair color')
+
+# Draft pointer hit testing and camera handoff are source-level guards; Studio
+# remains the authority for actual GUI hit testing and camera render order.
+assert 'local function mouseOnEvolutionPanel(input)' in client
+assert 'hud.draft.AbsolutePosition, hud.draft.AbsoluteSize' in client
+assert 'or input.UserInputType == Enum.UserInputType.MouseButton2) and mouseOnEvolutionPanel(input)' in client
+assert 'if playing() then action:FireServer(state.roundId, command, argument) end' in client
+assert 'shooting and playing()' in client
+assert 'button.Active = button.Visible and draft == nil' not in hud
+assert 'me.evolutionDraft == nil' not in (ROOT / 'src' / 'client' / 'Presentation.lua').read_text()
+assert client.index('if input.KeyCode == Enum.KeyCode.Tab then') < client.index('if processed then return end')
+assert 'and (state.phase == "Active" or state.phase == "FinalZone") then' in client
+assert 'presentation.camera == camera and presentation.applied' in client
+print('PASS: draft panel alone blocks pointer input; gameplay and spectator Tab remain available')
+
+loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text()
+assert '"Notice", self.id, "敗退' in (ROOT / 'src' / 'server' / 'Round.lua').read_text()
+assert '"Notice", a.roundId, "取得:' in loot_source
+assert '"Notice", round.id, "EVOLUTION:' in (ROOT / 'src' / 'server' / 'Main.server.lua').read_text()
+assert 'kind == "Notice" and state and a == state.roundId' in client
+print('PASS: delayed notices carry a server round ID and cannot appear in a later round')
+assert 'a.roundId ~= round.id' in server_source
+assert 'a.humanoid.Health <= 0' in server_source
+print('PASS: action ingress rejects stale actors and the death-before-Died window')
 
 
 building_source = (ROOT / 'src' / 'server' / 'Building.lua').read_text()
@@ -127,7 +151,6 @@ for i,(name,x,y,w,h) in enumerate(rects):
         assert x+w<=ox or ox+ow<=x or y+h<=oy or oy+oh<=y, (name,other)
 print('PASS: movement/combat/build/slot/Draft rectangles do not overlap on the shared canvas')
 
-loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text()
 assert 'local function useful(a, item)' in loot_source
 assert 'WeaponStats.rank(item.rarity) > WeaponStats.rank(weapon.rarity)' in loot_source
 assert 'weapon.reserve < 240' in loot_source

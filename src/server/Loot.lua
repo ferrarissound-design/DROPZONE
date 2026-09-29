@@ -90,7 +90,7 @@ function Loot:pickup(a)
     elseif kind == "Energy" then a.energy = math.min(Evolution.maxEnergy(a), a.energy + 40) end
     p:Destroy()
     if a.player then self.effects:FireClient(a.player, "Pickup", a.roundId, item.rarity) end
-    if a.player then self.effects:FireClient(a.player, "Notice", "取得: " .. (item.rarity and item.rarity .. " " or "") .. (Weapons[kind] and Weapons[kind].label or labels[kind])) end
+    if a.player then self.effects:FireClient(a.player, "Notice", a.roundId, "取得: " .. (item.rarity and item.rarity .. " " or "") .. (Weapons[kind] and Weapons[kind].label or labels[kind])) end
 end
 function Loot:clear()
     self.items = {}

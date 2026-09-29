@@ -18,7 +18,7 @@ function Round.new(services)
             killer.energy = math.min(Evolution.maxEnergy(killer), killer.energy + 25)
             Evolution.onKill(killer, self.id, self.zone)
         end
-        if a.player then self.effects:FireClient(a.player, "Notice", "敗退 — 観戦中") end
+        if a.player then self.effects:FireClient(a.player, "Notice", self.id, "敗退 — 観戦中") end
     end
     return self
 end
