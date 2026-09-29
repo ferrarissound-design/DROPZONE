@@ -126,3 +126,10 @@ for i,(name,x,y,w,h) in enumerate(rects):
     for other,ox,oy,ow,oh in rects[i+1:]:
         assert x+w<=ox or ox+ow<=x or y+h<=oy or oy+oh<=y, (name,other)
 print('PASS: movement/combat/build/slot/Draft rectangles do not overlap on the shared canvas')
+
+loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text()
+assert 'local function useful(a, item)' in loot_source
+assert 'WeaponStats.rank(item.rarity) > WeaponStats.rank(weapon.rarity)' in loot_source
+assert 'weapon.reserve < 240' in loot_source
+assert '#a.inventory == 0 and not Weapons[kind]' not in loot_source
+print('PASS: auto pickup preserves loot that gives no weapon/ammo benefit and allows useful consumables')
