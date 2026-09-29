@@ -104,10 +104,12 @@ function World.create()
     return self
 end
 function World.ground(self, position)
+    local surfaces = self.groundSurfaces
+    if not surfaces or #surfaces == 0 then return Vector3.new(position.X, 0, position.Z) end
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Include
     -- Only true walkable ground participates. Roofs, containers, trees, and cover must not become "ground".
-    params.FilterDescendantsInstances = self.groundSurfaces or {self.map}
+    params.FilterDescendantsInstances = surfaces
     local hit = workspace:Raycast(Vector3.new(position.X, 80, position.Z), Vector3.new(0, -120, 0), params)
     return hit and hit.Position or Vector3.new(position.X, 0, position.Z)
 end
