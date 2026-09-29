@@ -141,7 +141,7 @@ remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c)
     elseif kind == "Shot" then effects:shot(a, b, c)
     elseif kind == "Hit" then
         hud.crosshair.TextColor3 = Color3.fromRGB(255, 100, 80)
-        task.delay(0.12, function() hud.crosshair.TextColor3 = Color3.new(1, 1, 1) end)
+        task.delay(0.12, function() hud.crosshair.TextColor3 = Theme.Paper end)
     end
 end)
 RunService.RenderStepped:Connect(function()
