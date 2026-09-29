@@ -21,26 +21,20 @@ local nextJumpRequest = 0
 local function playing()
     return state and (state.phase == "Active" or state.phase == "FinalZone") and state.me and state.me.alive
 end
-local function gameplayInput()
-    return playing() and not state.me.evolutionDraft
-end
 local function send(command, argument)
-    if playing() and (not state.me.evolutionDraft or command == "Evolve" or (command == "Sprint" and argument == false)) then
-        action:FireServer(state.roundId, command, argument)
-    end
+    if playing() then action:FireServer(state.roundId, command, argument) end
 end
 local function cancelAim()
     presentation:cancelAim()
 end
 local function build()
-    if not gameplayInput() then return end
     cancelAim()
     send("Build", buildType)
 end
 local fire = hud:button("Fire", "射撃", 784, 190, 82, 82)
 fire.BackgroundColor3, fire.TextColor3 = Theme.Orange, Theme.Ink
 fire.InputBegan:Connect(function(input)
-    if not gameplayInput() then return end
+    if not playing() then return end
     if input.UserInputType == Enum.UserInputType.Touch then
         touchFire, shooting = input, true
         presentation:setCombatAim(true)
@@ -70,18 +64,24 @@ hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, function() sp
 for name, button in pairs(hud.buttons) do
     if name ~= "Fire" then button.Activated:Connect(function() presentation.audio:play("Button") end) end
 end
-local function mouseOnEvolutionCard(input)
+local function mouseOnEvolutionPanel(input)
     if not hud.draft.Visible then return false end
     local position = input.Position
-    for _, card in ipairs(hud.draftCards) do
-        local origin, size = card.AbsolutePosition, card.AbsoluteSize
-        if position.X >= origin.X and position.X <= origin.X + size.X
-            and position.Y >= origin.Y and position.Y <= origin.Y + size.Y then return true end
-    end
-    return false
+    local origin, size = hud.draft.AbsolutePosition, hud.draft.AbsoluteSize
+    return position.X >= origin.X and position.X <= origin.X + size.X
+        and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
 end
 UserInputService.InputBegan:Connect(function(input, processed)
-    if processed or not gameplayInput() or (input.UserInputType == Enum.UserInputType.MouseButton1 and mouseOnEvolutionCard(input)) then return end
+    if input.KeyCode == Enum.KeyCode.Tab then
+        if not UserInputService:GetFocusedTextBox() and state
+            and (state.phase == "Active" or state.phase == "FinalZone") then
+            spectateIndex = spectateIndex + 1
+        end
+        return
+    end
+    if processed then return end
+    if not playing() or ((input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.MouseButton2) and mouseOnEvolutionPanel(input)) then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true
     elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
         presentation:setAimHeld(true)
@@ -98,8 +98,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif key == Enum.KeyCode.X then buildType = "Floor"
     elseif key == Enum.KeyCode.C then buildType = "Ramp"
     elseif key == Enum.KeyCode.LeftControl or key == Enum.KeyCode.RightControl then posture()
-    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then cancelAim(); send("Sprint", true)
-    elseif key == Enum.KeyCode.Tab then spectateIndex = spectateIndex + 1 end
+    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then cancelAim(); send("Sprint", true) end
 end)
 UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then send("Sprint", false) end
@@ -117,7 +116,7 @@ UserInputService.WindowFocusReleased:Connect(function()
 end)
 UserInputService.JumpRequest:Connect(function()
     -- Do not wait for a posture snapshot before cancelling a just-started slide.
-    if gameplayInput() and os.clock() >= nextJumpRequest then
+    if playing() and os.clock() >= nextJumpRequest then
         nextJumpRequest = os.clock() + .15
         send("Jump")
     end
@@ -173,7 +172,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     end
     state = s
     presentation:snapshot(s)
-    if not gameplayInput() then
+    if not playing() then
         shooting, touchFire = false, nil
         cancelAim()
     end
@@ -246,7 +245,7 @@ RunService.RenderStepped:Connect(function()
     if playing() and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     else UserInputService.MouseBehavior = Enum.MouseBehavior.Default end
-    if shooting and gameplayInput() and os.clock() >= nextShot then
+    if shooting and playing() and os.clock() >= nextShot then
         local spec = Weapons[state.me.weapon]
         if spec then
             nextShot = os.clock() + spec.interval
