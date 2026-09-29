@@ -98,7 +98,7 @@ PRマージ後は `git switch main` → `git pull --ff-only origin main` → `ro
 rojo build default.project.json -o DROPZONE.rbxlx
 ```
 
-外部アセット、HTTP、API Services、DataStore、アセットID設定は不要です。
+HTTP、API Services、DataStoreは不要です。SoundはCreator Storeの選定済みAsset IDをAudioConfigで使用します。Animation IDは未設定でも動作します。
 
 ## 主要ファイル
 
@@ -150,7 +150,7 @@ Luau型検査、Roblox物理、ネットワーク、Pathfinding、実機性能�
 - Spawnを半径245の外周へ移し、町の屋根や森の幹から初期武器への導線を離しています。実際の到達性は全24地点で検証してください。
 - BOTが距離でRifle/Shotgun/Pistolを選択。敵/拾得物の高さを維持し、屋根へ追跡する問題を軽減。Path生成の例外でもジョブ枠を解放。
 - 同じ武器Slotの連打で装填取消や外観Part再生成が起きないよう修正。静止Zoneの96境界Partへの更新を省略。
-- 道路の装飾ラインは非衝突・非接触・Raycast対象外。新しい武器、能力、外部Sound Assetは追加していません。
+- 道路の装飾ラインは非衝突・非接触・Raycast対象外。武器・能力は追加していません。音声は後述のCreator Store選定Assetを使用します。
 
 武器・Evolution・建築の数値は維持しています。Pistolは22 damage/0.32秒、Rifleは16/0.14秒、Shotgunは11×7/0.85秒で距離減衰します。BOTの射撃は0.35秒判断と意図的な照準誤差で制限されています。机上の数値確認は対人/実機バランステストの代わりにはなりません。
 
@@ -194,6 +194,6 @@ Luau型検査、Roblox物理、ネットワーク、Pathfinding、実機性能�
 - `src/shared/PresentationConfig.lua`：武器別反動・戻り速度・Kick・Flash、相対FOV、視点高さ、Reload角度を設定します。通常FOVは現在のCamera値を保存し、Sprint +5 / Slide +6から滑らかに復帰します。
 - `src/client/Audio.lua` / `Animations.lua` / `Presentation.lua`：最大12音声、8Flash、1PulseとキャッシュしたTrackを管理。死亡・Results・Round変更・Character消滅で停止・復帰します。
 
-**初期設定は全Sound / Animation IDが空です。音や専用Animationはまだ鳴らない・再生されない状態です。** IDの形式は数字の文字列、または `rbxassetid://` に数字を続けた形式。適当な公開Assetは同梱していません。実際の権限・Rig互換・音量・ループ素材はStudioで確認してください。
+**SoundはCreator Storeで確認した短い効果音をAudioConfigへ設定済みです。Animation IDは引き続き空欄です。** Rifle / Shotgun / Pistol、Reload、Empty、Shield/HP Hit、Elimination、Pickup、Evolution、Slide開始/終了、Zone、UIに音を割り当てています。Footstep / SprintFootstep / SlideLoopは、見つかった素材が長いシーケンスまたはループ不向きだったため意図的に空欄です。実際の利用権限・音量・聞こえ方はStudioで確認し、問題があるAssetはAudioConfigのIDを空に戻せば安全に無効化できます。
 
 発砲音と他プレイヤーのSlide開始音は距離減衰する3D音。足音とSlide Loopは本人の近傍演出に限定し、BOT全員へ追加Track/足音処理を割り当てません。命中音はServer確定Damageのみ、PickupはServer取得イベント、Reload/移動/EvolutionはSnapshotに連動します。`EvolutionSelect` / `Button` / `Empty` は入力受付・現在表示中の弾数に対するローカルFeedbackで、成功や能力獲得の確定ではありません。`Error` キーは将来の明示的な失敗通知用に予約しています。
