@@ -76,15 +76,19 @@ print('PASS: Studio/Rojo startup deduplicates the remote folder and events')
 assert 'and Theme.Cyan or Theme.Paper' in client
 print('PASS: hit marker restores the shared aim crosshair color')
 
-# Draft input and camera handoff are source-level guards; Studio remains the
-# authority for actual touch hit testing and camera-controller render order.
-assert 'local function gameplayInput()' in client
-assert 'not state.me.evolutionDraft or command == "Evolve"' in client
-assert 'if not gameplayInput() then' in client
-assert 'shooting and gameplayInput()' in client
+# Draft pointer hit testing and camera handoff are source-level guards; Studio
+# remains the authority for actual GUI hit testing and camera render order.
+assert 'local function mouseOnEvolutionPanel(input)' in client
+assert 'hud.draft.AbsolutePosition, hud.draft.AbsoluteSize' in client
+assert 'or input.UserInputType == Enum.UserInputType.MouseButton2) and mouseOnEvolutionPanel(input)' in client
+assert 'if playing() then action:FireServer(state.roundId, command, argument) end' in client
+assert 'shooting and playing()' in client
+assert 'button.Active = button.Visible and draft == nil' not in hud
+assert 'me.evolutionDraft == nil' not in (ROOT / 'src' / 'client' / 'Presentation.lua').read_text()
+assert client.index('if input.KeyCode == Enum.KeyCode.Tab then') < client.index('if processed then return end')
+assert 'and (state.phase == "Active" or state.phase == "FinalZone") then' in client
 assert 'presentation.camera == camera and presentation.applied' in client
-assert 'button.Active = button.Visible and draft == nil' in hud
-print('PASS: draft blocks background gameplay input and camera recoil removal checks camera identity')
+print('PASS: draft panel alone blocks pointer input; gameplay and spectator Tab remain available')
 
 loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text()
 assert '"Notice", self.id, "敗退' in (ROOT / 'src' / 'server' / 'Round.lua').read_text()
