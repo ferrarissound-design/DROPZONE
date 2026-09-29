@@ -108,6 +108,8 @@ local function apply(a, id)
     if id == "IronSkin" then
         a.humanoid.MaxHealth = Config.BaseHealth + Evolution.total(a, id)
         a.humanoid.Health = math.min(a.humanoid.MaxHealth, a.humanoid.Health + ability.values[newRank])
+    elseif id == "CombatShield" then
+        a.shield = math.min(100, a.shield + ability.values[newRank])
     elseif id == "Overcharge" then
         a.energy = math.min(Evolution.maxEnergy(a), a.energy + ability.values[newRank])
     end

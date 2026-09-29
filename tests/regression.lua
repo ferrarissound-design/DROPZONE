@@ -53,6 +53,15 @@ local Round = load("Round", "server/Round.lua")
 local Combat = load("Combat", "server/Combat.lua")
 check(Rules.totalDuration(Config.ZonePhases)==375, "zone schedule is 375 seconds")
 check(World.townLootPosition(-130,-130).Z == -108, "town loot is outside the +Z roof footprint")
+check(not Rules.shouldShowEvolutionDraft({phase="Active",me={alive=true}}),
+    "snapshot without an Evolution draft hides the draft UI")
+check(not Rules.shouldShowEvolutionDraft({phase="Active",me={alive=false,evolutionDraft={id=1}}}),
+    "eliminated player cannot see or select a pending Evolution draft")
+check(not Rules.shouldShowEvolutionDraft({phase="Results",me={alive=true,evolutionDraft={id=1}}})
+    and not Rules.shouldShowEvolutionDraft({phase="Resetting",me={alive=true,evolutionDraft={id=1}}}),
+    "Results and Resetting close any stale draft UI")
+check(Rules.shouldShowEvolutionDraft({phase="FinalZone",me={alive=true,evolutionDraft={id=1}}}),
+    "living player keeps draft UI during FinalZone")
 check(Rules.botCount(1,12)==11, "solo bots")
 check(Rules.botCount(5,12)==7, "five humans")
 check(Rules.botCount(20,12)==0, "no negative bots")
@@ -142,6 +151,11 @@ for _, ability in ipairs(Evolution.abilities) do
     for rank=2, Evolution.maxRank do if ability.values[rank] >= ability.values[rank-1] then diminishing=false end end
 end
 check(diminishing, "every stackable evolution has diminishing rank values")
+local shieldEvolution=actor(37)
+Evolution.grant(shieldEvolution,"CombatShield")
+check(shieldEvolution.shield==10,"Combat Shield grants its first rank when selected")
+Evolution.grant(shieldEvolution,"CombatShield")
+check(shieldEvolution.shield==17,"Combat Shield upgrade grants only its diminishing rank value")
 local visualParts=#stackActor.mutationFolder.children
 check(visualParts==3 and stackActor.mutationFolder.children[1].CanCollide==false
     and stackActor.mutationFolder.children[1].CanTouch==false and stackActor.mutationFolder.children[1].CanQuery==false,

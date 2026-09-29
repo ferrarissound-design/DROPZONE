@@ -37,8 +37,18 @@ end
 hud.buttons.Wall.BackgroundColor3 = Color3.fromRGB(48, 143, 157)
 for i = 1, 3 do hud:button("Slot" .. i, tostring(i), 279 + (i - 1) * 116, 418, 110, 48, function() send("Equip", i) end) end
 hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, function() spectateIndex = spectateIndex + 1 end)
+local function mouseOnEvolutionCard(input)
+    if not hud.draft.Visible then return false end
+    local position = input.Position
+    for _, card in ipairs(hud.draftCards) do
+        local origin, size = card.AbsolutePosition, card.AbsoluteSize
+        if position.X >= origin.X and position.X <= origin.X + size.X
+            and position.Y >= origin.Y and position.Y <= origin.Y + size.Y then return true end
+    end
+    return false
+end
 UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
+    if processed or (input.UserInputType == Enum.UserInputType.MouseButton1 and mouseOnEvolutionCard(input)) then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true end
     local key = input.KeyCode
     if key == Enum.KeyCode.R then send("Reload")
@@ -103,11 +113,13 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     local draft = s.me and s.me.evolutionDraft
     if not draft or draft.id ~= submittedEvolutionDraft then submittedEvolutionDraft = nil end
     hud:update(s, function(draftId, index)
-        if playing() and draftId == submittedEvolutionDraft then return end
+        if playing() and draftId == submittedEvolutionDraft then return false end
         if playing() and draft and draft.id == draftId then
             submittedEvolutionDraft = draftId
             send("Evolve", {draftId = draftId, index = index})
+            return true
         end
+        return false
     end)
     effects:zone(s.zone, s.phase == "Active" or s.phase == "FinalZone")
     local camera = workspace.CurrentCamera
@@ -132,7 +144,8 @@ remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c)
     end
 end)
 RunService.RenderStepped:Connect(function()
-    if playing() and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
+    local draftOpen = playing() and state.me.evolutionDraft ~= nil
+    if playing() and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     else UserInputService.MouseBehavior = Enum.MouseBehavior.Default end
     if shooting and playing() and os.clock() >= nextShot then
