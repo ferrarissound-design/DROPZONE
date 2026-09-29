@@ -11,11 +11,28 @@ local Loot = require(script.Parent.Loot)
 local Bots = require(script.Parent.Bots)
 local Round = require(script.Parent.Round)
 Players.CharacterAutoLoads = false
-local remotes = Instance.new("Folder")
-remotes.Name, remotes.Parent = "DropzoneRemotes", ReplicatedStorage
+-- Reuse one canonical remote folder and remove accidental duplicates left by Studio/Rojo iteration.
+local remotes
+for _, child in ipairs(ReplicatedStorage:GetChildren()) do
+    if child.Name == "DropzoneRemotes" then
+        if not remotes and child:IsA("Folder") then remotes = child else child:Destroy() end
+    end
+end
+if not remotes then
+    remotes = Instance.new("Folder")
+    remotes.Name, remotes.Parent = "DropzoneRemotes", ReplicatedStorage
+end
 local function remote(name)
-    local event = Instance.new("RemoteEvent")
-    event.Name, event.Parent = name, remotes
+    local event
+    for _, child in ipairs(remotes:GetChildren()) do
+        if child.Name == name then
+            if not event and child:IsA("RemoteEvent") then event = child else child:Destroy() end
+        end
+    end
+    if not event then
+        event = Instance.new("RemoteEvent")
+        event.Name, event.Parent = name, remotes
+    end
     return event
 end
 local action, snapshot, effects = remote("Action"), remote("Snapshot"), remote("Effects")
