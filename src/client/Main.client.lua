@@ -7,11 +7,13 @@ local Theme = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForCh
 local Hud = require(script.Parent.Hud)
 local Effects = require(script.Parent.Effects)
 local DamageFeedback = require(script.Parent.DamageFeedback)
+local Presentation = require(script.Parent.Presentation)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("DropzoneRemotes")
 local action = remotes:WaitForChild("Action")
 local hud, effects = Hud.new(), Effects.new()
 local damageFeedback = DamageFeedback.new(effects.folder)
+local presentation = Presentation.new(effects.folder, player)
 local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall", 1
 local submittedEvolutionDraft
 local touchFire = nil
@@ -45,6 +47,9 @@ end
 hud.buttons.Wall.BackgroundColor3 = Theme.Blue
 for i = 1, 3 do hud:button("Slot" .. i, tostring(i), 279 + (i - 1) * 116, 418, 110, 48, function() send("Equip", i) end) end
 hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, function() spectateIndex = spectateIndex + 1 end)
+for name, button in pairs(hud.buttons) do
+    if name ~= "Fire" then button.Activated:Connect(function() presentation.audio:play("Button") end) end
+end
 local function mouseOnEvolutionCard(input)
     if not hud.draft.Visible then return false end
     local position = input.Position
@@ -90,7 +95,11 @@ local function aim()
     local root = character and character:FindFirstChild("HumanoidRootPart")
     if not camera or not root then return nil end
     local center = hud.crosshair.AbsolutePosition + hud.crosshair.AbsoluteSize / 2
+    -- Aim uses the camera before cosmetic recoil. Restore the displayed frame immediately.
+    local displayFrame = camera.CFrame
+    if presentation.applied then camera.CFrame = displayFrame*presentation.applied:Inverse() end
     local ray = camera:ScreenPointToRay(center.X, center.Y)
+    camera.CFrame = displayFrame
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {character, effects.folder}
@@ -130,6 +139,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == "Wall" and Theme.Blue or Theme.Ink end
     end
     state = s
+    presentation:snapshot(s)
     if not playing() then shooting, touchFire = false, nil end
     if s.phase ~= "Active" and s.phase ~= "FinalZone" then damageFeedback:clear() end
     local draft = s.me and s.me.evolutionDraft
@@ -138,6 +148,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         if playing() and draftId == submittedEvolutionDraft then return false end
         if playing() and draft and draft.id == draftId then
             submittedEvolutionDraft = draftId
+            presentation.audio:play("EvolutionSelect")
             send("Evolve", {draftId = draftId, index = index})
             return true
         end
@@ -157,17 +168,33 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         end
     end
 end)
-remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId)
+remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId, roundId)
     if kind == "Notice" then hud:toast(a)
-    elseif kind == "Shot" then
+    elseif kind == "Pickup" and playing() and a == state.roundId then
+        presentation.audio:play(b == "Epic" and "EpicPickup" or b == "Rare" and "RarePickup" or "Pickup")
+    elseif kind == "SlideSound" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
+        presentation.audio:play("SlideStart", b)
+    elseif kind == "ZoneDamage" and playing() and a == state.roundId then
+        presentation.audio:play("ZoneDamage")
+    elseif kind == "Shot" and state and roundId == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
+        presentation:shot(a, c, shooterId, state.targets)
         effects:shot(a, b, c)
         if shooterId == player.UserId then hud.shotUntil = os.clock() + .1 end
     elseif kind == "Damage" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
         -- Only the server can send confirmed damage; never predict a hit locally.
         damageFeedback:show(b, os.clock())
+        presentation:damage(b)
         hud.hitUntil = os.clock() + .18
         for _, damage in ipairs(b) do if damage.eliminated then hud:eliminated(); break end end
     end
+end)
+-- Camera transforms are bracketed around Roblox's camera update, never accumulated.
+RunService:BindToRenderStep("DropzonePresentationBefore", Enum.RenderPriority.Camera.Value-1, function() presentation:undoCamera() end)
+RunService:BindToRenderStep("DropzonePresentationAfter", Enum.RenderPriority.Camera.Value+1, function(dt) presentation:step(math.min(dt,.1)) end)
+script.Destroying:Connect(function()
+    RunService:UnbindFromRenderStep("DropzonePresentationBefore")
+    RunService:UnbindFromRenderStep("DropzonePresentationAfter")
+    presentation:destroy()
 end)
 local feedbackClock = 0
 RunService.RenderStepped:Connect(function()
@@ -187,6 +214,7 @@ RunService.RenderStepped:Connect(function()
         if spec then
             nextShot = os.clock() + spec.interval
             local direction = aim()
+            if state.me.ammo == 0 and not state.me.reloading then presentation.audio:play("Empty") end
             if direction then send("Fire", direction) end
         end
     end

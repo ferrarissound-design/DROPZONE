@@ -137,7 +137,11 @@ function Round:step(dt)
         if not a.root.Parent or not a.model.Parent or a.root.Position.Y < -30 then
             self.actors:eliminate(a)
         elseif self.zone:outside(a.root.Position) then
-            self.actors:damage(a, self.zone.damage * dt, nil, true)
+            local hpLoss = self.actors:damage(a, self.zone.damage * dt, nil, true)
+            if hpLoss and hpLoss > 0 and a.player and os.clock() >= (a.nextZoneAudio or 0) then
+                a.nextZoneAudio = os.clock()+1.2
+                self.effects:FireClient(a.player, "ZoneDamage", self.id)
+            end
         end
         if not a.alive then
             table.insert(eliminatedThisTick, a)

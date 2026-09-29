@@ -184,3 +184,16 @@ Luau型検査、Roblox物理、ネットワーク、Pathfinding、実機性能�
 - HUDには現在のレア度とスロットのC/R/E表記。Movementは2ボタンのまま、Draft/Build/Reload/Slotと重ならない配置です。
 
 詳細な検証は [PLAYTEST](docs/PLAYTEST.md) を参照してください。オフラインテストの成功は滑走感・ネットワーク所有権・実機FPSの検証を代替しません。
+
+## Action Presentation / 音とAnimationの設定
+
+武器別の軽いCamera Recoil、HeldWeapon Kick、最大8枠のMuzzle Flash、Reload傾き、Sprint FOV、Slide/Crouchの視点オフセット、進化適用時の0.45秒Pulseを追加しています。音・Animationが空でもこれらは動作します。反動は照準計算から取り除き、Damage・Ammo・Reload時間・Movement・Evolution効果は従来のサーバー判定を維持します。
+
+- `src/shared/AudioConfig.lua`：各キーの `Id` に利用許可のあるSound IDを設定。`Volume` / `Cooldown` と3D減衰距離もここで管理します。
+- `src/shared/AnimationConfig.lua`：各アクションの `R6` / `R15` に対応するAnimation IDを設定。未対応Rigは空欄のままにしてください。Movement優先のSprint/Crouch/Slide、Action優先のFire/ReloadをCharacter単位で再利用します。
+- `src/shared/PresentationConfig.lua`：武器別反動・戻り速度・Kick・Flash、相対FOV、視点高さ、Reload角度を設定します。通常FOVは現在のCamera値を保存し、Sprint +5 / Slide +6から滑らかに復帰します。
+- `src/client/Audio.lua` / `Animations.lua` / `Presentation.lua`：最大12音声、8Flash、1PulseとキャッシュしたTrackを管理。死亡・Results・Round変更・Character消滅で停止・復帰します。
+
+**初期設定は全Sound / Animation IDが空です。音や専用Animationはまだ鳴らない・再生されない状態です。** IDの形式は数字の文字列、または `rbxassetid://` に数字を続けた形式。適当な公開Assetは同梱していません。実際の権限・Rig互換・音量・ループ素材はStudioで確認してください。
+
+発砲音と他プレイヤーのSlide開始音は距離減衰する3D音。足音とSlide Loopは本人の近傍演出に限定し、BOT全員へ追加Track/足音処理を割り当てません。命中音はServer確定Damageのみ、PickupはServer取得イベント、Reload/移動/EvolutionはSnapshotに連動します。`EvolutionSelect` / `Button` / `Empty` は入力受付・現在表示中の弾数に対するローカルFeedbackで、成功や能力獲得の確定ではありません。`Error` キーは将来の明示的な失敗通知用に予約しています。

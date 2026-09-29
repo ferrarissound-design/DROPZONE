@@ -133,3 +133,18 @@ assert 'WeaponStats.rank(item.rarity) > WeaponStats.rank(weapon.rarity)' in loot
 assert 'weapon.reserve < 240' in loot_source
 assert '#a.inventory == 0 and not Weapons[kind]' not in loot_source
 print('PASS: auto pickup preserves loot that gives no weapon/ammo benefit and allows useful consumables')
+
+# Event provenance and camera bracketing are integration checks, not engine simulation.
+presentation = (ROOT / 'src/client/Presentation.lua').read_text()
+assert client.count('presentation:damage(b)') == 1
+confirmed_handler = client[client.index('elseif kind == "Damage"'):client.index('local feedbackClock')]
+assert 'a == state.roundId' in confirmed_handler and 'presentation:damage(b)' in confirmed_handler
+assert 'roundId == state.roundId' in client
+assert 'displayFrame*presentation.applied:Inverse()' in client
+assert 'Enum.RenderPriority.Camera.Value-1' in client and 'Enum.RenderPriority.Camera.Value+1' in client
+assert 'UnbindFromRenderStep("DropzonePresentationBefore")' in client
+assert 'UnbindFromRenderStep("DropzonePresentationAfter")' in client
+assert 'task.delay' not in presentation and 'TweenService' not in presentation
+for path in (ROOT / 'src').rglob('*.lua'):
+    assert not re.search(r'rbxassetid://[1-9][0-9]+', path.read_text()), path
+print('PASS: confirmed hit/round provenance, recoil-free aim, camera cleanup and empty asset defaults')
