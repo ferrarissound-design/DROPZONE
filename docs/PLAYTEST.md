@@ -144,3 +144,18 @@ AudioConfigにはCreator Storeで確認した効果音IDを設定済みです。
 - Asset permission / moderation / loading errorがOutputに出ない
 
 Footstep / SprintFootstep / SlideLoopは現時点では空欄です。長い素材を短い間隔で再生・loopしないでください。
+
+
+## Shoulder combat camera
+
+- PC: 右クリック長押しで右肩越しへ自然に寄り、離すと通常視点へ戻る
+- Mobile: 射撃ボタン押下で自動的に肩越しへ寄り、離して約0.7秒後に戻る
+- MobileにAim専用ボタンが増えていない
+- 肩越し中も中央クロスヘアと着弾方向が一致する
+- Sprint開始、Build、Round変更、死亡、ResultsでAim入力/余韻が残らない
+- Slide中とEvolution Draft中は肩越しAimが抑制される
+- Crouch中は肩越しAimが使え、CameraOffsetが不自然に上下左右へ飛ばない
+- 右肩オフセットで壁際の視認性が悪化しすぎない
+- 狭い横画面でキャラクターが敵やクロスヘアを隠しすぎない
+- Camera recoilを連射しても肩越しオフセットが累積しない
+- AimはPresentationのみで、Damage / Spread / FireRateが変化していない

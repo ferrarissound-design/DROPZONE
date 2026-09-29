@@ -24,17 +24,30 @@ end
 local function send(command, argument)
     if playing() then action:FireServer(state.roundId, command, argument) end
 end
-local function build() send("Build", buildType) end
+local function cancelAim()
+    presentation:cancelAim()
+end
+local function build()
+    cancelAim()
+    send("Build", buildType)
+end
 local fire = hud:button("Fire", "射撃", 784, 190, 82, 82)
 fire.BackgroundColor3, fire.TextColor3 = Theme.Orange, Theme.Ink
 fire.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then touchFire, shooting = input, true
+    if input.UserInputType == Enum.UserInputType.Touch then
+        touchFire, shooting = input, true
+        presentation:setCombatAim(true)
+        if state and state.me and state.me.sprinting then send("Sprint", false) end
     elseif input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true end
 end)
 hud:button("Reload", "装填 R", 680, 275, 88, 56, function() send("Reload") end)
 hud:button("Build", "建築 Q", 680, 205, 88, 60, build)
 -- Two movement buttons replace the previous Crouch + Slide pair.
-hud:button("Sprint", "走る", 784, 285, 82, 48, function() send("Sprint", not (state and state.me and state.me.sprinting)) end)
+hud:button("Sprint", "走る", 784, 285, 82, 48, function()
+    local enable = not (state and state.me and state.me.sprinting)
+    if enable then cancelAim() end
+    send("Sprint", enable)
+end)
 local function posture() send("Posture") end
 hud:button("Crouch", "しゃがみ", 680, 340, 88, 48, posture)
 for i, kind in ipairs({"Wall", "Floor", "Ramp"}) do
@@ -62,7 +75,11 @@ local function mouseOnEvolutionCard(input)
 end
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed or (input.UserInputType == Enum.UserInputType.MouseButton1 and mouseOnEvolutionCard(input)) then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true
+    elseif input.UserInputType == Enum.UserInputType.MouseButton2 and playing() then
+        presentation:setAimHeld(true)
+        if state.me.sprinting then send("Sprint", false) end
+    end
     local key = input.KeyCode
     if key == Enum.KeyCode.R then send("Reload")
     elseif key == Enum.KeyCode.Q then build()
@@ -74,15 +91,23 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif key == Enum.KeyCode.X then buildType = "Floor"
     elseif key == Enum.KeyCode.C then buildType = "Ramp"
     elseif key == Enum.KeyCode.LeftControl or key == Enum.KeyCode.RightControl then posture()
-    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then send("Sprint", true)
+    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then cancelAim(); send("Sprint", true)
     elseif key == Enum.KeyCode.Tab then spectateIndex = spectateIndex + 1 end
 end)
 UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then send("Sprint", false) end
-    if input == touchFire then shooting, touchFire = false, nil end
+    if input == touchFire then
+        shooting, touchFire = false, nil
+        presentation:setCombatAim(false)
+    end
     if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = false end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then presentation:setAimHeld(false) end
 end)
-UserInputService.WindowFocusReleased:Connect(function() shooting, touchFire = false, nil; send("Sprint", false) end)
+UserInputService.WindowFocusReleased:Connect(function()
+    shooting, touchFire = false, nil
+    cancelAim()
+    send("Sprint", false)
+end)
 UserInputService.JumpRequest:Connect(function()
     -- Do not wait for a posture snapshot before cancelling a just-started slide.
     if playing() and os.clock() >= nextJumpRequest then
@@ -132,6 +157,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         shooting, touchFire, nextShot, spectateIndex = false, nil, 0, 1
         submittedEvolutionDraft = nil
         nextJumpRequest = 0
+        cancelAim()
         damageFeedback:clear()
         hud.shotUntil, hud.hitUntil = 0, 0
         hud.notice.Visible, hud.noticeUntil = false, nil
@@ -202,8 +228,9 @@ RunService.RenderStepped:Connect(function()
     if now >= feedbackClock then
         feedbackClock = now + .1
         damageFeedback:step(now)
-        hud.crosshair.TextColor3 = now < (hud.hitUntil or 0) and Theme.Orange or Theme.Paper
-        hud.crosshair.TextSize = now < (hud.shotUntil or 0) and 32 or 28
+        local aiming = presentation:isAiming()
+        hud.crosshair.TextColor3 = now < (hud.hitUntil or 0) and Theme.Orange or aiming and Theme.Cyan or Theme.Paper
+        hud.crosshair.TextSize = now < (hud.shotUntil or 0) and (aiming and 26 or 32) or (aiming and 22 or 28)
     end
     local draftOpen = playing() and state.me.evolutionDraft ~= nil
     if playing() and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then

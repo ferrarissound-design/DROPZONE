@@ -144,6 +144,10 @@ assert 'displayFrame*presentation.applied:Inverse()' in client
 assert 'Enum.RenderPriority.Camera.Value-1' in client and 'Enum.RenderPriority.Camera.Value+1' in client
 assert 'UnbindFromRenderStep("DropzonePresentationBefore")' in client
 assert 'UnbindFromRenderStep("DropzonePresentationAfter")' in client
+assert 'Enum.UserInputType.MouseButton2' in client
+assert 'presentation:setCombatAim(true)' in client and 'presentation:setCombatAim(false)' in client
+assert 'hud:button("Aim"' not in client
+assert 'AimShoulderX' in presentation and 'AimFov' in presentation
 assert 'task.delay' not in presentation and 'TweenService' not in presentation
 # Animation defaults remain empty; audio may use reviewed Creator Store numeric IDs.
 animation_config = (ROOT / 'src/shared/AnimationConfig.lua').read_text()

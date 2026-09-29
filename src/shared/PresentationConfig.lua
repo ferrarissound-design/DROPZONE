@@ -7,6 +7,7 @@ return {
     },
     MaxRecoil = 1.4, MaxHorizontal = .3,
     SprintFov = 5, SlideFov = 6, CameraRecovery = 12,
+    AimFov = -6, AimShoulderX = 1.25, AimShoulderY = .12, AimRecovery = 14, MobileCombatAimHold = .70,
     CrouchOffset = -.25, SlideOffset = -.4, ReloadTilt = 25,
     PulseDuration = .45, FlashPool = 8, FootstepInterval = .48, SprintFootstepInterval = .32,
 }
