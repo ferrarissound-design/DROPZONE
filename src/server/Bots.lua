@@ -8,6 +8,8 @@ function Bots.new(actors, combat, loot, zone, world)
 end
 function Bots:clear()
     self.generation = self.generation + 1
+    -- In-flight jobs belong to the old generation and must not reserve slots for the next round.
+    self.jobs = 0
 end
 function Bots:path(a, goal, now)
     if a.pathBusy or now < (a.nextPath or 0) or self.jobs >= 2 then return end
@@ -20,8 +22,10 @@ function Bots:path(a, goal, now)
             path:ComputeAsync(start, goal)
             if path.Status == Enum.PathStatus.Success then waypoints = path:GetWaypoints() end
         end)
-        self.jobs, a.pathBusy = self.jobs - 1, false
-        if generation ~= self.generation or not a.alive then return end
+        local currentGeneration = generation == self.generation
+        a.pathBusy = false
+        if currentGeneration then self.jobs = math.max(0, self.jobs - 1) end
+        if not currentGeneration or not a.alive then return end
         if ok and waypoints then
             a.waypoints, a.waypointIndex, a.pathGoal = waypoints, 2, goal
         else
