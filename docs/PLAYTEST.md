@@ -127,3 +127,20 @@ Mantle拡張案：前方の低い障害物をサーバーRaycastで確認し、�
 - [ ] 低性能スマホ、BOT11、最大Build、Shotgun同時連射でFPS/メモリ測定。Flashは8Part、Pulseは1Highlight、音声は12Voice以下。2・3試合目でもInstance/Track数が増え続けない。
 
 Offline追加検証は、空IDの無生成、音声プール上限と再利用所有権、Rig別Trackキャッシュ/破棄/失敗抑止、Reload取消、Slide→Crouch、死亡/Results/3ラウンド切替のFOV・Offset・Pulse解除、Flashの非衝突属性、ShotのroundIdとReload中の非発火です。エンジンdoubleによる状態テストであり、実際の音・Animation・Camera描画・ネットワーク遅延の品質を証明するものではありません。
+
+
+## Creator Store audio check
+
+AudioConfigにはCreator Storeで確認した効果音IDを設定済みです。公開前にStudio/実機で以下を確認してください。
+
+- Rifle / Shotgun / Pistolの音量差が極端でない
+- 連射Rifleで音が飽和・途切れすぎない
+- Shield HitとHP Hitが聞き分けられる
+- Elimination → Evolution Ready → Evolution Appliedが連続してうるさくない
+- Rare / Epic Pickupが通常Pickupより識別しやすい
+- Slide Start / Endが短い0.65秒のSlideに合う
+- Zone Warning / Zone Damageが戦闘音を邪魔しない
+- 2クライアントで武器音の3D減衰が自然
+- Asset permission / moderation / loading errorがOutputに出ない
+
+Footstep / SprintFootstep / SlideLoopは現時点では空欄です。長い素材を短い間隔で再生・loopしないでください。

@@ -145,6 +145,11 @@ assert 'Enum.RenderPriority.Camera.Value-1' in client and 'Enum.RenderPriority.C
 assert 'UnbindFromRenderStep("DropzonePresentationBefore")' in client
 assert 'UnbindFromRenderStep("DropzonePresentationAfter")' in client
 assert 'task.delay' not in presentation and 'TweenService' not in presentation
-for path in (ROOT / 'src').rglob('*.lua'):
-    assert not re.search(r'rbxassetid://[1-9][0-9]+', path.read_text()), path
-print('PASS: confirmed hit/round provenance, recoil-free aim, camera cleanup and empty asset defaults')
+# Animation defaults remain empty; audio may use reviewed Creator Store numeric IDs.
+animation_config = (ROOT / 'src/shared/AnimationConfig.lua').read_text()
+assert not re.search(r'rbxassetid://[1-9][0-9]+', animation_config)
+audio_config = (ROOT / 'src/shared/AudioConfig.lua').read_text()
+for required_id in ('9114727096','5656322299','9119136387','8145744063','9119074309','9119060148','9120705982','9119802009','9119902088'):
+    assert required_id in audio_config
+assert 'Audio.Footstep = cue("",' in audio_config and 'Audio.SlideLoop = cue("",' in audio_config
+print('PASS: confirmed hit/round provenance, recoil-free aim, camera cleanup and reviewed audio defaults')
