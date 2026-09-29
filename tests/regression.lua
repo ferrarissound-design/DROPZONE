@@ -1,0 +1,116 @@
+-- Narrow engine doubles exercise actual modules, not a second implementation.
+local count = 0
+local function check(ok, message)
+    assert(ok, message)
+    count = count + 1
+end
+local nativeRequire = require
+local modules = {}
+local function load(name, path)
+    local module = assert(loadfile(ROOT .. "/src/" .. path))()
+    modules[name] = module
+    return module
+end
+require = function(name) return modules[name] or nativeRequire(name) end
+local vec = {}
+vec.__index = function(a, key)
+    if key == "Magnitude" then return math.sqrt(a.X*a.X + a.Y*a.Y + a.Z*a.Z) end
+    if key == "Unit" then return a / a.Magnitude end
+    return vec[key]
+end
+vec.__add = function(a,b) return Vector3.new(a.X+b.X,a.Y+b.Y,a.Z+b.Z) end
+vec.__sub = function(a,b) return Vector3.new(a.X-b.X,a.Y-b.Y,a.Z-b.Z) end
+vec.__mul = function(a,b) return Vector3.new(a.X*b,a.Y*b,a.Z*b) end
+vec.__div = function(a,b) return Vector3.new(a.X/b,a.Y/b,a.Z/b) end
+function vec:Lerp(b,t) return self + (b-self)*t end
+Vector3 = {new = function(x,y,z) return setmetatable({X=x,Y=y,Z=z},vec) end}
+Vector3.zero = Vector3.new(0,0,0)
+Random = {new = function() return {NextNumber = function(_,a,b) return (a+b)/2 end} end}
+Color3 = {fromRGB = function(...) return {...} end}
+local delayed = {}
+task = {delay = function(_, f) table.insert(delayed,f) end}
+local players = {GetPlayers = function() return {} end}
+game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons"}}, GetService=function(_, name) if name=="Players" then return players end end}
+script = {Parent = {World="World", Actors="Actors", Evolution="Evolution"}}
+local Config = load("Config", "shared/Config.lua")
+local Rules = load("Rules", "shared/Rules.lua")
+load("Weapons", "shared/Weapons.lua")
+load("World", "server/World.lua")
+local Actors = load("Actors", "server/Actors.lua")
+modules.Evolution = {step=function() end, grant=function() end, order={}}
+local Zone = load("Zone", "server/Zone.lua")
+local Round = load("Round", "server/Round.lua")
+local Combat = load("Combat", "server/Combat.lua")
+check(Rules.botCount(1,12)==11, "solo bots")
+check(Rules.botCount(5,12)==7, "five humans")
+check(Rules.botCount(20,12)==0, "no negative bots")
+check(not Rules.finite(0/0) and not Rules.finite(math.huge), "NaN and infinity rejected")
+local hp,shield,dealt = Rules.resolveDamage(100,20,35,false)
+check(hp==85 and shield==0 and dealt==35,"shield first")
+hp,shield,dealt = Rules.resolveDamage(10,20,999,false)
+check(hp==0 and shield==0 and dealt==30,"damage stats exclude overkill")
+hp,shield = Rules.resolveDamage(100,50,10,true)
+check(hp==90 and shield==50,"storm bypasses shield")
+local zone = Zone.new(); zone:reset()
+check(zone.radius==320 and zone.phase==1,"zone reset")
+local previous = 320
+for _=1,475 do
+    zone:update(1)
+    check(zone.radius<=previous and zone.radius>=0,"zone monotonically shrinks")
+    previous=zone.radius
+    check((zone.nextCenter-zone.center).Magnitude + zone.nextRadius <= zone.radius + 0.00001,"next circle contained")
+end
+check(zone.radius==0 and zone:outside(Vector3.zero),"zero zone kills center campers")
+zone:reset()
+check(zone.elapsed==0 and zone.radius==320,"second round zone reset")
+local actors = Actors.new()
+local function actor(id)
+    local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100},shield=0,kills=0,damage=0,
+        reloadToken=0,reloading=false,startTime=os.clock(),root={Parent=true,Position=Vector3.zero},model={Parent=true}}
+    function a.model:Destroy() self.Parent=false end
+    table.insert(actors.list,a)
+    return a
+end
+local a,b,c = actor(1),actor(2),actor(3)
+local deaths=0
+actors.onDeath=function() deaths=deaths+1 end
+actors:damage(b,1000,a)
+actors:eliminate(b,a)
+check(deaths==1 and b.rank==3 and #actors:alive()==2,"death is idempotent and rank correct")
+check(a.damage==100,"damage accounting")
+actors:eliminate(c)
+check(c.rank==2 and #actors:alive()==1,"last survivor count")
+local calls={}
+local service=function(name) return {clear=function() calls[name]=(calls[name] or 0)+1 end} end
+local round=Round.new({actors=actors,zone=zone,bots=service("bots"),builds=service("builds"),loot=service("loot"),effects={FireClient=function() end}})
+round.phase,round.started = "Active",os.clock()
+round:step(0.1)
+check(round.phase=="Results" and round.winner=="1" and a.rank==1,"winner results")
+round:reset()
+check(#actors.list==0 and next(actors.byPlayer)==nil and calls.bots==1 and calls.builds==1 and calls.loot==1,"all services reset")
+check(zone.radius==320 and round.winner==nil,"results cleared")
+-- Reload callbacks cannot mutate another weapon, a dead actor, or the next match.
+local combat=Combat.new(actors,{},nil)
+local fighter={alive=true,inventory={{kind="Pistol",ammo=2,reserve=5},{kind="Rifle",ammo=28,reserve=84}},slot=1,ammo=2,reloadToken=0,reloading=false,evolutions={}}
+combat.visual=function() end
+combat:reload(fighter); delayed[#delayed]()
+check(fighter.ammo==7 and fighter.inventory[1].reserve==0 and not fighter.reloading,"partial reserve reload")
+fighter.inventory[1].reserve=20
+combat:reload(fighter); local pending=delayed[#delayed]
+combat:equip(fighter,2); pending()
+check(fighter.ammo==28 and fighter.inventory[1].ammo==7 and not fighter.reloading,"equip invalidates reload")
+combat:equip(fighter,1); combat:reload(fighter); fighter.alive=false; delayed[#delayed]()
+check(fighter.inventory[1].ammo==7,"death invalidates reload")
+check(not Rules.canFire(fighter,{},os.clock()),"dead actor cannot fire")
+fighter.alive=true; fighter.nextShot=os.clock()+3; fighter.reloading=false
+check(not Rules.canFire(fighter,{},os.clock()),"fire rate enforced")
+fighter.nextShot=0; fighter.ammo=0
+check(not Rules.canFire(fighter,{},os.clock()),"empty magazine cannot fire")
+-- New round actors do not retain any previous combatant record.
+local fresh=actor(4)
+check(fresh.kills==0 and fresh.damage==0 and fresh.shield==0 and fresh.alive,"fresh second-round actor")
+round.phase,round.started="Active",os.clock(); round:step(0.1)
+check(round.phase=="Results" and round.winner=="4","second-round result")
+round:reset()
+check(#actors.list==0 and calls.builds==2,"second reset")
+print("PASS: " .. count .. " regression assertions")
