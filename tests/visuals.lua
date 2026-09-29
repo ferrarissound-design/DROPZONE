@@ -250,3 +250,107 @@ check(loot.items[healthPickup]==nil and looter.humanoid.Health==85,
     "unarmed actors can still collect useful health loot")
 loot:clear()
 print("PASS: "..assertions.." total visual/pickup/pool assertions")
+
+-- Presentation lifecycle uses actual controllers with engine doubles. Rendering and
+-- asset permissions remain Studio tests; these assertions cover state/ownership.
+for _, name in ipairs({"AudioConfig","AnimationConfig","PresentationConfig"}) do
+    game.ReplicatedStorage.DropzoneShared[name]=name
+    load(name,"shared/"..name..".lua")
+end
+script.Parent.Audio,script.Parent.Animations="Audio","Animations"
+function methods:FindFirstChildOfClass(kind) for _,child in ipairs(self:GetChildren()) do if child.ClassName==kind then return child end end end
+function methods:Play() self.IsPlaying=true end
+function methods:Stop() self.IsPlaying=false end
+function cf:Inverse() return self end
+local Audio=load("Audio","client/Audio.lua")
+local Animations=load("Animations","client/Animations.lua")
+local Presentation=load("Presentation","client/Presentation.lua")
+local audioFolder=folder(workspace,"PresentationTest")
+local audio=Audio.new(audioFolder)
+for key,spec in pairs(modules.AudioConfig) do
+    if type(spec)=="table" then check(audio:play(key)==nil,"empty audio is a safe no-op: "..key) end
+end
+check(#audio.voices==0 and #audioFolder:GetChildren()==0,"empty IDs allocate no voices or anchors")
+for _,id in ipairs({"", "bogus", "rbxassetid://0", "-20"}) do check(Audio.asset(id)==nil,"invalid ID skipped") end
+-- Synthetic ID only in the test double; never shipped as an asset setting.
+modules.AudioConfig.Button.Id="123"
+modules.AudioConfig.Button.Cooldown=0
+local lease=audio:play("Button")
+check(lease~=nil and #audio.voices==1,"configured cue creates one pooled voice")
+lease:Stop()
+local newer=audio:play("Button")
+lease:Stop()
+check(audio.voices[1].sound.IsPlaying,"old lease cannot stop a newer cue on reused voice")
+for _=1,30 do audio:play("Button") end
+check(#audio.voices==modules.AudioConfig.MaxVoices,"audio saturation never exceeds fixed pool cap")
+audio:clear()
+for _,voice in ipairs(audio.voices) do check(not voice.sound.IsPlaying,"round reset stops every voice") end
+audio:destroy();check(#audioFolder:GetChildren()==0,"audio destruction removes sounds and anchors")
+modules.AudioConfig.Button.Id=""
+
+local character=folder(workspace,"PresentationCharacter")
+local humanoid=Instance.new("Humanoid");humanoid.Parent=character
+humanoid.Health,humanoid.CameraOffset,humanoid.FloorMaterial,humanoid.RigType=100,Vector3.new(0,0,0),"Grass",Enum.HumanoidRigType.R15
+local root=Instance.new("Part");root.Name,root.Parent="HumanoidRootPart",character
+root.AssemblyLinearVelocity=Vector3.new(0,0,20)
+local hand2=Instance.new("Part");hand2.Parent=character
+local held=Cosmetics.weapon(character,"Rifle",CFrame.new(),hand2)
+check(held.PresentationJoint.Part0==hand2 and held.PresentationJoint.Part1==held.Receiver,"kick joint only links hand to cosmetic receiver")
+folder(character,"Mutation")
+local camera=Instance.new("Camera");camera.FieldOfView=73;workspace.CurrentCamera=camera
+local presentation=Presentation.new(audioFolder,{Character=character,UserId=1})
+local function snap(roundId,values,phase)
+    local me={alive=true,weapon="Rifle",rarity="Common",slot=1,evolutions=0}
+    for k,v in pairs(values or {}) do me[k]=v end
+    return {roundId=roundId,phase=phase or "Active",me=me,zone={shrinking=false}}
+end
+presentation:snapshot(snap(1,{sprinting=true}))
+presentation:step(.1)
+check(camera.FieldOfView>73 and camera.FieldOfView<79,"sprint FOV is relative to original camera")
+check(#presentation.audio.voices==0 and next(presentation.animations.tracks)==nil,"unconfigured assets preserve code-only feedback")
+presentation:snapshot(snap(1,{reloading=true}))
+presentation:undoCamera();presentation:step(.1)
+check(presentation.tilt>0,"confirmed reload tilts held cosmetic")
+presentation:snapshot(snap(1,{reloading=false,rarity="Rare"}))
+check(presentation.tilt==0 and presentation.reloadSound==nil,"rarity switch cancels reload presentation")
+presentation:snapshot(snap(1,{sliding=true}))
+presentation:undoCamera();presentation:step(.1)
+check(humanoid.CameraOffset.Y<0,"slide lowers camera without changing character position")
+presentation:snapshot(snap(1,{crouching=true}))
+presentation:undoCamera();presentation:step(.1)
+check(presentation.animations.movementKey=="CrouchWalk","slide transitions to crouch movement track")
+presentation:shot(Vector3.new(0,0,0),"Shotgun",1,{})
+check(presentation.kick==modules.PresentationConfig.Weapons.Shotgun.Kick and presentation.vertical>0,"confirmed shot drives weapon-specific kick/recoil")
+check(#presentation.flashes==8,"muzzle flashes use a fixed pool")
+for _,flash in ipairs(presentation.flashes) do check(not flash.part.CanQuery and not flash.part.CanCollide and not flash.part.CanTouch,"flash never enters gameplay queries") end
+presentation:snapshot(snap(1,{evolutions=1}))
+check(presentation.pulse.Enabled,"applied evolution starts brief pulse")
+presentation:snapshot(snap(1,{alive=false}))
+check(camera.FieldOfView==73 and humanoid.CameraOffset.Y==0 and presentation.vertical==0,"death restores FOV, offset and recoil")
+check(not presentation.pulse.Enabled and presentation.me==nil and next(presentation.animations.tracks)==nil,"death clears pulse, movement state and tracks")
+presentation:snapshot(snap(2,{sprinting=true,reloading=true}))
+presentation:step(.1)
+presentation:snapshot(snap(2,{},"Results"))
+check(camera.FieldOfView==73 and presentation.tilt==0 and presentation.reloadSound==nil,"Results clears second-round reload and FOV")
+presentation:snapshot(snap(3,{}));check(presentation.roundId==3 and presentation.vertical==0,"third round starts without previous recoil")
+presentation:destroy();check(#audioFolder:GetChildren()==0,"presentation destroy releases all pooled instances")
+
+-- Track caching, rig selection and failed-load suppression with a fake Animator.
+local loads=0
+local animator=Instance.new("Animator");animator.Parent=humanoid
+animator.LoadAnimation=function(_,animation)
+    loads=loads+1
+    check(animation.AnimationId=="rbxassetid://123","selected R15 ID is normalized")
+    return Instance.new("AnimationTrack")
+end
+modules.AnimationConfig.RifleFire.R15="123"
+local tracks=Animations.new();tracks:bind(humanoid)
+for _=1,20 do tracks:play("RifleFire") end
+check(loads==1,"repeated fire reuses one loaded track")
+local loaded=tracks.tracks.RifleFire
+tracks:clear();check(loaded._destroyed and next(tracks.tracks)==nil,"character cleanup destroys cached tracks")
+tracks:bind(humanoid);animator.LoadAnimation=function() loads=loads+1;error("unavailable test asset") end
+tracks:play("RifleFire");tracks:play("RifleFire")
+check(loads==2 and tracks.failed.RifleFire,"failed asset is not loaded repeatedly")
+modules.AnimationConfig.RifleFire.R15=""
+print("PASS: "..assertions.." total visual/audio/animation/presentation assertions")

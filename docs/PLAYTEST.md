@@ -110,3 +110,20 @@ Offlineでは `python3 tests/run.py` を実行。809 assertionsはゾーン時�
 自動検証：既存を含む870 gameplay assertions、558 visual/pickup/pool assertions、全Lua構文、UI矩形の非重複、Movement RemoteのRound/Alive共通ガード。件数にはPartやゾーンの反復チェックを含みます。標準Stick/Jumpのエンジン配置は矩形テストの対象外です。
 
 Mantle拡張案：前方の低い障害物をサーバーRaycastで確認し、上面・頭上空間・着地のCapsule相当範囲とZone/Map境界を検証。Build Wallと動的物体を除外し、短いCooldownと移動距離上限を設ける。現行の所有権/斜面/低い遮蔽物で安全な検証ができるまでは実装しません。
+
+## Audio / Animation / Action Presentation（今回追加・Studio未実施）
+
+初期設定は音声・Animationとも全ID空欄。空欄テストと、Experienceで利用許可を持つAssetを設定したテストを分けて実施してください。空欄時に音がしないことは仕様です。
+
+- [ ] 全ID空欄でSolo + BOT11の2試合を完走。音声/Animation読込待ち・エラーがない。既存Damage、Reload時間、Movement速度、Draft、rarityが変わらない。
+- [ ] Rifleの軽快なKick、Shotgunの大きく遅い戻り、Pistolの小さく速い戻り。連射で視点が永久に上へずれない。PC/スマホで照準を維持できる。
+- [ ] HeldWeaponのMotor6Dは装飾だけを動かし、手・身体・物理速度を動かさない。R6/R15両方で武器の姿勢、Flash先端、見た目の遅延を確認。
+- [ ] Missでは命中音・Damage Numberなし。Shield/HP確定Hit→撃破音→Draft Ready→選択音→EVOLVED/Pulseの順が読みやすい。選択音だけで取得確定と誤認しない。
+- [ ] Reload中の持替え、Common→Epic更新、死亡、Resultsで傾き・Reload音・Trackが解除。直後に別の音を再生しても古いReloadの停止処理に消されない。
+- [ ] Sprint→Slide→Crouch→Stand / Jump、空中、死亡、観戦、次RoundでFOVとCameraOffsetが元に戻る。通常FOV70以外でも復帰。標準カメラ/Mouse Lockを壊さない。
+- [ ] `AudioConfig` に許可済みIDを設定し、2クライアントで発砲とSlide開始の距離減衰（最大140stud）を確認。Loopは短く継ぎ目のない素材で確認。音声12枠を超える音は新規生成せず省略する。
+- [ ] `AnimationConfig` にR6/R15それぞれの許可済みIDを設定。走行/しゃがみ/滑走とFire/Reloadの優先度、ループ、停止、標準Animateとのブレンドを確認。未設定Rigでは安全にskip。
+- [ ] Common/Rare/Epic Pickup音、Zone縮小開始音、Zone Damageの1.2秒以上の間隔を確認。Zone tickごとのAudio spamがない。
+- [ ] 低性能スマホ、BOT11、最大Build、Shotgun同時連射でFPS/メモリ測定。Flashは8Part、Pulseは1Highlight、音声は12Voice以下。2・3試合目でもInstance/Track数が増え続けない。
+
+Offline追加検証は、空IDの無生成、音声プール上限と再利用所有権、Rig別Trackキャッシュ/破棄/失敗抑止、Reload取消、Slide→Crouch、死亡/Results/3ラウンド切替のFOV・Offset・Pulse解除、Flashの非衝突属性、ShotのroundIdとReload中の非発火です。エンジンdoubleによる状態テストであり、実際の音・Animation・Camera描画・ネットワーク遅延の品質を証明するものではありません。

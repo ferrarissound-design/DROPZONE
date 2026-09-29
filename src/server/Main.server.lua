@@ -56,6 +56,7 @@ action.OnServerEvent:Connect(function(player, roundId, command, argument)
     if roundId ~= round.id or not round:isActive() then return end
     local a = actors.byPlayer[player]
     if not a or not a.alive or not a.root.Parent then return end
+    local wasSliding = a.sliding
     if command == "Fire" then combat:fire(a, argument)
     elseif command == "Reload" then combat:reload(a)
     elseif command == "Equip" then combat:equip(a, argument)
@@ -76,6 +77,13 @@ action.OnServerEvent:Connect(function(player, roundId, command, argument)
     elseif command == "Evolve" and type(argument) == "table" then
         local gained = Evolution.select(a, roundId, argument.draftId, argument.index)
         if gained then effects:FireClient(player, "Notice", "EVOLUTION: " .. gained.name .. " " .. gained.rankText) end
+    end
+    if not wasSliding and a.sliding then
+        for observer, actor in pairs(actors.byPlayer) do
+            if observer ~= player and actor.root and actor.root.Parent and (actor.root.Position-a.root.Position).Magnitude < 140 then
+                effects:FireClient(observer, "SlideSound", round.id, a.root.Position)
+            end
+        end
     end
 end)
 local function join(player)

@@ -471,3 +471,12 @@ messages={};shotCombat:fire(shooter,Vector3.new(1,0,0))
 local damageEvents=0;for _,event in ipairs(messages) do if event.kind=="Damage" then damageEvents=damageEvents+1 end end
 check(damageEvents==0,"misses never produce a damage number")
 print("PASS: "..count.." total gameplay assertions including movement, rarity and confirmed combat")
+
+local shotEvent
+for _,event in ipairs(messages) do if event.kind=="Shot" then shotEvent=event end end
+check(shotEvent and shotEvent.args[5]==77,"presentation shot carries server round ID even on a miss")
+shooter.reloading=true;shooter.nextShot=0
+local beforeReloadShot=#messages
+shotCombat:fire(shooter,Vector3.new(1,0,0))
+check(#messages==beforeReloadShot,"reload rejects shot before presentation event is emitted")
+print("PASS: "..count.." total gameplay assertions including presentation event guards")

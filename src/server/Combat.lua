@@ -95,7 +95,7 @@ function Combat:fire(a, direction)
     -- Capped shot rate, recipients and endpoints; no client-supplied hit or damage data.
     for player, viewer in pairs(self.actors.byPlayer) do
         if player.Parent and viewer.root.Parent and (viewer.root.Position - origin).Magnitude < 330 then
-            self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id)
+            self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id, a.roundId)
         end
     end
     if a.player and hitEnemy then

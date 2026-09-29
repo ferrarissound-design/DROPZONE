@@ -26,12 +26,21 @@ local function folder(parent, name)
 end
 
 -- Shared silhouettes for the held weapon and the grounded pickup. Forward is -Z.
--- At most 6 parts per weapon; no scripts, emitters, lights or per-frame animation.
+-- At most 6 parts per weapon; one optional presentation joint, no emitters/lights.
 function Cosmetics.weapon(parent, kind, cf, anchor)
     local f = folder(parent, "HeldWeapon")
     local accent = Theme.Weapon[kind] or Theme.Gold
+    local weaponRoot
     local function piece(name, x,y,z, px,py,pz, color)
-        return Cosmetics.part(f, name, Vector3.new(x,y,z), cf*CFrame.new(px,py,pz), color, anchor)
+        local part = Cosmetics.part(f, name, Vector3.new(x,y,z), cf*CFrame.new(px,py,pz), color, weaponRoot)
+        if anchor and not weaponRoot then
+            part.Anchored = false
+            local joint = Instance.new("Motor6D")
+            joint.Name, joint.Part0, joint.Part1 = "PresentationJoint", anchor, part
+            joint.C0, joint.Parent = anchor.CFrame:ToObjectSpace(part.CFrame), f
+            weaponRoot = part
+        end
+        return part
     end
     if kind == "Pistol" then
         piece("Slide", .62,.55,1.45, 0,.15,-.2, accent)
