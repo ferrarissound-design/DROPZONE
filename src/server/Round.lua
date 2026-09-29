@@ -175,6 +175,8 @@ function Round:snapshot(player)
             kills = a.kills, damage = math.floor(a.damage), energy = a.energy, maxEnergy = Evolution.maxEnergy(a), evolutions = a.evolutionCount,
             evolutionBuild = evolutionBuild, evolutionDraft = evolutionDraft, weapon = item and item.kind, ammo = item and item.ammo or 0,
             reserve = item and item.reserve or 0, reloading = a.reloading, slots = slots, slot = a.slot,
+            crouching = a.crouching == true, sliding = a.sliding == true,
+            slideCooldown = math.max(0, (a.nextSlide or 0) - os.clock()),
             rank = a.rank, survival = math.floor(a.alive and os.clock() - a.startTime or a.survival)}
     end
     return data
