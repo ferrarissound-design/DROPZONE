@@ -42,13 +42,14 @@ local delayed = {}
 task = {delay = function(_, f) table.insert(delayed,f) end, defer = function(f) f() end}
 local players = {GetPlayers = function() return {} end}
 game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons", VisualTheme="VisualTheme"}}, GetService=function(_, name) if name=="Players" then return players end end}
-script = {Parent = {World="World", Actors="Actors", Evolution="Evolution", Cosmetics="Cosmetics", MapVisuals="MapVisuals"}}
+script = {Parent = {World="World", Actors="Actors", Evolution="Evolution", Movement="Movement", Cosmetics="Cosmetics", MapVisuals="MapVisuals"}}
 local Config = load("Config", "shared/Config.lua")
 local Rules = load("Rules", "shared/Rules.lua")
 load("Weapons", "shared/Weapons.lua")
 load("VisualTheme", "shared/VisualTheme.lua")
 load("Cosmetics", "server/Cosmetics.lua")
 load("MapVisuals", "server/MapVisuals.lua")
+local Movement = load("Movement", "server/Movement.lua")
 local World = load("World", "server/World.lua")
 local Actors = load("Actors", "server/Actors.lua")
 local Evolution = load("Evolution", "server/Evolution.lua")
@@ -111,13 +112,30 @@ local function actor(id)
         for _, p in pairs(self.parts) do table.insert(result,p) end
         return result
     end
-    local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100,WalkSpeed=Config.BaseSpeed,JumpPower=Config.BaseJump},shield=0,kills=0,damage=0,
+    local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100,WalkSpeed=Config.BaseSpeed,JumpPower=Config.BaseJump,HipHeight=2,AutoRotate=true},shield=0,kills=0,damage=0,
         reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},evolutionStacks={},evolutionHistory={},
-        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),root={Parent=true,Position=Vector3.zero,Anchored=false},model=model}
+        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),root={Parent=true,Position=Vector3.zero,Anchored=false,AssemblyLinearVelocity=Vector3.new(10,0,0)},model=model}
     function a.model:Destroy() self.Parent=false end
     table.insert(actors.list,a)
     return a
 end
+-- Crouch and slide are server-owned states with grounded/cooldown gates.
+local mover=actor(30); mover.baseHipHeight=2
+check(Movement.toggleCrouch(mover) and mover.crouching and mover.humanoid.HipHeight < mover.baseHipHeight,
+    "crouch lowers stance through authoritative movement state")
+check(Movement.speedMultiplier(mover)==Config.CrouchSpeedMultiplier and not Movement.canJump(mover),
+    "crouch slows movement and blocks jumping")
+mover.nextCrouch=0
+check(Movement.toggleCrouch(mover) and not mover.crouching,
+    "second accepted crouch command returns to standing")
+mover.root.AssemblyLinearVelocity=Vector3.new(10,0,0); mover.nextSlide=0
+check(Movement.slide(mover) and mover.sliding and mover.root.AssemblyLinearVelocity.Magnitude>=Config.SlideSpeed,
+    "moving actor receives a bounded server slide impulse")
+check(not Movement.slide(mover), "slide cooldown rejects repeated activation")
+mover.slideUntil=os.clock()-1; Movement.step(mover)
+check(not mover.sliding and mover.humanoid.AutoRotate and mover.humanoid.HipHeight==mover.baseHipHeight,
+    "slide timeout restores standing posture")
+
 -- Evolution Draft offers are server-created, three distinct options from mixed build categories.
 local drafter=actor(31); drafter.player={}; drafter.roundId=41
 Evolution.onKill(drafter,41,nil)
