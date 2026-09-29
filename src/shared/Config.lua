@@ -9,6 +9,8 @@ return {
     StartEnergy = 60, MaxEnergy = 150,
     MapHalfSize = 250, PickupRadius = 9,
     BotInterval = 0.35, SnapshotInterval = 0.2,
+    -- Pre-release only: prints one bounded server summary at the end of each round.
+    PlaytestDiagnostics = true,
     BuildGrid = 8, BuildCooldown = 0.55, BuildLimit = 100,
     BuildLifetime = 100, BuildCost = 20, BuildHealth = 150,
     MaxEvolutionRank = 3, EvolutionDraftSeconds = 5, EvolutionMaxQueue = 19, AdrenalineSeconds = 5,
