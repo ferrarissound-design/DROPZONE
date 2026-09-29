@@ -71,3 +71,22 @@
 - [ ] Rojo実ビルド/同期とServer・Client Outputの無エラーを確認。
 
 Offlineでは `python3 tests/run.py` を実行。809 assertionsはゾーン時系列の反復検査を含む件数で、809種類の実機シナリオではありません。UIダブルはカード色の型と送信中/次Draftの復帰を実行検証しますが、タッチ入力・Robloxレイアウト・物理・経路探索・ネットワークの実機検証は代替しません。
+
+## Visual Identity確認（Studio・実機では未実施）
+
+- [ ] 3武器の輪郭を小さい画面でも見分けられる。R6/R15の手へ正しく装着され、持ち替え/死亡/2試合目に旧武器が残らない。
+- [ ] 武器/Drone装甲/Mutation/建築Frame越しのRaycastは装飾を無視し、以前と同じ本体Hitboxへ命中する。
+- [ ] 白いDroneとプレイヤーを区別でき、進化後も顔・武器・胴体が読める。
+- [ ] Coreリングは上空にありFinal Battleの移動や視界を妨げない。Townの入口・Loot・Warehouseの通路は従来通り使える。
+- [ ] Hillは従来の斜面を登れる。Sceneryの色面や低い装飾岩が床/遮蔽物と誤認されない。
+- [ ] 全Loot種類を形で区別でき、取得/Resetでモデル全体が消える。武器Pickupが地面に埋まらない。
+- [ ] Wall/Floor/RampのFrameが本体に沿い、破壊/寿命/Reset時に一緒に消える。
+- [ ] 16:9・狭い横画面で能力名/Rank/効果/カテゴリを読める。カードのクリック/タップ領域は従来の190×127。右側操作・Slot・標準Stick/Jumpを遮らない。
+- [ ] 最大長のRegeneration III / Combat Shield IIIがカード内に収まる。選択中表示は取得確定と混同されない。
+- [ ] HP/Shield/最大Stack時のEnergyバー、弾倉とReserve、大きなVictory/主要Buildが正しく表示される。
+- [ ] Rojo同期後のLightingが明るく、Neonの白飛び・強いBloom・Fogによる視認性低下がない。
+- [ ] 前版と同条件で低性能スマホのFPS/メモリを比較。BOT11、Build100、最大Loot、Shotgun、Mutation同時表示を測定する。
+
+装飾予算：Map追加193Part、武器4/5/6Part、Drone追加7Part、消耗品Loot3Part、武器Loot4〜6Part、建築追加2Part/個（上限時200Part）。すべてイベント時/初期化時の生成で、毎Frame生成・追加Particle・追加Light・外部Meshなし。描画負荷はゼロではないため、実測で公開可否を決めてください。
+
+`tests/visuals.lua` は実コンストラクタをengine doubleで実行し、装飾フラグ、Part数、持替え/破棄、Drone本体寸法、HUDバーとDraft終了、UI再生成を確認します。536 assertionsは各Partの反復検査を含みます。描画・物理・タッチの再現テストではありません。

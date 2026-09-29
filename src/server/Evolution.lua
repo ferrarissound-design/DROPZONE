@@ -1,4 +1,5 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
+local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
 local Evolution = {}
 Evolution.__index = Evolution
 
@@ -64,15 +65,12 @@ local function visualLimb(a, ability)
     if not limb then
         local fallback = ability.category == "Mobility" and (ability.limb:find("Leg") and "Left Leg" or "Right Leg")
             or ability.category == "Attack" and (ability.limb == "Head" and "Head" or "Right Arm")
-            or ability.category == "Survival" and "Torso" or "Torso"
+            or ability.id == "Builder" and "Left Arm" or "Torso"
         limb = a.model:FindFirstChild(fallback) or a.model:FindFirstChild("Torso") or a.root
     end
     return limb
 end
-local palette = {
-    Mobility = Color3.fromRGB(76, 230, 242), Attack = Color3.fromRGB(255, 165, 66),
-    Survival = Color3.fromRGB(105, 255, 135), Utility = Color3.fromRGB(197, 119, 255),
-}
+local palette = Theme.Category
 local function addMutation(a, ability, rank)
     local folder = a.mutationFolder
     if not folder or not folder.Parent then
@@ -86,9 +84,12 @@ local function addMutation(a, ability, rank)
     part.Color, part.Transparency = palette[ability.category], 0.12
     part.Anchored, part.Massless = false, true
     part.CanCollide, part.CanTouch, part.CanQuery = false, false, false
-    part.Size = Vector3.new(0.24 + rank * 0.06, 0.65 + rank * 0.1, 0.24)
+    part.CastShadow = false
+    part.Size = ability.category == "Survival" and Vector3.new(.65,.55,.16)
+        or ability.category == "Utility" and Vector3.new(.42,.65,.22)
+        or Vector3.new(.24,.75 + rank*.08,.18)
     local side = (rank % 2 == 0 and -1 or 1)
-    part.CFrame = limb.CFrame * CFrame.new(side * (limb.Size.X / 2 + 0.11), 0, -limb.Size.Z / 2 - 0.08)
+    part.CFrame = limb.CFrame * CFrame.new(side * (limb.Size.X / 2 + 0.11), (rank-2)*.3, -limb.Size.Z / 2 - 0.12)
     part.Parent = folder
     local weld = Instance.new("WeldConstraint")
     weld.Part0, weld.Part1, weld.Parent = limb, part, part

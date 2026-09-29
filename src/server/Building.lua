@@ -1,6 +1,8 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local World = require(script.Parent.World)
 local Evolution = require(script.Parent.Evolution)
+local Cosmetics = require(script.Parent.Cosmetics)
+local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
 local Building = {}
 Building.__index = Building
 function Building.new(world)
@@ -36,7 +38,8 @@ function Building:place(a, kind)
     local build = Instance.new(kind == "Ramp" and "WedgePart" or "Part")
     build.Name, build.Size, build.CFrame = kind, size, cf
     build.Anchored, build.Material = true, Enum.Material.Metal
-    build.Color, build.Parent = Color3.fromRGB(66, 151, 177), self.folder
+    build.Color, build.Parent = Theme.Blue, self.folder
+    Cosmetics.build(build, kind)
     self.entries[build] = {health = Config.BuildHealth, expires = now + Config.BuildLifetime}
     self.count, a.energy, a.nextBuild = self.count + 1, a.energy - cost, now + Config.BuildCooldown
 end

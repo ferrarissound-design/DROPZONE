@@ -60,3 +60,11 @@ Audio and full airborne insertion are deferred; there are no external assets to 
 - https://create.roblox.com/docs/reference/engine/classes/StarterGui
 - https://create.roblox.com/docs/reference/engine/enums/ScreenInsets
 - https://rojo.space/docs/v7/project-format/
+
+## Visual boundary
+
+`VisualTheme` is the shared palette only. `Cosmetics` builds held weapons, drone shells, pickup silhouettes and build rails with no collision/touch/query and Massless enabled. Welded pieces belong to the character; anchored pickup/build pieces are descendants of the existing pickup/build root, so existing removal/reset destroys them as one unit.
+
+`MapVisuals` owns the static `DropzoneWorld/Scenery` folder. It is a sibling of `Map` and is never included by `World.ground`. Existing map colliders, spawns and bot logic remain authoritative. Do not add cover-shaped noncolliding decoration in combat lanes.
+
+The HUD consumes server `maxEnergy` for its display bar. Category colors, RichText and selection-border Tweens do not grant abilities or send new remotes. Draft button rectangles remain unchanged; the reticle renders behind cards without moving its aiming anchor. No visual code runs a per-frame object-generation loop.

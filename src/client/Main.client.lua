@@ -3,6 +3,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Weapons = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("Weapons"))
+local Theme = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("VisualTheme"))
 local Hud = require(script.Parent.Hud)
 local Effects = require(script.Parent.Effects)
 local player = Players.LocalPlayer
@@ -20,7 +21,7 @@ local function send(command, argument)
 end
 local function build() send("Build", buildType) end
 local fire = hud:button("Fire", "射撃", 784, 190, 82, 82)
-fire.BackgroundColor3 = Color3.fromRGB(191, 93, 48)
+fire.BackgroundColor3, fire.TextColor3 = Theme.Orange, Theme.Ink
 fire.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then touchFire, shooting = input, true
     elseif input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true end
@@ -31,10 +32,10 @@ for i, kind in ipairs({"Wall", "Floor", "Ramp"}) do
     local labels = {"壁", "床", "坂"}
     hud:button(kind, labels[i], 632 + (i - 1) * 82, 137, 76, 52, function()
         buildType = kind
-        for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == kind and Color3.fromRGB(48, 143, 157) or Color3.fromRGB(33, 78, 100) end
+        for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == kind and Theme.Blue or Theme.Ink end
     end)
 end
-hud.buttons.Wall.BackgroundColor3 = Color3.fromRGB(48, 143, 157)
+hud.buttons.Wall.BackgroundColor3 = Theme.Blue
 for i = 1, 3 do hud:button("Slot" .. i, tostring(i), 279 + (i - 1) * 116, 418, 110, 48, function() send("Equip", i) end) end
 hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, function() spectateIndex = spectateIndex + 1 end)
 local function mouseOnEvolutionCard(input)
@@ -106,7 +107,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         submittedEvolutionDraft = nil
         hud.notice.Visible, hud.noticeUntil = false, nil
         buildType = "Wall"
-        for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == "Wall" and Color3.fromRGB(48, 143, 157) or Color3.fromRGB(33, 78, 100) end
+        for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == "Wall" and Theme.Blue or Theme.Ink end
     end
     state = s
     if not playing() then shooting = false end

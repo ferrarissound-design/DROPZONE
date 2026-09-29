@@ -2,6 +2,7 @@ local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local World = require(script.Parent.World)
 local Weapons = require(game.ReplicatedStorage.DropzoneShared.Weapons)
 local Evolution = require(script.Parent.Evolution)
+local Cosmetics = require(script.Parent.Cosmetics)
 local Loot = {}
 Loot.__index = Loot
 local kinds = {"Rifle", "Shotgun", "Pistol", "Ammo", "Health", "Shield", "Energy"}
@@ -16,6 +17,7 @@ function Loot:spawn(position, kind, starter)
     local color = Weapons[kind] and Weapons[kind].color or Color3.fromRGB(150, 225, 110)
     local p = World.part(self.folder, kind, Vector3.new(2.5, 1.2, 2.5), CFrame.new(ground + Vector3.new(0, 1.3, 0)), color, Enum.Material.Neon)
     p.CanCollide, p.CanTouch, p.CanQuery = false, false, false
+    Cosmetics.loot(p, kind)
     local gui = Instance.new("BillboardGui")
     gui.Size, gui.StudsOffset, gui.MaxDistance, gui.Parent = UDim2.fromOffset(135, 28), Vector3.new(0, 2, 0), 45, p
     local label = Instance.new("TextLabel")

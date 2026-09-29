@@ -36,6 +36,8 @@ print('PASS: syntax of all Lua modules (Lua 5.4 compatible subset)')
 source = (ROOT / 'tests' / 'regression.lua').read_text()
 source = 'ROOT = ' + repr(str(ROOT)) + '\n' + source
 run(source, 'regression.lua', True)
+visual_source = 'ROOT = ' + repr(str(ROOT)) + '\n' + (ROOT / 'tests' / 'visuals.lua').read_text()
+run(visual_source, 'visuals.lua', True)
 
 hud = (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
 assert not re.search(r'EVOLUTION\s+[^\n]*\s*/\s*7', hud, re.I)

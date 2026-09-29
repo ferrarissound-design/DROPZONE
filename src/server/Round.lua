@@ -170,7 +170,7 @@ function Round:snapshot(player)
         for i, w in ipairs(a.inventory) do slots[i] = w.kind end
         local evolutionBuild, evolutionDraft = Evolution.snapshot(a)
         data.me = {alive = a.alive, hp = math.ceil(a.humanoid.Health), maxHp = a.humanoid.MaxHealth, shield = math.ceil(a.shield),
-            kills = a.kills, damage = math.floor(a.damage), energy = a.energy, evolutions = a.evolutionCount,
+            kills = a.kills, damage = math.floor(a.damage), energy = a.energy, maxEnergy = Evolution.maxEnergy(a), evolutions = a.evolutionCount,
             evolutionBuild = evolutionBuild, evolutionDraft = evolutionDraft, weapon = item and item.kind, ammo = item and item.ammo or 0,
             reserve = item and item.reserve or 0, reloading = a.reloading, slots = slots, slot = a.slot,
             rank = a.rank, survival = math.floor(a.alive and os.clock() - a.startTime or a.survival)}
