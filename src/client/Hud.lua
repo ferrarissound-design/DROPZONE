@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local Hud = {}
 Hud.__index = Hud
 local white = Color3.fromRGB(237, 246, 255)
@@ -36,6 +37,33 @@ function Hud.new()
     self.zone = label(canvas, "Zone", UDim2.fromOffset(280, 51), UDim2.fromOffset(340, 33), "安全地帯", 15)
     self.stats = label(canvas, "Health", UDim2.fromOffset(22, 16), UDim2.fromOffset(218, 58), "HP —", 17)
     self.evo = label(canvas, "Evolution", UDim2.fromOffset(22, 80), UDim2.fromOffset(218, 43), "EVOLUTION 0 / 7", 13)
+    self.draft = Instance.new("Frame")
+    self.draft.Name, self.draft.Position, self.draft.Size = "EvolutionDraft", UDim2.fromOffset(115, 132), UDim2.fromOffset(670, 177)
+    self.draft.BackgroundColor3, self.draft.BackgroundTransparency, self.draft.BorderSizePixel = Color3.fromRGB(12, 21, 34), 0.08, 0
+    self.draft.Visible, self.draft.Parent = false, canvas
+    local draftCorner = Instance.new("UICorner"); draftCorner.CornerRadius, draftCorner.Parent = UDim.new(0, 14), self.draft
+    self.draftTitle = label(self.draft, "DraftTitle", UDim2.fromOffset(12, 4), UDim2.fromOffset(455, 28), "EVOLUTION DRAFT  ·  選択中も戦闘は続く", 16)
+    self.draftTitle.BackgroundTransparency = 1
+    self.draftTimer = label(self.draft, "DraftTimer", UDim2.fromOffset(565, 4), UDim2.fromOffset(90, 28), "5秒", 15)
+    self.draftTimer.BackgroundTransparency = 1
+    self.draftCards = {}
+    for i = 1, 3 do
+        local card = Instance.new("TextButton")
+        card.Name, card.Position, card.Size = "Choice" .. i, UDim2.fromOffset(12 + (i - 1) * 218, 38), UDim2.fromOffset(210, 127)
+        card.BackgroundColor3, card.TextColor3, card.TextSize = Color3.fromRGB(34, 69, 91), white, 16
+        card.BorderSizePixel, card.Font, card.TextWrapped, card.Parent = 0, Enum.Font.GothamBold, true, self.draft
+        card.AutoButtonColor = true
+        local corner = Instance.new("UICorner"); corner.CornerRadius, corner.Parent = UDim.new(0, 11), card
+        local stroke = Instance.new("UIStroke"); stroke.Color, stroke.Thickness, stroke.Parent = Color3.fromRGB(92, 183, 207), 1.5, card
+        card.Activated:Connect(function()
+            if self.onEvolutionPick and self.currentDraft then
+                self.onEvolutionPick(self.currentDraft.id, i)
+                card.BackgroundColor3 = Color3.fromRGB(63, 160, 126)
+                TweenService:Create(card, TweenInfo.new(0.16), {BackgroundColor3 = Color3.fromRGB(34, 69, 91)}):Play()
+            end
+        end)
+        self.draftCards[i] = card
+    end
     self.ammo = label(canvas, "Ammo", UDim2.fromOffset(328, 375), UDim2.fromOffset(244, 34), "武器を拾おう", 16)
     self.energy = label(canvas, "Energy", UDim2.fromOffset(630, 95), UDim2.fromOffset(242, 30), "BUILD ENERGY 60", 13)
     self.notice = label(canvas, "Notice", UDim2.fromOffset(260, 103), UDim2.fromOffset(380, 43), "", 17)
@@ -74,7 +102,7 @@ function Hud:toast(text)
     self.notice.Text, self.notice.Visible = text, true
     self.noticeUntil = os.clock() + 3
 end
-function Hud:update(s)
+function Hud:update(s, onEvolutionPick)
     local me = s.me
     local active = s.phase == "Active" or s.phase == "FinalZone"
     local playing = active and me and me.alive
@@ -83,10 +111,28 @@ function Hud:update(s)
     local z = s.zone
     self.zone.Text = active and string.format("ZONE %d  %s %d秒  半径%d → %d", z.phase, z.shrinking and "縮小中" or "縮小まで", z.remaining, math.floor(z.radius), z.nextRadius) or "撃破して進化。最後の1人になれ。"
     self.stats.Text = me and string.format("HP %d / %d   SHIELD %d", me.hp, me.maxHp, me.shield) or "DROPZONE\n次のラウンドを待っています"
-    self.evo.Text = me and ("EVOLUTION " .. me.evolutions .. " / 7\n" .. (me.evolution or "撃破で能力獲得")) or "EVOLUTION 0 / 7"
+    local build = {}
+    for _, ability in ipairs(me and me.evolutionBuild or {}) do
+        if #build < 3 then table.insert(build, ability.name .. " " .. ability.rankText) end
+    end
+    local buildText = table.concat(build, " · ")
+    self.evo.Text = me and ("EVOLUTION " .. me.evolutions .. (buildText ~= "" and ("\n" .. buildText) or "\n撃破で能力獲得")) or "EVOLUTION 0"
     self.energy.Text = "BUILD ENERGY " .. (me and me.energy or 0)
     self.ammo.Text = me and me.weapon and (me.weapon .. "  " .. me.ammo .. " / " .. me.reserve .. (me.reloading and "  装填中" or "")) or "光る武器に近づいて拾おう"
     self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
+    local draft = playing and me.evolutionDraft or nil
+    self.draft.Visible = draft ~= nil
+    self.currentDraft = draft
+    self.onEvolutionPick = onEvolutionPick
+    if draft then
+        self.draftTimer.Text = string.format("%.1f秒", math.max(0, draft.seconds))
+        for i = 1, 3 do
+            local option = draft.options[i]
+            local card = self.draftCards[i]
+            card.Text = option and (option.name .. " " .. option.rankText .. "\n" .. option.description .. "\n\n" .. option.category) or "—"
+            card.BackgroundColor3 = Color3.fromRGB(34, 69, 91)
+        end
+    end
     if self.noticeUntil and os.clock() > self.noticeUntil then self.notice.Visible = false end
     for name, button in pairs(self.buttons) do
         if name == "Spectate" then button.Visible = active and not playing

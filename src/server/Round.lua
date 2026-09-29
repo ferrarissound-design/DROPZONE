@@ -11,11 +11,11 @@ function Round.new(services)
     self.phase, self.id, self.remaining = "Waiting", 0, 0
     self.loading, self.connections = {}, {}
     self.actors.onDeath = function(a, killer)
+        Evolution.cancel(a) -- pending/queued drafts never survive elimination
         if killer and killer ~= a and killer.alive then
             killer.kills = killer.kills + 1
-            killer.energy = math.min(Config.MaxEnergy, killer.energy + 25)
-            local evolution = Evolution.grant(killer)
-            if killer.player and evolution then self.effects:FireClient(killer.player, "Notice", "EVOLUTION: " .. evolution) end
+            killer.energy = math.min(Evolution.maxEnergy(killer), killer.energy + 25)
+            Evolution.onKill(killer, self.id, self.zone)
         end
         if a.player then self.effects:FireClient(a.player, "Notice", "敗退 — 観戦中") end
     end
@@ -62,6 +62,7 @@ function Round:start()
                     if self.id == id and self.phase == "Starting" then
                         local a = self.actors:add(player.Character, player, player.UserId)
                         if a then
+                            a.roundId = id
                             local ground = World.ground(self.world, self.world.spawns[spawnIndices[i]])
                             a.model:PivotTo(CFrame.new(ground + Vector3.new(0, 4, 0)))
                             a.root.Anchored = true
@@ -90,7 +91,7 @@ function Round:start()
         local model = Actors.botModel(self.world.dynamic, i)
         model:PivotTo(CFrame.new(World.ground(self.world, choice) + Vector3.new(0, 4, 0)))
         local a = self.actors:add(model, nil, -i)
-        if a then self.combat:give(a, "Pistol") end
+        if a then a.roundId = id; self.combat:give(a, "Pistol") end
     end
     self.phase, self.started = "Active", os.clock()
     for _, a in ipairs(self.actors.list) do a.startTime, a.root.Anchored = self.started, false end
@@ -101,6 +102,7 @@ function Round:finish()
     local alive = self.actors:alive()
     self.winner = alive[1] and alive[1].name or nil
     for _, a in ipairs(self.actors.list) do
+        Evolution.cancel(a)
         if a.alive then a.rank, a.survival = 1, os.clock() - self.started end
         a.reloadToken, a.reloading = a.reloadToken + 1, false
         if a.root.Parent then a.root.Anchored = true end
@@ -166,9 +168,10 @@ function Round:snapshot(player)
         local item = a.inventory[a.slot]
         local slots = {}
         for i, w in ipairs(a.inventory) do slots[i] = w.kind end
+        local evolutionBuild, evolutionDraft = Evolution.snapshot(a)
         data.me = {alive = a.alive, hp = math.ceil(a.humanoid.Health), maxHp = a.humanoid.MaxHealth, shield = math.ceil(a.shield),
             kills = a.kills, damage = math.floor(a.damage), energy = a.energy, evolutions = a.evolutionCount,
-            evolution = Evolution.order[a.evolutionCount], weapon = item and item.kind, ammo = item and item.ammo or 0,
+            evolutionBuild = evolutionBuild, evolutionDraft = evolutionDraft, weapon = item and item.kind, ammo = item and item.ammo or 0,
             reserve = item and item.reserve or 0, reloading = a.reloading, slots = slots, slot = a.slot,
             rank = a.rank, survival = math.floor(a.alive and os.clock() - a.startTime or a.survival)}
     end

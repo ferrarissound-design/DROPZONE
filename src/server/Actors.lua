@@ -13,7 +13,9 @@ function Actors:add(model, player, id)
         model = model, humanoid = humanoid, root = root, alive = true,
         shield = 0, kills = 0, damage = 0, energy = Config.StartEnergy,
         inventory = {}, slot = 1, ammo = 0, nextShot = 0, reloading = false, reloadToken = 0,
-        evolutions = {}, evolutionCount = 0, lastDamage = 0, startTime = 0, survival = 0}
+        evolutions = {}, evolutionStacks = {}, evolutionHistory = {}, evolutionCount = 0,
+        queuedDrafts = 0, draftVersion = 0, evolutionDraft = nil, roundId = 0,
+        lastDamage = 0, startTime = 0, survival = 0}
     humanoid.MaxHealth, humanoid.Health = Config.BaseHealth, Config.BaseHealth
     humanoid.WalkSpeed, humanoid.UseJumpPower, humanoid.JumpPower = Config.BaseSpeed, true, Config.BaseJump
     humanoid.BreakJointsOnDeath = false
@@ -67,6 +69,10 @@ function Actors:clear()
     for _, c in ipairs(self.connections) do c:Disconnect() end
     for _, a in ipairs(self.list) do
         a.alive, a.reloadToken = false, a.reloadToken + 1
+        a.evolutionDraft, a.queuedDrafts = nil, 0
+        a.draftVersion = (a.draftVersion or 0) + 1
+        a.evolutionStacks, a.evolutions, a.evolutionHistory = {}, {}, {}
+        a.evolutionCount, a.mutationFolder = 0, nil
         if a.model.Parent then a.model:Destroy() end
     end
     self.list, self.byPlayer, self.byModel, self.connections = {}, {}, {}, {}

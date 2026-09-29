@@ -49,7 +49,7 @@ Bots start with a pistol, humans have guaranteed nearby pickups. They share dama
 Bots use rigid R6-style procedural rigs: animation/art polish remains pending.
 
 Builds are simple ground-snapped pieces, not a multi-storey Fortnite construction system.
-Evolution unlocks in a fixed order on kills (not randomly), max seven, with cosmetic non-queryable welded parts and no hitbox enlargement. Random or choice-based evolution is a future extension.
+Each kill presents up to three distinct, category-diverse Evolution choices from a server-held pool. Human choices expire after five seconds and auto-pick; Bots choose immediately using light health/zone/weapon heuristics. Choice requests carry only the draft token and index, and the server validates the current round, living Actor, pending token, expiry, and offered index. Eleven abilities have diminishing effects and a per-ability rank cap of three. Cosmetic welded mutation parts are non-colliding, non-touching, non-queryable, and are cleared with each Actor at round reset.
 Regeneration is interrupted by storm damage as well as weapon hits. No persistence across rounds.
 Audio and full airborne insertion are deferred; there are no external assets to fail moderation/loading.
 

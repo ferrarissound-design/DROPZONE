@@ -1,6 +1,7 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local World = require(script.Parent.World)
 local Weapons = require(game.ReplicatedStorage.DropzoneShared.Weapons)
+local Evolution = require(script.Parent.Evolution)
 local Loot = {}
 Loot.__index = Loot
 local kinds = {"Rifle", "Shotgun", "Pistol", "Ammo", "Health", "Shield", "Energy"}
@@ -36,7 +37,7 @@ function Loot:nearest(a, range)
         local useful = true
         if kind == "Health" and a.humanoid.Health >= a.humanoid.MaxHealth then useful = false end
         if kind == "Shield" and a.shield >= 100 then useful = false end
-        if kind == "Energy" and a.energy >= Config.MaxEnergy then useful = false end
+        if kind == "Energy" and a.energy >= Evolution.maxEnergy(a) then useful = false end
         if #a.inventory == 0 and not Weapons[kind] then useful = false end
         local d = (p.Position - a.root.Position).Magnitude
         if useful and d < distance then nearest, distance = p, d end
@@ -49,10 +50,11 @@ function Loot:pickup(a)
     if not p then return end
     local kind = self.items[p]
     if Weapons[kind] then self.combat:give(a, kind)
-    elseif kind == "Ammo" then for _, item in ipairs(a.inventory) do item.reserve = math.min(240, item.reserve + 30) end
+    elseif kind == "Ammo" then local amount = math.floor(30 * (1 + Evolution.total(a, "Scavenger")))
+        for _, item in ipairs(a.inventory) do item.reserve = math.min(240, item.reserve + amount) end
     elseif kind == "Health" then a.humanoid.Health = math.min(a.humanoid.MaxHealth, a.humanoid.Health + 35)
     elseif kind == "Shield" then a.shield = math.min(100, a.shield + 30)
-    elseif kind == "Energy" then a.energy = math.min(Config.MaxEnergy, a.energy + 40) end
+    elseif kind == "Energy" then a.energy = math.min(Evolution.maxEnergy(a), a.energy + 40) end
     self.items[p] = nil
     p:Destroy()
     if a.player then self.effects:FireClient(a.player, "Notice", "取得: " .. (Weapons[kind] and Weapons[kind].label or labels[kind])) end

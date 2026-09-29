@@ -10,6 +10,7 @@ local remotes = ReplicatedStorage:WaitForChild("DropzoneRemotes")
 local action = remotes:WaitForChild("Action")
 local hud, effects = Hud.new(), Effects.new()
 local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall", 1
+local submittedEvolutionDraft
 local touchFire = nil
 local function playing()
     return state and (state.phase == "Active" or state.phase == "FinalZone") and state.me and state.me.alive
@@ -92,13 +93,22 @@ end
 remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     if not state or state.roundId ~= s.roundId then
         shooting, touchFire, nextShot, spectateIndex = false, nil, 0, 1
+        submittedEvolutionDraft = nil
         hud.notice.Visible, hud.noticeUntil = false, nil
         buildType = "Wall"
         for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == "Wall" and Color3.fromRGB(48, 143, 157) or Color3.fromRGB(33, 78, 100) end
     end
     state = s
     if not playing() then shooting = false end
-    hud:update(s)
+    local draft = s.me and s.me.evolutionDraft
+    if not draft or draft.id ~= submittedEvolutionDraft then submittedEvolutionDraft = nil end
+    hud:update(s, function(draftId, index)
+        if playing() and draftId == submittedEvolutionDraft then return end
+        if playing() and draft and draft.id == draftId then
+            submittedEvolutionDraft = draftId
+            send("Evolve", {draftId = draftId, index = index})
+        end
+    end)
     effects:zone(s.zone, s.phase == "Active" or s.phase == "FinalZone")
     local camera = workspace.CurrentCamera
     if camera then

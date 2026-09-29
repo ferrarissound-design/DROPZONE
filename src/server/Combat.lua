@@ -1,6 +1,7 @@
 local Shared = game.ReplicatedStorage.DropzoneShared
 local Weapons = require(Shared.Weapons)
 local Rules = require(Shared.Rules)
+local Evolution = require(script.Parent.Evolution)
 local Combat = {}
 Combat.__index = Combat
 function Combat.new(actors, effects, builds)
@@ -44,7 +45,7 @@ function Combat:reload(a)
     if item.ammo >= spec.magazine or item.reserve <= 0 then return end
     a.reloading, a.reloadToken = true, a.reloadToken + 1
     local token = a.reloadToken
-    task.delay(spec.reload * (a.evolutions["Quick Hands"] and 0.78 or 1), function()
+    task.delay(spec.reload * math.max(0.73, 1 - Evolution.total(a, "QuickHands")), function()
         if not a.alive or token ~= a.reloadToken then return end
         local count = math.min(spec.magazine - item.ammo, item.reserve)
         item.ammo, item.reserve = item.ammo + count, item.reserve - count
@@ -65,7 +66,7 @@ function Combat:fire(a, direction)
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {a.model}
     local basis = CFrame.lookAt(Vector3.zero, direction.Unit)
-    local spread = math.rad(spec.spread * (a.evolutions["Hunter Eyes"] and 0.7 or 1))
+    local spread = math.rad(spec.spread * math.max(0.76, 1 - Evolution.total(a, "HunterEyes")))
     local endpoints, hitEnemy = {}, false
     for _ = 1, spec.pellets do
         local shot = (basis * CFrame.Angles(self.rng:NextNumber(-spread, spread), self.rng:NextNumber(-spread, spread), 0)).LookVector
