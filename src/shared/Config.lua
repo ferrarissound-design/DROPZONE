@@ -1,0 +1,21 @@
+-- Shared presentation/balance data. The server owns all authoritative state.
+return {
+    TargetCombatants = 12, MaxPlayers = 20,
+    Intermission = 12, ResultsTime = 12,
+    BaseHealth = 100, BaseSpeed = 18, BaseJump = 50,
+    StartEnergy = 60, MaxEnergy = 150,
+    MapHalfSize = 250, PickupRadius = 9,
+    BotInterval = 0.35, SnapshotInterval = 0.2,
+    BuildGrid = 8, BuildCooldown = 0.55, BuildLimit = 100,
+    BuildLifetime = 100, BuildCost = 20, BuildHealth = 150,
+    MaxEvolutions = 7,
+    -- Each phase holds its current circle, then contracts toward the next.
+    ZonePhases = {
+        {radius = 320, nextRadius = 220, hold = 65, shrink = 40, damage = 2},
+        {radius = 220, nextRadius = 140, hold = 45, shrink = 35, damage = 4},
+        {radius = 140, nextRadius = 75, hold = 40, shrink = 35, damage = 7},
+        {radius = 75, nextRadius = 28, hold = 30, shrink = 30, damage = 12},
+        {radius = 28, nextRadius = 0, hold = 25, shrink = 30, damage = 22},
+    },
+    SuddenDeath = 30,
+}

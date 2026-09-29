@@ -1,0 +1,123 @@
+local PathfindingService = game:GetService("PathfindingService")
+local World = require(script.Parent.World)
+local Bots = {}
+Bots.__index = Bots
+function Bots.new(actors, combat, loot, zone, world)
+    return setmetatable({actors = actors, combat = combat, loot = loot, zone = zone, world = world, jobs = 0, generation = 0, rng = Random.new()}, Bots)
+end
+function Bots:clear()
+    self.generation = self.generation + 1
+end
+function Bots:path(a, goal, now)
+    if a.pathBusy or now < (a.nextPath or 0) or self.jobs >= 2 then return end
+    a.pathBusy, a.nextPath, self.jobs = true, now + 2.5 + self.rng:NextNumber(), self.jobs + 1
+    local generation, start = self.generation, a.root.Position
+    task.spawn(function()
+        local path = PathfindingService:CreatePath({AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6})
+        local ok = pcall(function() path:ComputeAsync(start, goal) end)
+        self.jobs, a.pathBusy = self.jobs - 1, false
+        if generation ~= self.generation or not a.alive then return end
+        if ok and path.Status == Enum.PathStatus.Success then
+            a.waypoints, a.waypointIndex, a.pathGoal = path:GetWaypoints(), 2, goal
+        else
+            a.waypoints = nil
+            a.humanoid.Jump = true
+        end
+    end)
+end
+function Bots:step()
+    local alive, now = self.actors:alive(), os.clock()
+    for _, a in ipairs(alive) do
+        if not a.player and a.root.Parent then
+            local pos = a.root.Position
+            local params = RaycastParams.new()
+            params.FilterType = Enum.RaycastFilterType.Exclude
+            params.FilterDescendantsInstances = {a.model}
+            local target, distance = nil, 145
+            for _, enemy in ipairs(alive) do
+                if enemy ~= a then
+                    local d = (enemy.root.Position - pos).Magnitude
+                    if d < distance then target, distance = enemy, d end
+                end
+            end
+            local goal
+            if self.zone:outside(pos, 18) then
+                -- Zone safety always wins over chasing or looting.
+                goal = self.zone.center + Vector3.new(math.sin(a.id) * math.min(12, self.zone.radius * 0.3), 0, math.cos(a.id) * math.min(12, self.zone.radius * 0.3))
+            else
+                local armed = false
+                for slot, item in ipairs(a.inventory) do
+                    if item.ammo + item.reserve > 0 then
+                        armed = true
+                        local equipped = a.inventory[a.slot]
+                        if equipped and equipped.ammo + equipped.reserve == 0 then self.combat:equip(a, slot) end
+                        break
+                    end
+                end
+                local pickup = self.loot:nearest(a, not armed and 150 or 28)
+                if pickup then goal = pickup.Position end
+                if not goal and target then
+                    local delta = pos - target.root.Position
+                    if distance < 27 then
+                        goal = pos + (delta.Magnitude > 0.1 and delta.Unit or Vector3.xAxis) * 15
+                    else goal = target.root.Position end
+                end
+                if not goal then
+                    if not a.wander or (a.wander - pos).Magnitude < 8 or now > (a.nextWander or 0) then
+                        local radius = math.max(2, self.zone.radius * 0.55)
+                        a.wander = self.zone.center + Vector3.new(self.rng:NextNumber(-radius, radius), 0, self.rng:NextNumber(-radius, radius))
+                        a.nextWander = now + 6
+                    end
+                    goal = a.wander
+                end
+            end
+            goal = World.ground(self.world, goal) + Vector3.new(0, 3, 0)
+            if target and #a.inventory > 0 then
+                local item = a.inventory[a.slot]
+                if item.ammo <= 0 then self.combat:reload(a) end
+                local delta = target.root.Position + Vector3.new(0, 0.8, 0) - (pos + Vector3.new(0, 1.4, 0))
+                local hit = workspace:Raycast(pos + Vector3.new(0, 1.4, 0), delta, params)
+                if delta.Magnitude > 0.1 and (not hit or hit.Instance:IsDescendantOf(target.model)) then
+                    -- Deliberate aim error and low tick rate leave humans room to react.
+                    local aim = delta + Vector3.new(self.rng:NextNumber(-5, 5), self.rng:NextNumber(-2, 2), self.rng:NextNumber(-5, 5))
+                    if aim.Magnitude > 0.1 then self.combat:fire(a, aim.Unit) end
+                elseif hit and self.combat.builds.entries[hit.Instance] and delta.Magnitude > 0.1 then
+                    self.combat:fire(a, delta.Unit)
+                end
+            end
+            if now >= (a.nextStuckCheck or 0) then
+                if a.lastPosition and (pos - a.lastPosition).Magnitude < 2 and (goal - pos).Magnitude > 8 then
+                    a.stuck = (a.stuck or 0) + 1
+                    a.humanoid.Jump = true
+                    a.waypoints = nil
+                else a.stuck = 0 end
+                a.lastPosition, a.nextStuckCheck = pos, now + 1.5
+            end
+            local direction = goal - pos
+            local obstruction = direction.Magnitude > 1 and workspace:Raycast(pos, direction.Unit * math.min(12, direction.Magnitude), params)
+            if obstruction or (a.stuck or 0) > 0 then self:path(a, goal, now) end
+            local move = goal
+            if a.waypoints then
+                if a.pathGoal and (a.pathGoal - goal).Magnitude > 28 then a.waypoints = nil
+                else
+                    local waypoint = a.waypoints[a.waypointIndex]
+                    if waypoint and (waypoint.Position - pos).Magnitude < 6 then
+                        a.waypointIndex = a.waypointIndex + 1
+                        waypoint = a.waypoints[a.waypointIndex]
+                    end
+                    if waypoint then
+                        move = waypoint.Position
+                        if waypoint.Action == Enum.PathWaypointAction.Jump then a.humanoid.Jump = true end
+                    else a.waypoints = nil end
+                end
+            end
+            if (a.stuck or 0) >= 3 and not a.waypoints then
+                -- Bounded sidestep recovery, never teleport a fighting bot.
+                move = pos + Vector3.new(math.cos(now + a.id), 0, math.sin(now + a.id)) * 14
+                a.humanoid.Jump = true
+            end
+            a.humanoid:MoveTo(move)
+        end
+    end
+end
+return Bots
