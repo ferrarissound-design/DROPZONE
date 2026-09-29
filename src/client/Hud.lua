@@ -263,6 +263,7 @@ function Hud:update(s, onEvolutionPick)
     for name, button in pairs(self.buttons) do
         if name == "Spectate" then button.Visible = active and not playing
         else button.Visible = not not playing end
+        button.Active = button.Visible and draft == nil
     end
     local crouchButton, sprintButton = self.buttons.Crouch, self.buttons.Sprint
     if crouchButton then
