@@ -92,3 +92,18 @@ print('PASS: Results invalidates stale deferred Evolution work')
 
 assert 'descendant.CanCollide = false' in actors_source and 'a.root.Anchored = true' in actors_source
 print('PASS: eliminated actors are physically non-blocking and remain stable')
+
+
+movement_source = (ROOT / 'src' / 'server' / 'Movement.lua').read_text()
+assert 'function Movement.toggleCrouch(a)' in movement_source and 'function Movement.slide(a)' in movement_source
+assert 'Config.SlideCooldown' in movement_source and 'Config.SlideMinSpeed' in movement_source
+assert 'a.root.AssemblyLinearVelocity' in movement_source
+print('PASS: crouch and slide are server-authoritative with cooldown and movement gates')
+
+assert 'command == "Crouch"' in server_source and 'command == "Slide"' in server_source
+assert 'hud:button("Crouch"' in client and 'hud:button("Slide"' in client
+assert 'Enum.KeyCode.LeftControl' in client and 'Enum.KeyCode.LeftShift' in client
+print('PASS: mobile buttons and keyboard movement controls are wired')
+
+assert 'crouching = a.crouching == true' in round_source and 'slideCooldown = math.max' in round_source
+print('PASS: authoritative crouch/slide state is replicated in snapshots')
