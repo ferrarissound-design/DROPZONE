@@ -62,7 +62,8 @@ print('PASS: eliminated actors are removed from raycast and touch queries')
 
 world_source = (ROOT / 'src' / 'server' / 'World.lua').read_text()
 assert 'groundSurfaces = {}' in world_source
-assert 'params.FilterDescendantsInstances = self.groundSurfaces or {self.map}' in world_source
+assert 'params.FilterDescendantsInstances = surfaces' in world_source
+assert 'if not surfaces or #surfaces == 0 then return Vector3.new(position.X, 0, position.Z) end' in world_source
 for required in ['island', 'roadX', 'roadZ', 'hill', 'centralPad']:
     assert f'table.insert(self.groundSurfaces, {required})' in world_source
 print('PASS: ground raycasts use only designated walkable surfaces')
