@@ -267,10 +267,15 @@ local Animations=load("Animations","client/Animations.lua")
 local Presentation=load("Presentation","client/Presentation.lua")
 local audioFolder=folder(workspace,"PresentationTest")
 local audio=Audio.new(audioFolder)
-for key,spec in pairs(modules.AudioConfig) do
-    if type(spec)=="table" then check(audio:play(key)==nil,"empty audio is a safe no-op: "..key) end
-end
+-- Empty optional channels still allocate nothing.
+local savedFootstep=modules.AudioConfig.Footstep.Id
+modules.AudioConfig.Footstep.Id=""
+check(audio:play("Footstep")==nil,"empty optional audio is a safe no-op")
 check(#audio.voices==0 and #audioFolder:GetChildren()==0,"empty IDs allocate no voices or anchors")
+modules.AudioConfig.Footstep.Id=savedFootstep
+-- Reviewed configured cues normalize numeric Creator Store IDs.
+check(Audio.asset(modules.AudioConfig.RifleFire.Id)=="rbxassetid://9114727096","configured rifle sound normalizes")
+check(Audio.asset(modules.AudioConfig.EvolutionApplied.Id)=="rbxassetid://9119902088","configured evolution sound normalizes")
 for _,id in ipairs({"", "bogus", "rbxassetid://0", "-20"}) do check(Audio.asset(id)==nil,"invalid ID skipped") end
 -- Synthetic ID only in the test double; never shipped as an asset setting.
 modules.AudioConfig.Button.Id="123"
