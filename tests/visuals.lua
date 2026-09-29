@@ -70,12 +70,13 @@ local tweens={Create=function(_,_,_,_) return {Play=function() end,Cancel=functi
 game={ReplicatedStorage={DropzoneShared={VisualTheme="VisualTheme",Rules="Rules",Config="Config",Weapons="Weapons"}},GetService=function(_,name)
     return ({Players={LocalPlayer=player},TweenService=tweens,ReplicatedStorage=replicated})[name]
 end}
-script={Parent={Cosmetics="Cosmetics",MapVisuals="MapVisuals"}}
+script={Parent={Cosmetics="Cosmetics",MapVisuals="MapVisuals",Movement="Movement"}}
 local Theme=load("VisualTheme","shared/VisualTheme.lua")
 load("Config","shared/Config.lua");load("Rules","shared/Rules.lua");load("Weapons","shared/Weapons.lua")
 for _,key in ipairs(shared:GetChildren()) do modules[key]=modules[key.Name] end
 local Cosmetics=load("Cosmetics","server/Cosmetics.lua")
 local MapVisuals=load("MapVisuals","server/MapVisuals.lua")
+load("Movement","server/Movement.lua")
 local Actors=load("Actors","server/Actors.lua")
 local World=load("World","server/World.lua")
 -- Eliminated bodies remain visible but leave weapon/LOS query space immediately.
