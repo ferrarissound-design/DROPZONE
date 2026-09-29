@@ -21,19 +21,26 @@ local nextJumpRequest = 0
 local function playing()
     return state and (state.phase == "Active" or state.phase == "FinalZone") and state.me and state.me.alive
 end
+local function gameplayInput()
+    return playing() and not state.me.evolutionDraft
+end
 local function send(command, argument)
-    if playing() then action:FireServer(state.roundId, command, argument) end
+    if playing() and (not state.me.evolutionDraft or command == "Evolve" or (command == "Sprint" and argument == false)) then
+        action:FireServer(state.roundId, command, argument)
+    end
 end
 local function cancelAim()
     presentation:cancelAim()
 end
 local function build()
+    if not gameplayInput() then return end
     cancelAim()
     send("Build", buildType)
 end
 local fire = hud:button("Fire", "射撃", 784, 190, 82, 82)
 fire.BackgroundColor3, fire.TextColor3 = Theme.Orange, Theme.Ink
 fire.InputBegan:Connect(function(input)
+    if not gameplayInput() then return end
     if input.UserInputType == Enum.UserInputType.Touch then
         touchFire, shooting = input, true
         presentation:setCombatAim(true)
@@ -74,9 +81,9 @@ local function mouseOnEvolutionCard(input)
     return false
 end
 UserInputService.InputBegan:Connect(function(input, processed)
-    if processed or (input.UserInputType == Enum.UserInputType.MouseButton1 and mouseOnEvolutionCard(input)) then return end
+    if processed or not gameplayInput() or (input.UserInputType == Enum.UserInputType.MouseButton1 and mouseOnEvolutionCard(input)) then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true
-    elseif input.UserInputType == Enum.UserInputType.MouseButton2 and playing() then
+    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
         presentation:setAimHeld(true)
         if state.me.sprinting then send("Sprint", false) end
     end
@@ -110,7 +117,7 @@ UserInputService.WindowFocusReleased:Connect(function()
 end)
 UserInputService.JumpRequest:Connect(function()
     -- Do not wait for a posture snapshot before cancelling a just-started slide.
-    if playing() and os.clock() >= nextJumpRequest then
+    if gameplayInput() and os.clock() >= nextJumpRequest then
         nextJumpRequest = os.clock() + .15
         send("Jump")
     end
@@ -122,7 +129,7 @@ local function aim()
     local center = hud.crosshair.AbsolutePosition + hud.crosshair.AbsoluteSize / 2
     -- Aim uses the camera before cosmetic recoil. Restore the displayed frame immediately.
     local displayFrame = camera.CFrame
-    if presentation.applied then camera.CFrame = displayFrame*presentation.applied:Inverse() end
+    if presentation.camera == camera and presentation.applied then camera.CFrame = displayFrame*presentation.applied:Inverse() end
     local ray = camera:ScreenPointToRay(center.X, center.Y)
     camera.CFrame = displayFrame
     local params = RaycastParams.new()
@@ -166,7 +173,10 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     end
     state = s
     presentation:snapshot(s)
-    if not playing() then shooting, touchFire = false, nil end
+    if not gameplayInput() then
+        shooting, touchFire = false, nil
+        cancelAim()
+    end
     if s.phase ~= "Active" and s.phase ~= "FinalZone" then damageFeedback:clear() end
     local draft = s.me and s.me.evolutionDraft
     if not draft or draft.id ~= submittedEvolutionDraft then submittedEvolutionDraft = nil end
@@ -195,7 +205,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     end
 end)
 remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId, roundId)
-    if kind == "Notice" then hud:toast(a)
+    if kind == "Notice" and state and a == state.roundId then hud:toast(b)
     elseif kind == "Pickup" and playing() and a == state.roundId then
         presentation.audio:play(b == "Epic" and "EpicPickup" or b == "Rare" and "RarePickup" or "Pickup")
     elseif kind == "SlideSound" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
@@ -236,7 +246,7 @@ RunService.RenderStepped:Connect(function()
     if playing() and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     else UserInputService.MouseBehavior = Enum.MouseBehavior.Default end
-    if shooting and playing() and os.clock() >= nextShot then
+    if shooting and gameplayInput() and os.clock() >= nextShot then
         local spec = Weapons[state.me.weapon]
         if spec then
             nextShot = os.clock() + spec.interval
