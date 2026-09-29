@@ -40,6 +40,7 @@ end
 function Actors:eliminate(a, killer)
     if not a.alive then return end
     a.alive = false
+    Movement.reset(a)
     a.rank = #self:alive() + 1
     a.survival = math.max(0, os.clock() - a.startTime)
     a.reloading, a.reloadToken = false, a.reloadToken + 1
@@ -58,8 +59,9 @@ function Actors:eliminate(a, killer)
     if self.onDeath then self.onDeath(a, killer) end
 end
 function Actors:damage(a, amount, attacker, bypass)
-    if not a or not a.alive or amount <= 0 then return end
-    local hp, shield, actual = Rules.resolveDamage(a.humanoid.Health, a.shield, amount, bypass)
+    if not a or not a.alive or amount <= 0 then return 0, 0 end
+    local beforeHp, beforeShield = a.humanoid.Health, a.shield
+    local hp, shield, actual = Rules.resolveDamage(beforeHp, beforeShield, amount, bypass)
     a.shield, a.lastDamage = shield, os.clock()
     if attacker and attacker ~= a and attacker.alive then
         attacker.damage = attacker.damage + actual
@@ -73,6 +75,7 @@ function Actors:damage(a, amount, attacker, bypass)
     else
         a.humanoid.Health = hp
     end
+    return beforeHp - hp, beforeShield - shield
 end
 function Actors:fromPart(p)
     while p and p ~= workspace do
@@ -83,6 +86,8 @@ end
 function Actors:clear()
     for _, c in ipairs(self.connections) do c:Disconnect() end
     for _, a in ipairs(self.list) do
+        Movement.reset(a)
+        a.inventory, a.ammo = {}, 0
         a.alive, a.reloadToken = false, a.reloadToken + 1
         a.evolutionDraft, a.queuedDrafts = nil, 0
         a.draftVersion = (a.draftVersion or 0) + 1

@@ -55,7 +55,7 @@ local function refreshStats(a)
     local swift = Evolution.total(a, "SwiftLegs")
     local adrenaline = Evolution.rank(a, "Adrenaline") > 0 and os.clock() < (a.adrenalineUntil or 0)
         and Evolution.total(a, "Adrenaline") or 0
-    a.humanoid.WalkSpeed = Config.BaseSpeed * (1 + swift + adrenaline) * Movement.speedMultiplier(a)
+    a.humanoid.WalkSpeed = math.min(Config.MaxMoveSpeed, Config.BaseSpeed * (1 + swift + adrenaline) * Movement.speedMultiplier(a))
     a.humanoid.UseJumpPower = true
     a.humanoid.JumpPower = Movement.canJump(a) and Config.BaseJump * (1 + Evolution.total(a, "HighJump")) or 0
     Movement.applyPosture(a)

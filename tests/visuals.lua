@@ -61,18 +61,18 @@ local function folder(parent,name) local f=Instance.new("Folder");f.Name,f.Paren
 workspace=folder(nil,"Workspace")
 local replicated=folder(nil,"ReplicatedStorage")
 local shared=folder(replicated,"DropzoneShared")
-for _,name in ipairs({"VisualTheme","Rules","Config","Weapons"}) do
+for _,name in ipairs({"VisualTheme","Rules","Config","Weapons","WeaponStats"}) do
     local key=folder(shared,name);modules[key]=nil
 end
 local playerGui=folder(nil,"PlayerGui")
 local player={WaitForChild=function() return playerGui end}
 local tweens={Create=function(_,_,_,_) return {Play=function() end,Cancel=function() end} end}
-game={ReplicatedStorage={DropzoneShared={VisualTheme="VisualTheme",Rules="Rules",Config="Config",Weapons="Weapons"}},GetService=function(_,name)
+game={ReplicatedStorage={DropzoneShared={VisualTheme="VisualTheme",Rules="Rules",Config="Config",Weapons="Weapons",WeaponStats="WeaponStats"}},GetService=function(_,name)
     return ({Players={LocalPlayer=player},TweenService=tweens,ReplicatedStorage=replicated})[name]
 end}
 script={Parent={Cosmetics="Cosmetics",MapVisuals="MapVisuals",Movement="Movement"}}
 local Theme=load("VisualTheme","shared/VisualTheme.lua")
-load("Config","shared/Config.lua");load("Rules","shared/Rules.lua");load("Weapons","shared/Weapons.lua")
+load("Config","shared/Config.lua");load("Rules","shared/Rules.lua");load("Weapons","shared/Weapons.lua");load("WeaponStats","shared/WeaponStats.lua")
 for _,key in ipairs(shared:GetChildren()) do modules[key]=modules[key.Name] end
 local Cosmetics=load("Cosmetics","server/Cosmetics.lua")
 local MapVisuals=load("MapVisuals","server/MapVisuals.lua")
@@ -155,9 +155,98 @@ check(rightEdge==616 and rightEdge<632,"draft stays left of existing right contr
 for _,card in ipairs(hud.draftCards) do
     check(card.Position.Y.Offset+card.Size.Y.Offset<=hud.draft.Size.Y.Offset,"card remains within bounded touch region")
 end
+hud:button("Sprint", "", 0,0,1,1)
+hud:button("Crouch", "", 0,0,1,1)
+me.rarity="Epic";me.sprinting=true;me.slideCooldown=0
+hud:update(s)
+check(hud.ammo.Text:find("Epic",1,true) and hud.ammo.TextColor3==Theme.Purple,"equipped rarity is labeled and colored")
+check(hud.buttons.Sprint.Text=="走行中" and hud.buttons.Crouch.Text=="スライド","posture button follows server sprint state")
 s.me.alive=false;hud:update(s);check(not hud.draft.Visible,"death closes decorated draft")
+check(not hud.buttons.Sprint.Visible and not hud.buttons.Crouch.Visible,"death hides movement controls")
 s.phase="Results";s.winner="Drone";s.me.rank=1;hud:update(s);check(hud.result.Visible and hud.result.RichText,"result renders with hierarchy")
 s.roundId=2;s.me=nil;s.phase="Intermission";hud:update(s)
 check(not hud.draft.Visible and hud.hpBar.Size.X.Scale==0 and hud.energyBar.Size.X.Scale==0,"new round clears visuals/bars")
 local old=hud.gui;Hud.new();check(old.Parent==nil,"HUD reconstruction does not duplicate UI")
 print("PASS: "..assertions.." visual constructor / cleanup assertions; map cosmetics="..mapCount)
+
+-- Fixed damage pool never allocates per hit, including repeated shotgun bursts.
+local DamageFeedback=load("DamageFeedback","client/DamageFeedback.lua")
+local fxRoot=folder(workspace,"Feedback")
+local feedback=DamageFeedback.new(fxRoot)
+local before=#fxRoot:GetDescendants()
+local damage={{position=Vector3.new(0,0,0),hp=12,shield=5}}
+for i=1,100 do feedback:show(damage,10) end
+check(#feedback.slots==8 and #fxRoot:GetDescendants()==before,"damage feedback stays at eight reusable slots")
+check(feedback.slots[feedback.cursor].hp.Text=="HP −12" and feedback.slots[feedback.cursor].shield.Text=="◇ −5",
+    "HP and Shield loss have distinct labels")
+feedback:step(11)
+local visible=0;for _,slot in ipairs(feedback.slots) do if slot.gui.Enabled then visible=visible+1 end end
+check(visible==0,"damage numbers expire without timer callbacks")
+feedback:show(damage,12);feedback:clear();feedback:step(12.1)
+check(not feedback.slots[1].gui.Enabled and feedback.cursor==0,"round change clears feedback immediately")
+for _,slot in ipairs(feedback.slots) do
+    check(not slot.anchor.CanCollide and not slot.anchor.CanTouch and not slot.anchor.CanQuery,"feedback anchors never enter physics/rays")
+end
+
+-- Execute actual Loot spawn/claim/cleanup with deterministic rarity.
+script.Parent.World="World";script.Parent.Evolution="Evolution"
+modules.Evolution={maxEnergy=function() return 150 end,total=function() return 0 end}
+local Loot=load("Loot","server/Loot.lua")
+vec.__index=function(a,k) if k=="Magnitude" then return math.sqrt(a.X*a.X+a.Y*a.Y+a.Z*a.Z) end;return vec[k] end
+local lootWorld={dynamic=folder(workspace,"LootRound"),groundSurfaces={},loot={},spawns={}}
+local rewards=0
+local loot=Loot.new(lootWorld,{give=function(_,a,kind,rarity) rewards=rewards+1;a.received=rarity;return true end},{FireClient=function() end})
+loot.rng={NextNumber=function() return .97 end}
+loot:spawn(Vector3.new(0,0,0),"Rifle")
+local pickup,entry=next(loot.items);pickup.Position=Vector3.new(0,0,0)
+check(entry.rarity=="Epic" and pickup.RarityFootprint.CanQuery==false,"server-generated rarity has a harmless glow footprint")
+local looter={alive=true,inventory={},root={Position=Vector3.new(30,0,0)},humanoid={Health=100,MaxHealth=100}}
+loot:pickup(looter);check(rewards==0,"loot distance enforced before rarity reward")
+looter.root.Position=Vector3.new(0,0,0);loot:pickup(looter);loot:pickup(looter)
+check(rewards==1 and looter.received=="Epic" and pickup.Parent==nil,"duplicate pickup cannot award twice; visuals deleted")
+loot:spawn(Vector3.new(0,0,0),"Pistol",true)
+local starter,startEntry=next(loot.items)
+check(startEntry.rarity=="Common","insertion weapons always use common tier")
+loot:clear()
+check(next(loot.items)==nil and #loot.folder:GetChildren()==0,"loot rarity state and cosmetic roots cleared together")
+
+-- Auto pickup must never delete loot that gives this actor no benefit.
+looter.inventory={{kind="Rifle",rarity="Epic",ammo=28,reserve=240}}
+loot:spawn(Vector3.new(0,0,0),"Rifle",true)
+local uselessWeapon=next(loot.items);uselessWeapon.Position=Vector3.new(0,0,0)
+local rewardsBefore=rewards
+loot:pickup(looter)
+check(loot.items[uselessWeapon]~=nil and uselessWeapon.Parent~=nil and rewards==rewardsBefore,
+    "full-ammo higher-tier owner leaves useless lower-tier weapon for another player")
+loot:clear()
+
+looter.inventory={{kind="Rifle",rarity="Common",ammo=28,reserve=240}}
+loot.rng={NextNumber=function() return .97 end}
+loot:spawn(Vector3.new(0,0,0),"Rifle")
+local upgrade=next(loot.items);upgrade.Position=Vector3.new(0,0,0)
+loot:pickup(looter)
+check(loot.items[upgrade]==nil and upgrade.Parent==nil and looter.received=="Epic",
+    "higher-tier weapon remains useful even when reserve ammo is already full")
+loot:clear()
+
+looter.inventory={{kind="Rifle",rarity="Common",ammo=28,reserve=240}}
+loot:spawn(Vector3.new(0,0,0),"Ammo")
+local fullAmmo=next(loot.items);fullAmmo.Position=Vector3.new(0,0,0)
+loot:pickup(looter)
+check(loot.items[fullAmmo]~=nil and fullAmmo.Parent~=nil,
+    "full reserves do not consume shared ammo loot")
+looter.inventory[1].reserve=200
+loot:pickup(looter)
+check(loot.items[fullAmmo]==nil and looter.inventory[1].reserve==230,
+    "ammo becomes useful again as soon as one weapon has reserve capacity")
+loot:clear()
+
+looter.inventory={}
+looter.humanoid.Health=50
+loot:spawn(Vector3.new(0,0,0),"Health")
+local healthPickup=next(loot.items);healthPickup.Position=Vector3.new(0,0,0)
+loot:pickup(looter)
+check(loot.items[healthPickup]==nil and looter.humanoid.Health==85,
+    "unarmed actors can still collect useful health loot")
+loot:clear()
+print("PASS: "..assertions.." total visual/pickup/pool assertions")

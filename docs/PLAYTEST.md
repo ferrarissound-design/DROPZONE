@@ -90,3 +90,23 @@ Offlineでは `python3 tests/run.py` を実行。809 assertionsはゾーン時�
 装飾予算：Map追加193Part、武器4/5/6Part、Drone追加7Part、消耗品Loot3Part、武器Loot4〜6Part、建築追加2Part/個（上限時200Part）。すべてイベント時/初期化時の生成で、毎Frame生成・追加Particle・追加Light・外部Meshなし。描画負荷はゼロではないため、実測で公開可否を決めてください。
 
 `tests/visuals.lua` は実コンストラクタをengine doubleで実行し、装飾フラグ、Part数、持替え/破棄、Drone本体寸法、HUDバーとDraft終了、UI再生成を確認します。536 assertionsは各Partの反復検査を含みます。描画・物理・タッチの再現テストではありません。
+
+## Movement / Rarity / Combat Feel（Studio・実機未確認）
+
+- [ ] ShiftでSprint、CtrlでSlide→Crouch、CtrlでStand。SpaceでSlide/Crouch解除。Shiftが標準Shift Lockを動かさない。
+- [ ] スマホ「走る」「しゃがみ/スライド」を、移動Stick・Fire・標準Jumpと同時操作。16:9と狭い横画面でDraft/Build/Reload/Slotとの重なり・誤操作なし。
+- [ ] 空中/死亡/ResultsでSprint・Slide要求を拒否。フォーカス喪失でSprint解除。Sprint→Jump→着地後の再入力が自然。
+- [ ] 平地/Hill/Build RampでSlideが減速し、壁へ押し続けない。0.65秒後に滑走が残らず、Jump取消でも2.1秒の再使用待ちは残る。
+- [ ] Swift Legs III + Adrenaline IIIでもWalkSpeed32以下。Draft中の選択・Auto Pickで速度/姿勢が崩れない。
+- [ ] 同じRifleのCommon/Rare/EpicでDamage・連射間隔・弾倉数が同じ、Reload/Spreadだけ少し改善する。
+- [ ] Common→Epicの自動更新、Epic→Commonで非降格。装填中の更新で古いコールバックが弾を増やさない。
+- [ ] 同時に2人が同じLootへ入っても1回だけ取得。BOTもレア武器を拾い、射撃/Reloadできる。
+- [ ] レア度マーカーとラベルが地面や草と区別できる。足元マークは非衝突・非Raycast。取得・Resetで消える。
+- [ ] 命中時だけHP/Shield数値。Shotgunが7枚の数字を乱発せず、過剰ダメージを表示しない。ミス/建築への命中では敵ダメージ数字なし。
+- [ ] 撃破フラッシュ→Evolutionカード、最後の撃破→Victoryが読める。古いroundIdの数値は表示されない。
+- [ ] 2試合連続でSprint/Slide/Crouch、Inventory rarity、Loot rarity、数値表示、Tween、HUDが残らない。
+- [ ] BOT11 + 最大Build + 全Loot時の実機FPS/メモリ、ダメージ表示連発でも表示枠8個以下。高Pingでも滑走終了とサーバー速度が一致する。
+
+自動検証：既存を含む870 gameplay assertions、558 visual/pickup/pool assertions、全Lua構文、UI矩形の非重複、Movement RemoteのRound/Alive共通ガード。件数にはPartやゾーンの反復チェックを含みます。標準Stick/Jumpのエンジン配置は矩形テストの対象外です。
+
+Mantle拡張案：前方の低い障害物をサーバーRaycastで確認し、上面・頭上空間・着地のCapsule相当範囲とZone/Map境界を検証。Build Wallと動的物体を除外し、短いCooldownと移動距離上限を設ける。現行の所有権/斜面/低い遮蔽物で安全な検証ができるまでは実装しません。

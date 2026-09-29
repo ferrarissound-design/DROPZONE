@@ -30,7 +30,7 @@ Color3 = {fromRGB = function(...) return {...} end, fromHSV = function(...) retu
 local fakeCF
 fakeCF = setmetatable({}, {__mul=function() return fakeCF end})
 CFrame = {new=function() return fakeCF end}
-Enum = {Material={Neon="Neon"}}
+Enum = {Material={Neon="Neon",Air="Air"}}
 Instance = {new=function(kind)
     local value = {ClassName=kind, children={}}
     return setmetatable(value, {__newindex=function(t,k,v)
@@ -41,12 +41,13 @@ end}
 local delayed = {}
 task = {delay = function(_, f) table.insert(delayed,f) end, defer = function(f) f() end}
 local players = {GetPlayers = function() return {} end}
-game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons", VisualTheme="VisualTheme"}}, GetService=function(_, name) if name=="Players" then return players end end}
+game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons", VisualTheme="VisualTheme", WeaponStats="WeaponStats"}}, GetService=function(_, name) if name=="Players" then return players end end}
 script = {Parent = {World="World", Actors="Actors", Evolution="Evolution", Movement="Movement", Cosmetics="Cosmetics", MapVisuals="MapVisuals"}}
 local Config = load("Config", "shared/Config.lua")
 local Rules = load("Rules", "shared/Rules.lua")
 load("Weapons", "shared/Weapons.lua")
 load("VisualTheme", "shared/VisualTheme.lua")
+local WeaponStats = load("WeaponStats", "shared/WeaponStats.lua")
 load("Cosmetics", "server/Cosmetics.lua")
 load("MapVisuals", "server/MapVisuals.lua")
 local Movement = load("Movement", "server/Movement.lua")
@@ -112,7 +113,7 @@ local function actor(id)
         for _, p in pairs(self.parts) do table.insert(result,p) end
         return result
     end
-    local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100,WalkSpeed=Config.BaseSpeed,JumpPower=Config.BaseJump,HipHeight=2,AutoRotate=true},shield=0,kills=0,damage=0,
+    local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100,WalkSpeed=Config.BaseSpeed,JumpPower=Config.BaseJump,HipHeight=2,AutoRotate=true,FloorMaterial="Grass"},shield=0,kills=0,damage=0,
         reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},evolutionStacks={},evolutionHistory={},
         queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),root={Parent=true,Position=Vector3.zero,Anchored=false,AssemblyLinearVelocity=Vector3.new(10,0,0)},model=model}
     function a.model:Destroy() self.Parent=false end
@@ -128,13 +129,14 @@ check(Movement.speedMultiplier(mover)==Config.CrouchSpeedMultiplier and not Move
 mover.nextCrouch=0
 check(Movement.toggleCrouch(mover) and not mover.crouching,
     "second accepted crouch command returns to standing")
-mover.root.AssemblyLinearVelocity=Vector3.new(10,0,0); mover.nextSlide=0
+mover.root.AssemblyLinearVelocity=Vector3.new(24,0,0); mover.nextSlide=0
+check(Movement.sprint(mover,true), "grounded actor can begin sprint")
 check(Movement.slide(mover) and mover.sliding and mover.root.AssemblyLinearVelocity.Magnitude>=Config.SlideSpeed,
     "moving actor receives a bounded server slide impulse")
 check(not Movement.slide(mover), "slide cooldown rejects repeated activation")
 mover.slideUntil=os.clock()-1; Movement.step(mover)
-check(not mover.sliding and mover.humanoid.AutoRotate and mover.humanoid.HipHeight==mover.baseHipHeight,
-    "slide timeout restores standing posture")
+check(not mover.sliding and mover.humanoid.AutoRotate and mover.crouching and mover.humanoid.HipHeight<mover.baseHipHeight,
+    "slide timeout enters crouch and restores rotation")
 
 -- Evolution Draft offers are server-created, three distinct options from mixed build categories.
 local drafter=actor(31); drafter.player={}; drafter.roundId=41
@@ -376,3 +378,96 @@ check(botService.jobs==1,"stale path completion cannot decrement the current gen
 queuedPaths[2]()
 check(botService.jobs==0,"current generation path completion releases its worker exactly once")
 print("PASS: " .. count .. " total regression assertions including release UI checks")
+
+-- Movement transitions use the actual service; no delayed slide callbacks survive a round.
+actors = Actors.new()
+local runner = actor(900)
+Movement.initialize(runner)
+check(not Movement.slide(runner), "walking alone cannot trigger slide")
+check(Movement.sprint(runner,true) and not Movement.sprint(runner,true), "sprint accepts one start and rejects spam")
+check(Movement.sprint(runner,false) and not Movement.sprint(runner,true), "release always works and start cooldown remains")
+runner.nextSprint=0; runner.humanoid.FloorMaterial=Enum.Material.Air
+check(not Movement.sprint(runner,true), "airborne sprint is rejected")
+runner.humanoid.FloorMaterial="Grass"; Movement.sprint(runner,true)
+runner.evolutionStacks={SwiftLegs=3,Adrenaline=3};runner.adrenalineUntil=os.clock()+5
+Evolution.refresh(runner)
+check(runner.humanoid.WalkSpeed<=Config.MaxMoveSpeed and runner.humanoid.WalkSpeed>Config.BaseSpeed,
+    "Swift Legs plus Adrenaline plus sprint remains capped")
+runner.root.AssemblyLinearVelocity=Vector3.new(999,0,0)
+check(Movement.slide(runner) and runner.root.AssemblyLinearVelocity.Magnitude==Config.SlideSpeed,
+    "slide never amplifies an untrusted root velocity")
+runner.slideUntil=os.clock()+Config.SlideDuration/2;Movement.step(runner)
+check(runner.root.AssemblyLinearVelocity.Magnitude<Config.SlideSpeed,"flat slide progressively decelerates")
+check(Movement.jump(runner) and not runner.sliding and not runner.crouching and runner.nextSlide>os.clock(),
+    "jump cancels slide but cannot reset its cooldown")
+Evolution.refresh(runner)
+check(runner.humanoid.JumpPower>0,"jump cancel restores evolved jump strength")
+runner.sprinting=true;runner.humanoid.FloorMaterial=Enum.Material.Air;Movement.step(runner)
+check(not runner.sprinting,"leaving ground cancels sprint")
+runner.humanoid.FloorMaterial="Grass";runner.nextSprint=0;Movement.sprint(runner,true)
+actors:eliminate(runner)
+check(not runner.sprinting and not runner.sliding and not Movement.sprint(runner,true),"death clears and rejects movement")
+local nextRunner=actor(901);Movement.initialize(nextRunner)
+check(Movement.sprint(nextRunner,true),"fresh second-round actor can sprint")
+local movementRound=Round.new({actors=actors,effects={FireClient=function() end}})
+movementRound.started=os.clock();movementRound:finish()
+check(not nextRunner.sprinting and not nextRunner.sliding and nextRunner.roundId==-1,"Results clears movement and invalidates round")
+
+-- Rarity is stored in the inventory, while all high-impact gun stats stay equal.
+local rarities={"Common","Rare","Epic"}
+for _,kind in ipairs({"Pistol","Rifle","Shotgun"}) do
+    local common=WeaponStats.get(kind,"Common")
+    for _,rarity in ipairs(rarities) do
+        local spec=WeaponStats.get(kind,rarity)
+        check(spec.damage==common.damage and spec.interval==common.interval and spec.magazine==common.magazine and spec.range==common.range,
+            "rarity cannot raise damage, fire rate, magazine or range")
+        check(spec.reload>=common.reload*.92 and spec.spread>=common.spread*.88,"rarity handling bonuses stay bounded")
+    end
+end
+for _,roll in ipairs({{0,"Common"},{.719,"Common"},{.72,"Rare"},{.939,"Rare"},{.94,"Epic"},{.999,"Epic"}}) do
+    check(WeaponStats.roll({NextNumber=function() return roll[1] end})==roll[2],"rarity loot weights")
+end
+local collector=actor(902);collector.slot=1
+local rarityCombat=Combat.new(actors,{FireClient=function() end},nil)
+rarityCombat.visual=function() end
+check(not rarityCombat:give(collector,"Pistol","Legendary"),"unknown rarity cannot enter inventory")
+rarityCombat:give(collector,"Pistol","Rare");collector.inventory[1].ammo=2;collector.ammo=2
+rarityCombat:reload(collector);local oldReload=delayed[#delayed]
+rarityCombat:give(collector,"Pistol","Epic");oldReload()
+check(collector.inventory[1].rarity=="Epic" and collector.ammo==2 and not collector.reloading,
+    "upgrade preserves magazine and invalidates stale reload")
+rarityCombat:give(collector,"Pistol","Common")
+check(#collector.inventory==1 and collector.inventory[1].rarity=="Epic","duplicate lower-tier pickup never downgrades or adds a slot")
+rarityCombat:reload(collector);delayed[#delayed]()
+check(collector.inventory[1].ammo==12,"BOT-compatible rarity inventory can reload normally")
+actors:clear()
+check(#collector.inventory==0 and collector.ammo==0,"reset discards rarity inventory")
+
+-- Actual fire -> raycast -> damage resolution -> bounded confirmation payload.
+actors=Actors.new()
+local shooter,victim=actor(910),actor(911)
+shooter.player={Parent=true};shooter.roundId=77;shooter.slot=1;shooter.nextShot=0
+shooter.inventory={{kind="Shotgun",rarity="Epic",ammo=6,reserve=24}};shooter.ammo=6
+victim.humanoid.Health,victim.shield=20,30
+actors.byModel[victim.model]=victim;actors.byPlayer[shooter.player]=shooter
+local messages={}
+local shotCombat=Combat.new(actors,{FireClient=function(_,player,kind,...) messages[#messages+1]={player=player,kind=kind,args={...}} end},nil)
+Enum.RaycastFilterType={Exclude="Exclude"};RaycastParams={new=function() return {} end}
+typeof=function(value) return getmetatable(value)==vec and "Vector3" or type(value) end
+fakeCF.LookVector=Vector3.new(1,0,0);CFrame.lookAt=function() return fakeCF end;CFrame.Angles=function() return fakeCF end
+workspace={Raycast=function() return {Instance={Parent=victim.model},Distance=10,Position=victim.root.Position} end}
+shotCombat:fire(shooter,Vector3.new(1,0,0))
+local confirmed
+for _,event in ipairs(messages) do if event.kind=="Damage" then confirmed=event end end
+check(confirmed and confirmed.player==shooter.player and confirmed.args[1]==77 and #confirmed.args[2]==1,
+    "shotgun aggregates pellets per victim and confirms damage to shooter only with roundId")
+check(math.abs(confirmed.args[2][1].hp-20)<.0001 and math.abs(confirmed.args[2][1].shield-30)<.0001 and confirmed.args[2][1].eliminated,
+    "damage feedback contains actual HP/Shield losses, not overkill")
+local eventCount=#messages
+shotCombat:fire(shooter,Vector3.new(1,0,0))
+check(#messages==eventCount and shooter.ammo==5,"fire spam cannot generate extra damage feedback")
+shooter.nextShot=0;workspace.Raycast=function() return nil end
+messages={};shotCombat:fire(shooter,Vector3.new(1,0,0))
+local damageEvents=0;for _,event in ipairs(messages) do if event.kind=="Damage" then damageEvents=damageEvents+1 end end
+check(damageEvents==0,"misses never produce a damage number")
+print("PASS: "..count.." total gameplay assertions including movement, rarity and confirmed combat")

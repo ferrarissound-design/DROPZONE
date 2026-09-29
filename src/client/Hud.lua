@@ -3,6 +3,7 @@ local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Rules = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("Rules"))
 local Theme = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("VisualTheme"))
+local WeaponStats = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("WeaponStats"))
 local Hud = {}
 Hud.__index = Hud
 local white = Theme.Paper
@@ -185,11 +186,21 @@ function Hud:toast(text)
     self.notice.Text, self.notice.Visible = text, true
     self.noticeUntil = os.clock() + 3
 end
+function Hud:eliminated()
+    self:toast("ELIMINATED  ·  撃破して進化")
+    self.eliminationUntil = os.clock() + .6
+    if self.eliminationTween then self.eliminationTween:Cancel() end
+    self.notice.BackgroundColor3 = Theme.Paper
+    self.eliminationTween = TweenService:Create(self.notice, TweenInfo.new(.25), {BackgroundColor3=Theme.Gold})
+    self.eliminationTween:Play()
+end
 function Hud:update(s, onEvolutionPick)
     if self.roundId ~= s.roundId then
         self.roundId = s.roundId
         self.submittedDraftId, self.submittedChoice, self.previousMe = nil, nil, nil
-        self.guideUntil = nil
+        self.guideUntil, self.eliminationUntil = nil, nil
+        if self.eliminationTween then self.eliminationTween:Cancel(); self.eliminationTween = nil end
+        self.notice.BackgroundColor3 = Theme.Gold
         if self.pickTween then self.pickTween:Cancel(); self.pickTween = nil end
         if self.damageTween then self.damageTween:Cancel(); self.damageTween = nil end
         self.stats.BackgroundColor3 = Theme.Ink
@@ -207,7 +218,7 @@ function Hud:update(s, onEvolutionPick)
             self.damageTween = TweenService:Create(self.stats, TweenInfo.new(0.35), {BackgroundColor3=Theme.Ink})
             self.damageTween:Play()
         end
-        if me.kills > previous.kills then self:toast("ELIMINATED  +" .. (me.kills - previous.kills) .. " KILL")
+        if me.kills > previous.kills and os.clock() >= (self.eliminationUntil or 0) then self:eliminated()
         elseif me.evolutions > previous.evolutions then self:toast("EVOLVED  ·  EVOLUTION " .. me.evolutions) end
     end
     self.previousMe = me
@@ -227,8 +238,9 @@ function Hud:update(s, onEvolutionPick)
     -- One prominent ability on the compact HUD; the result retains the three-item build.
     self.evo.Text = me and string.format('<font size="17"><b>EVOLUTION %d</b></font>\n%s', me.evolutions, build[1] or "撃破で能力獲得") or "EVOLUTION 0"
     self.energy.Text = "BUILD ENERGY " .. (me and me.energy or 0)
-    self.ammo.Text = me and me.weapon and string.format('<font size="13">%s</font>  <font size="27"><b>%d</b></font><font size="14"> / %d%s</font>',
-        string.upper(me.weapon), me.ammo, me.reserve, me.reloading and " 装填中" or "") or "光る武器に近づいて拾おう"
+    self.ammo.Text = me and me.weapon and string.format('<font size="12">%s</font>  <font size="25"><b>%d</b></font><font size="14"> / %d%s</font>',
+        string.upper(me.weapon) .. " · " .. (me.rarity or "Common"), me.ammo, me.reserve, me.reloading and " 装填中" or "") or "光る武器に近づいて拾おう"
+    self.ammo.TextColor3 = me and me.weapon and WeaponStats.rarities[me.rarity or "Common"].color or white
     self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
     self.hint.Text = playing and os.clock() < (self.guideUntil or 0)
         and "武器を拾え → 撃破して進化 → 最後の1人へ" or "安全地帯に残れ · 撃破で3択Evolution"
@@ -252,21 +264,24 @@ function Hud:update(s, onEvolutionPick)
         if name == "Spectate" then button.Visible = active and not playing
         else button.Visible = not not playing end
     end
-    local crouchButton, slideButton = self.buttons.Crouch, self.buttons.Slide
+    local crouchButton, sprintButton = self.buttons.Crouch, self.buttons.Sprint
     if crouchButton then
-        crouchButton.Text = me and me.crouching and "立つ" or "しゃがみ"
-        crouchButton.BackgroundColor3 = me and me.crouching and Theme.Cyan or Theme.Ink
-        crouchButton.TextColor3 = me and me.crouching and Theme.Ink or white
-    end
-    if slideButton then
         local cooldown = me and me.slideCooldown or 0
-        slideButton.Text = me and me.sliding and "滑走中" or (cooldown > 0.05 and string.format("スライド\n%.1f", cooldown) or "スライド")
-        slideButton.BackgroundColor3 = me and me.sliding and Theme.Orange or Theme.Ink
-        slideButton.TextColor3 = me and me.sliding and Theme.Ink or white
+        crouchButton.Text = me and me.sliding and "滑走中" or me and me.crouching and "立つ"
+            or me and me.sprinting and (cooldown > 0.05 and string.format("スライド %.1f",cooldown) or "スライド") or "しゃがみ"
+        crouchButton.BackgroundColor3 = me and (me.crouching or me.sliding) and Theme.Blue or Theme.Ink
+    end
+    if sprintButton then
+        sprintButton.Text = me and me.sprinting and "走行中" or "走る"
+        sprintButton.BackgroundColor3 = me and me.sprinting and Theme.Blue or Theme.Ink
     end
     for i = 1, 3 do
         local b = self.buttons["Slot" .. i]
-        if b then b.Text = tostring(i) .. " " .. (me and me.slots[i] or "—"); b.BackgroundColor3 = me and me.slot == i and Theme.Blue or Theme.Ink end
+        if b then
+            local rarity = me and me.slotRarities and me.slotRarities[i]
+            local tier = WeaponStats.rarities[rarity or "Common"]
+            b.TextColor3 = me and me.slot == i and Theme.Paper or tier.color
+            b.Text = tostring(i) .. " " .. (me and me.slots[i] or "—") .. (rarity and (" [" .. tier.short .. "]") or ""); b.BackgroundColor3 = me and me.slot == i and Theme.Blue or Theme.Ink end
     end
     self.result.Visible = s.phase == "Results" or (active and me ~= nil and not me.alive)
     if self.result.Visible then

@@ -90,14 +90,16 @@ function World.create()
     end
     part(root, "Lobby", Vector3.new(65, 3, 65), CFrame.new(0, 99, 360), Color3.fromRGB(39, 52, 75), Enum.Material.Metal)
     self.lobby = CFrame.new(0, 104, 360)
+    local areaColors = {TOWN=Theme.Gold, WAREHOUSE=Theme.Orange, FOREST=Theme.Green, HILL=Theme.Paper, CORE=Theme.Cyan}
     for _, item in ipairs({{"TOWN", -130, -130}, {"WAREHOUSE", 130, -130}, {"FOREST", -130, 130}, {"HILL", 135, 135}, {"CORE", 0, 0}}) do
         local anchor = part(map, item[1], Vector3.new(1, 1, 1), CFrame.new(item[2], 28, item[3]), Color3.new(1, 1, 1))
         anchor.Transparency, anchor.CanCollide, anchor.CanQuery = 1, false, false
         local ui = Instance.new("BillboardGui")
-        ui.Size, ui.MaxDistance, ui.Parent = UDim2.fromOffset(170, 30), 180, anchor
+        ui.Size, ui.MaxDistance, ui.Parent = UDim2.fromOffset(180, 32), 240, anchor
         local label = Instance.new("TextLabel")
         label.Size, label.BackgroundTransparency = UDim2.fromScale(1, 1), 1
-        label.Text, label.TextColor3, label.TextSize = item[1], Color3.new(1, 1, 1), 20
+        label.Text, label.TextColor3, label.TextSize = item[1], areaColors[item[1]], 22
+        label.TextStrokeTransparency = .35
         label.Font, label.Parent = Enum.Font.GothamBold, ui
     end
     MapVisuals.create(self)

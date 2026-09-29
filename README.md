@@ -48,7 +48,9 @@ Roblox Studio + Rojo用の公開前検証版です。人間1人でもBOTを補�
 | 移動 / 視点 | WASD / マウス（通常は中央固定、Evolution Draft中はカード選択のため解除） |
 | 射撃 | 左クリック長押し |
 | リロード | R |
-| ジャンプ | Space |
+| ジャンプ / Slide・Crouch解除 | Space |
+| Sprint | Shift長押し（離すと通常移動） |
+| Crouch / Slide | Ctrl。Sprint中はSlide、通常時はCrouch切替 |
 | 武器切替 | 1 / 2 / 3 |
 | 建築 | Q |
 | 壁 / 床 / 坂を選択 | Z / X / C |
@@ -61,6 +63,7 @@ PCの建築はキャラクターが向いている方向に配置されます。
 
 横画面でプレイします。左親指はRoblox標準の移動スティック、右側スワイプで視点を操作します。
 右側の大きい「射撃」を長押し、「装填」「建築」はタップ。壁・床・坂を先に選択します。
+「走る」はSprint切替。「しゃがみ」ボタンはSprint中に「スライド」へ変わります。Slide後はCrouchになり、もう一度押すかJumpで立ちます。空中に出るとSprintは解除されるので着地後に再入力してください。
 撃破後のEvolutionは画面中央寄りの大きな3カードからタップして選びます。カードを選ぶまで移動・戦闘は続き、5秒後は自動選択されます。
 下中央に武器3枠、右下は標準ジャンプ用の空間です。照準の近くに見えている敵だけ弱い照準補助が働きます。
 切り欠き/上部メニューの安全領域を使い、画面サイズに合わせてHUDを縮尺調整します。
@@ -73,8 +76,9 @@ PCの建築はキャラクターが向いている方向に配置されます。
 ```powershell
 git clone https://github.com/ferrarissound-design/DROPZONE.git
 cd DROPZONE
-# PRが未マージの場合は、このブランチを取得して確認する
-git switch codex/dropzone-playable-core
+# 公開済みmainを同期する。未マージPRの確認時だけPRブランチへ切り替える
+git switch main
+git pull --ff-only
 rojo serve default.project.json
 ```
 
@@ -166,3 +170,17 @@ Luau型検査、Roblox物理、ネットワーク、Pathfinding、実機性能�
 新規装飾は非衝突・非接触・非Raycast・Massless。Map装飾は地面探索対象のMapフォルダから分離しています。Spawn、地形の当たり判定、移動、武器/能力/建築/Lootの性能は変更していません。EnergyバーのためSnapshotにサーバー算出のmaxEnergyを追加しています。
 
 **見た目の最終承認はStudio/スマホ実機で行ってください。** Offlineのモデル構築・破棄・UI状態テストは、Robloxの描画品質や実測FPSを保証するものではありません。
+
+## Movement / Loot / Combat Feel
+
+- Sprintは通常速度の1.3倍、Swift LegsとAdrenalineを合成してもWalkSpeedは32以下。開始に0.25秒のクールダウンがあります。空中/死亡/Resultsでは開始不可。PC標準Shift Lockは無効にし、既存の照準用Mouse Lockとの競合を避けています。
+- Sprint中に水平速度20以上でSlide可能。初速34、0.65秒で減速しCrouchへ。再使用2.1秒。Jumpで解除しても再使用待ちは残ります。空中へ出た場合も滑走を終了し、死亡/Results/Resetで状態を消します。
+- 坂道専用の加速とMantleは未実装です。既存Humanoid Physicsを使い、今回の変更では自動テレポートや壁乗り越えを追加しません。
+- 武器レア度：Common（白）/ Rare（青）/ Epic（紫）。通常Weapon Lootは72% / 22% / 6%、Spawn付近の武器はCommonです。
+- RareはReload時間−4%、Spread−6%。EpicはReload時間−8%、Spread−12%。Damage・FireRate・Magazine・Rangeは共通。既存Evolutionによる補正と乗算します。
+- 同種武器は最大1枠。上位を拾うとアップグレードし、現在の弾倉を保持。低位/同位を拾うと予備弾を補充し、品質は下がりません。上位への更新が装填中なら、その装填を取消して再装填できます。
+- Lootのレア度はサーバーが決定・保持。静的なNeon足元マークと75stud表示のラベルで発見しやすくしています。全Lootの常時浮遊/回転、Particle、PointLightは追加していません。
+- サーバー確定ダメージをHP（金）/Shield（シアン）で0.65秒表示。Shotgunは敵ごとに集約。クライアントは最大8表示枠を再利用し、10Hzでフェード、Round切替/Resultsで消去します。射撃は照準の短い拡大、命中は色変化、撃破は短いフラッシュからEvolution Draftにつながります。
+- HUDには現在のレア度とスロットのC/R/E表記。Movementは2ボタンのまま、Draft/Build/Reload/Slotと重ならない配置です。
+
+詳細な検証は [PLAYTEST](docs/PLAYTEST.md) を参照してください。オフラインテストの成功は滑走感・ネットワーク所有権・実機FPSの検証を代替しません。

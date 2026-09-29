@@ -6,13 +6,16 @@ local Weapons = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitFor
 local Theme = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("VisualTheme"))
 local Hud = require(script.Parent.Hud)
 local Effects = require(script.Parent.Effects)
+local DamageFeedback = require(script.Parent.DamageFeedback)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("DropzoneRemotes")
 local action = remotes:WaitForChild("Action")
 local hud, effects = Hud.new(), Effects.new()
+local damageFeedback = DamageFeedback.new(effects.folder)
 local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall", 1
 local submittedEvolutionDraft
 local touchFire = nil
+local nextJumpRequest = 0
 local function playing()
     return state and (state.phase == "Active" or state.phase == "FinalZone") and state.me and state.me.alive
 end
@@ -28,8 +31,10 @@ fire.InputBegan:Connect(function(input)
 end)
 hud:button("Reload", "装填 R", 680, 275, 88, 56, function() send("Reload") end)
 hud:button("Build", "建築 Q", 680, 205, 88, 60, build)
-hud:button("Crouch", "しゃがみ", 784, 285, 82, 48, function() send("Crouch") end)
-hud:button("Slide", "スライド", 784, 340, 82, 48, function() send("Slide") end)
+-- Two movement buttons replace the previous Crouch + Slide pair.
+hud:button("Sprint", "走る", 784, 285, 82, 48, function() send("Sprint", not (state and state.me and state.me.sprinting)) end)
+local function posture() send("Posture") end
+hud:button("Crouch", "しゃがみ", 680, 340, 88, 48, posture)
 for i, kind in ipairs({"Wall", "Floor", "Ramp"}) do
     local labels = {"壁", "床", "坂"}
     hud:button(kind, labels[i], 632 + (i - 1) * 82, 137, 76, 52, function()
@@ -63,15 +68,23 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif key == Enum.KeyCode.Z then buildType = "Wall"
     elseif key == Enum.KeyCode.X then buildType = "Floor"
     elseif key == Enum.KeyCode.C then buildType = "Ramp"
-    elseif key == Enum.KeyCode.LeftControl or key == Enum.KeyCode.RightControl then send("Crouch")
-    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then send("Slide")
+    elseif key == Enum.KeyCode.LeftControl or key == Enum.KeyCode.RightControl then posture()
+    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then send("Sprint", true)
     elseif key == Enum.KeyCode.Tab then spectateIndex = spectateIndex + 1 end
 end)
 UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then send("Sprint", false) end
     if input == touchFire then shooting, touchFire = false, nil end
     if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = false end
 end)
-UserInputService.WindowFocusReleased:Connect(function() shooting, touchFire = false, nil end)
+UserInputService.WindowFocusReleased:Connect(function() shooting, touchFire = false, nil; send("Sprint", false) end)
+UserInputService.JumpRequest:Connect(function()
+    -- Do not wait for a posture snapshot before cancelling a just-started slide.
+    if playing() and os.clock() >= nextJumpRequest then
+        nextJumpRequest = os.clock() + .15
+        send("Jump")
+    end
+end)
 local function aim()
     local camera, character = workspace.CurrentCamera, player.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -109,12 +122,16 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     if not state or state.roundId ~= s.roundId then
         shooting, touchFire, nextShot, spectateIndex = false, nil, 0, 1
         submittedEvolutionDraft = nil
+        nextJumpRequest = 0
+        damageFeedback:clear()
+        hud.shotUntil, hud.hitUntil = 0, 0
         hud.notice.Visible, hud.noticeUntil = false, nil
         buildType = "Wall"
         for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == "Wall" and Theme.Blue or Theme.Ink end
     end
     state = s
-    if not playing() then shooting = false end
+    if not playing() then shooting, touchFire = false, nil end
+    if s.phase ~= "Active" and s.phase ~= "FinalZone" then damageFeedback:clear() end
     local draft = s.me and s.me.evolutionDraft
     if not draft or draft.id ~= submittedEvolutionDraft then submittedEvolutionDraft = nil end
     hud:update(s, function(draftId, index)
@@ -140,15 +157,27 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         end
     end
 end)
-remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c)
+remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId)
     if kind == "Notice" then hud:toast(a)
-    elseif kind == "Shot" then effects:shot(a, b, c)
-    elseif kind == "Hit" then
-        hud.crosshair.TextColor3 = Color3.fromRGB(255, 100, 80)
-        task.delay(0.12, function() hud.crosshair.TextColor3 = Theme.Paper end)
+    elseif kind == "Shot" then
+        effects:shot(a, b, c)
+        if shooterId == player.UserId then hud.shotUntil = os.clock() + .1 end
+    elseif kind == "Damage" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
+        -- Only the server can send confirmed damage; never predict a hit locally.
+        damageFeedback:show(b, os.clock())
+        hud.hitUntil = os.clock() + .18
+        for _, damage in ipairs(b) do if damage.eliminated then hud:eliminated(); break end end
     end
 end)
+local feedbackClock = 0
 RunService.RenderStepped:Connect(function()
+    local now = os.clock()
+    if now >= feedbackClock then
+        feedbackClock = now + .1
+        damageFeedback:step(now)
+        hud.crosshair.TextColor3 = now < (hud.hitUntil or 0) and Theme.Orange or Theme.Paper
+        hud.crosshair.TextSize = now < (hud.shotUntil or 0) and 32 or 28
+    end
     local draftOpen = playing() and state.me.evolutionDraft ~= nil
     if playing() and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter

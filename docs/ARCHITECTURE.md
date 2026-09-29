@@ -68,3 +68,13 @@ Audio and full airborne insertion are deferred; there are no external assets to 
 `MapVisuals` owns the static `DropzoneWorld/Scenery` folder. It is a sibling of `Map` and is never included by `World.ground`. Existing map colliders, spawns and bot logic remain authoritative. Do not add cover-shaped noncolliding decoration in combat lanes.
 
 The HUD consumes server `maxEnergy` for its display bar. Category colors, RichText and selection-border Tweens do not grant abilities or send new remotes. Draft button rectangles remain unchanged; the reticle renders behind cards without moving its aiming anchor. No visual code runs a per-frame object-generation loop.
+
+## Movement / rarity / confirmed feedback
+
+Movement state is server-owned through the existing rate-limited Action ingress (roundId, Active/FinalZone, alive, root). Sprint accepts a boolean only; Slide uses finite server-observed horizontal velocity, a fixed impulse cap and a decaying cap in the existing scheduler. Death/Results/Actor clear reset posture. No movement timers or new RemoteEvents are introduced. This is not a full anti-teleport system for Roblox client-owned characters.
+
+WeaponStats caches nine immutable-by-convention specs (3 kinds × 3 tiers). Loot.items stores {kind, rarity}; pickup claims the item without yielding before reward. Combat keeps the highest tier per weapon kind, cancels the equipped reload on upgrade and resolves effective specs on the server. Snapshots add rarity, slotRarities and sprinting; clients never submit a desired tier.
+
+Actors.damage returns actual HP/Shield loss. Combat.fire aggregates shotgun pellets per victim and sends a shooter-only Damage message with roundId and at most seven records. DamageFeedback reuses eight anchors/Billboards and expires them at 10Hz without task.delay, Tween or per-hit Instance allocation. No client hit/damage prediction affects gameplay. Shot feedback reuses the crosshair, elimination reuses a single cancellable HUD Tween. POI label color/range changes add no map Parts; each weapon pickup gains one static rarity footprint.
+
+Posture input is resolved from the server sprint state, avoiding a snapshot-latency race when Shift and Ctrl are pressed quickly. Jump cancel requests are client-throttled to 0.15 seconds and still pass the shared server ingress gate.

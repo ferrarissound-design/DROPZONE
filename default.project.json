@@ -15,7 +15,8 @@
     "StarterPlayer": {
       "$properties": {
         "CameraMinZoomDistance": 6,
-        "CameraMaxZoomDistance": 24
+        "CameraMaxZoomDistance": 24,
+        "EnableMouseLockOption": false
       },
       "StarterPlayerScripts": {
         "DropzoneClient": {
