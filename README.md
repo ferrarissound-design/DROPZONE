@@ -134,8 +134,12 @@ python3 tests/run.py
 
 LinuxのPython 3 + システムの `liblua5.4` を使用します。
 実際のLuaモジュールの構文と、エンジンを簡略化したテスト環境でダメージ/ゾーン/順位/リロード/リセットを確認します。
+さらに `tests/preplay_analysis.py` を実行し、武器理論TTK、Zone総時間、Build economy、20,000回のRarity抽選、10,000回のfresh Evolution Draft相当を決定論的に検査します。
+
+プレリリース中は `Config.PlaytestDiagnostics = true` です。Results時だけServer Outputへラウンド集計を出し、武器別Shot/Hit/Damage、Build、Pickup、Zone damage、Evolution履歴などを最初の実機テストから記録できます。診断値はGameplay判定には使用しません。
+
 Luau型検査、Roblox物理、ネットワーク、Pathfinding、実機性能の代わりにはなりません。
-詳細は [プレイテスト手順](docs/PLAYTEST.md) と [設計・制限](docs/ARCHITECTURE.md) を参照してください。
+詳細は [事前分析](docs/PREPLAY_ANALYSIS.md)、[プレイテスト手順](docs/PLAYTEST.md)、[設計・制限](docs/ARCHITECTURE.md) を参照してください。
 
 ## 次に改善すること
 

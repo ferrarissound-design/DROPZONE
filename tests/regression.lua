@@ -115,7 +115,9 @@ local function actor(id)
     end
     local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100,WalkSpeed=Config.BaseSpeed,JumpPower=Config.BaseJump,HipHeight=2,AutoRotate=true,FloorMaterial="Grass"},shield=0,kills=0,damage=0,
         reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},evolutionStacks={},evolutionHistory={},
-        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),root={Parent=true,Position=Vector3.zero,Anchored=false,AssemblyLinearVelocity=Vector3.new(10,0,0)},model=model}
+        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),
+        diagnostics={shots={},hits={},weaponDamage={},builds=0,pickups=0,zoneDamage=0},
+        root={Parent=true,Position=Vector3.zero,Anchored=false,AssemblyLinearVelocity=Vector3.new(10,0,0)},model=model}
     function a.model:Destroy() self.Parent=false end
     table.insert(actors.list,a)
     return a
@@ -260,7 +262,11 @@ local function stormOutcome(order)
     stormRound.phase, stormRound.started = "FinalZone", os.clock()
     stormRound:step(1)
     local ranks = {}
-    for _, a in ipairs(stormActors) do ranks[tostring(a.id)] = a.rank end
+    for _, a in ipairs(stormActors) do
+        ranks[tostring(a.id)] = a.rank
+        check(a.diagnostics.deathReason=="Zone" and math.abs(a.diagnostics.zoneDamage-5)<.0001,
+            "lethal storm records exact zone damage and Zone death reason")
+    end
     return stormRound.winner, ranks, stormRound.phase
 end
 local winnerForward, rankForward, phaseForward = stormOutcome({21,22})
@@ -463,6 +469,9 @@ check(confirmed and confirmed.player==shooter.player and confirmed.args[1]==77 a
     "shotgun aggregates pellets per victim and confirms damage to shooter only with roundId")
 check(math.abs(confirmed.args[2][1].hp-20)<.0001 and math.abs(confirmed.args[2][1].shield-30)<.0001 and confirmed.args[2][1].eliminated,
     "damage feedback contains actual HP/Shield losses, not overkill")
+check(shooter.diagnostics.shots.Shotgun==1 and shooter.diagnostics.hits.Shotgun==1
+    and math.abs(shooter.diagnostics.weaponDamage.Shotgun-50)<.0001,
+    "accepted combat records one shot-level hit and exact non-overkill weapon damage")
 local eventCount=#messages
 shotCombat:fire(shooter,Vector3.new(1,0,0))
 check(#messages==eventCount and shooter.ammo==5,"fire spam cannot generate extra damage feedback")
@@ -470,6 +479,9 @@ shooter.nextShot=0;workspace.Raycast=function() return nil end
 messages={};shotCombat:fire(shooter,Vector3.new(1,0,0))
 local damageEvents=0;for _,event in ipairs(messages) do if event.kind=="Damage" then damageEvents=damageEvents+1 end end
 check(damageEvents==0,"misses never produce a damage number")
+check(shooter.diagnostics.shots.Shotgun==2 and shooter.diagnostics.hits.Shotgun==1
+    and math.abs(shooter.diagnostics.weaponDamage.Shotgun-50)<.0001,
+    "misses count as shots but never inflate hit or damage diagnostics")
 print("PASS: "..count.." total gameplay assertions including movement, rarity and confirmed combat")
 
 local shotEvent

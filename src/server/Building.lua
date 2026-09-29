@@ -42,6 +42,7 @@ function Building:place(a, kind)
     Cosmetics.build(build, kind)
     self.entries[build] = {health = Config.BuildHealth, expires = now + Config.BuildLifetime}
     self.count, a.energy, a.nextBuild = self.count + 1, a.energy - cost, now + Config.BuildCooldown
+    if a.diagnostics then a.diagnostics.builds = (a.diagnostics.builds or 0) + 1 end
 end
 function Building:remove(p)
     if self.entries[p] then self.entries[p] = nil; self.count = self.count - 1; p:Destroy() end

@@ -18,7 +18,8 @@ function Actors:add(model, player, id)
         inventory = {}, slot = 1, ammo = 0, nextShot = 0, reloading = false, reloadToken = 0,
         evolutions = {}, evolutionStacks = {}, evolutionHistory = {}, evolutionCount = 0,
         queuedDrafts = 0, draftVersion = 0, evolutionDraft = nil, roundId = 0,
-        lastDamage = 0, startTime = 0, survival = 0}
+        lastDamage = 0, startTime = 0, survival = 0,
+        diagnostics = {shots={}, hits={}, weaponDamage={}, builds=0, pickups=0, zoneDamage=0, deathReason=nil}}
     humanoid.MaxHealth, humanoid.Health = Config.BaseHealth, Config.BaseHealth
     humanoid.WalkSpeed, humanoid.UseJumpPower, humanoid.JumpPower = Config.BaseSpeed, true, Config.BaseJump
     humanoid.BreakJointsOnDeath = false

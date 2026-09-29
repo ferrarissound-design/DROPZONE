@@ -6,6 +6,7 @@ import ctypes.util
 from pathlib import Path
 import re
 import sys
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 lib = ctypes.CDLL(ctypes.util.find_library('lua5.4'))
@@ -180,3 +181,17 @@ for required_id in ('9114727096','5656322299','9119136387','8145744063','9119074
     assert required_id in audio_config
 assert 'Audio.Footstep = cue("",' in audio_config and 'Audio.SlideLoop = cue("",' in audio_config
 print('PASS: confirmed hit/round provenance, recoil-free aim, camera cleanup and reviewed audio defaults')
+
+# Playtest instrumentation must remain bounded and non-authoritative.
+config_source = (ROOT / 'src' / 'shared' / 'Config.lua').read_text()
+combat_source = (ROOT / 'src' / 'server' / 'Combat.lua').read_text()
+round_source_text = (ROOT / 'src' / 'server' / 'Round.lua').read_text()
+assert 'PlaytestDiagnostics = true' in config_source
+assert 'diag.shots[item.kind]' in combat_source and 'diag.weaponDamage[item.kind]' in combat_source
+assert 'if hitEnemy then diag.hits[item.kind]' in combat_source
+assert 'emitDiagnostics(self)' in round_source_text
+assert round_source_text.count('[DROPZONE DIAG]') == 2
+assert 'print(' not in combat_source
+print('PASS: diagnostics collect silently during play and print only bounded round summaries')
+
+subprocess.run([sys.executable, str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)

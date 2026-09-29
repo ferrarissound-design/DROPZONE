@@ -5,6 +5,13 @@ local Evolution = require(script.Parent.Evolution)
 local Cosmetics = require(script.Parent.Cosmetics)
 local Combat = {}
 Combat.__index = Combat
+local function diagnostics(a)
+    a.diagnostics = a.diagnostics or {shots={}, hits={}, weaponDamage={}, builds=0, pickups=0, zoneDamage=0}
+    a.diagnostics.shots = a.diagnostics.shots or {}
+    a.diagnostics.hits = a.diagnostics.hits or {}
+    a.diagnostics.weaponDamage = a.diagnostics.weaponDamage or {}
+    return a.diagnostics
+end
 function Combat.new(actors, effects, builds)
     return setmetatable({actors = actors, effects = effects, builds = builds, rng = Random.new()}, Combat)
 end
@@ -66,6 +73,8 @@ function Combat:fire(a, direction)
     if not Rules.canFire(a, spec, now) or not a.root.Parent then return end
     a.nextShot = now + spec.interval
     item.ammo, a.ammo = item.ammo - 1, item.ammo - 1
+    local diag = diagnostics(a)
+    diag.shots[item.kind] = (diag.shots[item.kind] or 0) + 1
     local origin = a.root.Position + Vector3.new(0, 1.4, 0)
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
@@ -81,8 +90,13 @@ function Combat:fire(a, direction)
             local victim = self.actors:fromPart(result.Instance)
             if victim and victim ~= a and victim.alive then
                 local falloff = item.kind == "Shotgun" and math.max(0.3, 1 - result.Distance / spec.range * 0.65) or 1
+                local victimDiag = diagnostics(victim)
+                local previousReason = victimDiag.deathReason
+                victimDiag.deathReason = "Combat"
                 local hp, shield = self.actors:damage(victim, spec.damage * falloff, a)
+                if victim.alive then victimDiag.deathReason = previousReason end
                 if hp + shield > 0 then
+                    diag.weaponDamage[item.kind] = (diag.weaponDamage[item.kind] or 0) + hp + shield
                     local damage = damageByVictim[victim] or {position=victim.root.Position, hp=0, shield=0}
                     damage.hp, damage.shield = damage.hp + hp, damage.shield + shield
                     damage.eliminated = not victim.alive
@@ -98,6 +112,7 @@ function Combat:fire(a, direction)
             self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id, a.roundId)
         end
     end
+    if hitEnemy then diag.hits[item.kind] = (diag.hits[item.kind] or 0) + 1 end
     if a.player and hitEnemy then
         local confirmed = {}
         for _, damage in pairs(damageByVictim) do table.insert(confirmed, damage) end
