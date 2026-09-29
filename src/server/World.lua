@@ -29,6 +29,14 @@ function World.create()
     local road = Color3.fromRGB(49, 58, 70)
     part(map, "RoadX", Vector3.new(510, 0.2, 24), CFrame.new(0, 0.1, 0), road, Enum.Material.Asphalt)
     part(map, "RoadZ", Vector3.new(24, 0.2, 510), CFrame.new(0, 0.1, 0), road, Enum.Material.Asphalt)
+    -- Cosmetic markings never alter navigation, placement overlap or weapon rays.
+    for offset = -220, 220, 20 do
+        for axis = 1, 2 do
+            local mark = part(map, "RoadMarking", axis == 1 and Vector3.new(8,0.05,0.5) or Vector3.new(0.5,0.05,8),
+                CFrame.new(axis == 1 and offset or 0, 0.23, axis == 2 and offset or 0), Color3.fromRGB(218,199,140))
+            mark.CanCollide, mark.CanTouch, mark.CanQuery = false, false, false
+        end
+    end
     -- Open courtyards and wide routes keep the first map navigable for bots.
     for x = -190, -70, 60 do
         for z = -185, -65, 60 do
@@ -68,7 +76,7 @@ function World.create()
     part(map, "CentralPad", Vector3.new(32, 0.3, 32), CFrame.new(0, 0.2, 0), Color3.fromRGB(70, 171, 171), Enum.Material.Metal)
     for i = 1, 24 do
         local a = (i - 1) * math.pi * 2 / 24
-        local position = Vector3.new(math.cos(a) * 225, 4, math.sin(a) * 225)
+        local position = Vector3.new(math.cos(a) * 245, 4, math.sin(a) * 245)
         table.insert(self.spawns, position)
         table.insert(self.loot, position + Vector3.new(-math.sin(a) * 7, -2, math.cos(a) * 7))
     end

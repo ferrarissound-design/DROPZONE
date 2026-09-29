@@ -14,12 +14,16 @@ function Bots:path(a, goal, now)
     a.pathBusy, a.nextPath, self.jobs = true, now + 2.5 + self.rng:NextNumber(), self.jobs + 1
     local generation, start = self.generation, a.root.Position
     task.spawn(function()
-        local path = PathfindingService:CreatePath({AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6})
-        local ok = pcall(function() path:ComputeAsync(start, goal) end)
+        local path, waypoints
+        local ok = pcall(function()
+            path = PathfindingService:CreatePath({AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6})
+            path:ComputeAsync(start, goal)
+            if path.Status == Enum.PathStatus.Success then waypoints = path:GetWaypoints() end
+        end)
         self.jobs, a.pathBusy = self.jobs - 1, false
         if generation ~= self.generation or not a.alive then return end
-        if ok and path.Status == Enum.PathStatus.Success then
-            a.waypoints, a.waypointIndex, a.pathGoal = path:GetWaypoints(), 2, goal
+        if ok and waypoints then
+            a.waypoints, a.waypointIndex, a.pathGoal = waypoints, 2, goal
         else
             a.waypoints = nil
             a.humanoid.Jump = true
@@ -35,7 +39,17 @@ function Bots:step()
             params.FilterType = Enum.RaycastFilterType.Exclude
             params.FilterDescendantsInstances = {a.model}
             local target, distance = Rules.closestLiveTarget(a, alive, 145)
-            local goal
+            -- Inventory decisions are cheap and independent of navigation/zone urgency.
+            local bestSlot, bestScore = nil, -1
+            for slot, item in ipairs(a.inventory) do
+                if item.ammo + item.reserve > 0 then
+                    local score = item.kind == "Rifle" and 2 or 1
+                    if item.kind == "Shotgun" then score = target and distance < 38 and 3 or 0 end
+                    if score > bestScore then bestSlot, bestScore = slot, score end
+                end
+            end
+            if bestSlot and bestSlot ~= a.slot and not a.reloading then self.combat:equip(a, bestSlot) end
+            local goal, groundedGoal
             if self.zone:outside(pos, 18) then
                 -- Zone safety always wins over chasing or looting.
                 goal = self.zone.center + Vector3.new(math.sin(a.id) * math.min(12, self.zone.radius * 0.3), 0, math.cos(a.id) * math.min(12, self.zone.radius * 0.3))
@@ -50,12 +64,12 @@ function Bots:step()
                     end
                 end
                 local pickup = self.loot:nearest(a, not armed and 150 or 28)
-                if pickup then goal = pickup.Position end
+                if pickup then goal, groundedGoal = pickup.Position, true end
                 if not goal and target then
                     local delta = pos - target.root.Position
                     if distance < 27 then
                         goal = pos + (delta.Magnitude > 0.1 and delta.Unit or Vector3.xAxis) * 15
-                    else goal = target.root.Position end
+                    else goal, groundedGoal = target.root.Position, true end
                 end
                 if not goal then
                     if not a.wander or (a.wander - pos).Magnitude < 8 or now > (a.nextWander or 0) then
@@ -66,7 +80,8 @@ function Bots:step()
                     goal = a.wander
                 end
             end
-            goal = World.ground(self.world, goal) + Vector3.new(0, 3, 0)
+            -- Preserve a reachable loot/target floor instead of raycasting onto its roof.
+            if not groundedGoal then goal = World.ground(self.world, goal) + Vector3.new(0, 3, 0) end
             if target and #a.inventory > 0 then
                 local item = a.inventory[a.slot]
                 if item.ammo <= 0 then self.combat:reload(a) end

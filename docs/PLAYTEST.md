@@ -53,3 +53,21 @@
 - Studio Script Performance/MicroProfilerでAI経路探索が滞留していないか確認。
 
 調整は `Config.lua` / `Weapons.lua` を起点に行い、検証後に公開してください。
+
+## Release gate（全項目未実施・公開前必須）
+
+実行した日付、Studio版、端末、人数、Output、問題座標を記録してください。P0/P1、重要UI重複、継続エラーが1件でもあれば公開しません。
+
+- [ ] Solo + BOT11で開始し、勝敗まで完走。Stopせず2試合、可能なら3試合。
+- [ ] 全24スポーンで初期武器へ到達可能。屋根・壁・木に埋まらず、BOTも取得可能。
+- [ ] 初見の人が30秒以内に武器取得・敵・Zone・進化の目的を理解できる。
+- [ ] 初回Draftを開いてClient OutputにColor3エラーなし。手動/Auto Pick、死亡、Results、Resetで残留なし。
+- [ ] HP/Shield低下のフラッシュ、撃破通知、進化取得、Zone警告、Victory/Build結果が読める。
+- [ ] 16:9と狭い横画面で移動/Jump/視点/Fireを維持し、Draft・建築・装填・Slotの誤操作なし。
+- [ ] BOTが武器を持ち替え、町内部の敵を追い、Zoneへ戻り、障害物で永久停止しない。
+- [ ] PistolでもBOTを倒せる。Shotgun遠距離と最大Stackが過剰でない。Wall/Ramp/Floorが役立つ。
+- [ ] 途中参加/退出/全員退出/ロード遅延、同tickのZone複数死亡で進行停止なし。
+- [ ] BOT11、Build100、Shotgun、Mutation、Loot同時表示時の実機FPS/メモリ/通信量を記録。2試合目に増え続けない。
+- [ ] Rojo実ビルド/同期とServer・Client Outputの無エラーを確認。
+
+Offlineでは `python3 tests/run.py` を実行。809 assertionsはゾーン時系列の反復検査を含む件数で、809種類の実機シナリオではありません。UIダブルはカード色の型と送信中/次Draftの復帰を実行検証しますが、タッチ入力・Robloxレイアウト・物理・経路探索・ネットワークの実機検証は代替しません。
