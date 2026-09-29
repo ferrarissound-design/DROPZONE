@@ -358,6 +358,14 @@ presentation:step(.1)
 presentation:snapshot(snap(2,{},"Results"))
 check(camera.FieldOfView==73 and presentation.tilt==0 and presentation.reloadSound==nil,"Results clears second-round reload and FOV")
 presentation:snapshot(snap(3,{}));check(presentation.roundId==3 and presentation.vertical==0,"third round starts without previous recoil")
+presentation:setAimHeld(true)
+presentation:step(.1)
+local nextCamera=Instance.new("Camera");nextCamera.FieldOfView=81
+workspace.CurrentCamera=nextCamera
+presentation:undoCamera();presentation:step(.1)
+check(camera.FieldOfView==73 and nextCamera.FieldOfView<81,"camera replacement restores the previous FOV and records the new baseline")
+presentation:snapshot(snap(3,{alive=false}))
+check(nextCamera.FieldOfView==81 and humanoid.CameraOffset.X==0,"death restores the replacement camera and shoulder offset")
 presentation:destroy();check(#audioFolder:GetChildren()==0,"presentation destroy releases all pooled instances")
 
 -- Track caching, rig selection and failed-load suppression with a fake Animator.
