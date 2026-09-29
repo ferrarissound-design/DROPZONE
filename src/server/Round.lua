@@ -7,12 +7,57 @@ local Evolution = require(script.Parent.Evolution)
 local Movement = require(script.Parent.Movement)
 local Round = {}
 Round.__index = Round
+local weaponOrder = {"Pistol", "Rifle", "Shotgun"}
+local function diagValue(a, bucket, kind)
+    local d = a.diagnostics
+    local values = d and d[bucket]
+    return values and values[kind] or 0
+end
+local function weaponLine(a)
+    local parts = {}
+    for _, kind in ipairs(weaponOrder) do
+        table.insert(parts, string.format("%s:S%d/H%d/D%d", kind,
+            diagValue(a, "shots", kind), diagValue(a, "hits", kind), math.floor(diagValue(a, "weaponDamage", kind))))
+    end
+    return table.concat(parts, " ")
+end
+local function emitDiagnostics(self)
+    if not Config.PlaytestDiagnostics then return end
+    local totalKills, totalDamage, zoneDeaths = 0, 0, 0
+    local aggregate = {diagnostics={shots={}, hits={}, weaponDamage={}}}
+    for _, a in ipairs(self.actors.list) do
+        totalKills = totalKills + (a.kills or 0)
+        totalDamage = totalDamage + (a.damage or 0)
+        if a.diagnostics and a.diagnostics.deathReason == "Zone" then zoneDeaths = zoneDeaths + 1 end
+        for _, kind in ipairs(weaponOrder) do
+            aggregate.diagnostics.shots[kind] = (aggregate.diagnostics.shots[kind] or 0) + diagValue(a, "shots", kind)
+            aggregate.diagnostics.hits[kind] = (aggregate.diagnostics.hits[kind] or 0) + diagValue(a, "hits", kind)
+            aggregate.diagnostics.weaponDamage[kind] = (aggregate.diagnostics.weaponDamage[kind] or 0) + diagValue(a, "weaponDamage", kind)
+        end
+    end
+    local duration = self.started and math.max(0, os.clock() - self.started) or 0
+    print(string.format("[DROPZONE DIAG] round=%d duration=%.1fs combatants=%d winner=%s kills=%d damage=%d zoneDeaths=%d %s",
+        self.id, duration, #self.actors.list, self.winner or "DRAW", totalKills, math.floor(totalDamage), zoneDeaths, weaponLine(aggregate)))
+    for _, a in ipairs(self.actors.list) do
+        if a.player then
+            local d = a.diagnostics or {}
+            local evolution = #a.evolutionHistory > 0 and table.concat(a.evolutionHistory, ">") or "-"
+            print(string.format("[DROPZONE DIAG] player=%s rank=%s kills=%d damage=%d survival=%ds builds=%d pickups=%d zoneDamage=%d death=%s evo=%s %s",
+                a.name, tostring(a.rank or "-"), a.kills or 0, math.floor(a.damage or 0), math.floor(a.survival or 0),
+                d.builds or 0, d.pickups or 0, math.floor(d.zoneDamage or 0), d.deathReason or (a.alive and "Alive" or "Other"),
+                evolution, weaponLine(a)))
+        end
+    end
+end
 function Round.new(services)
     local self = setmetatable(services, Round)
     self.phase, self.id, self.remaining = "Waiting", 0, 0
     self.loading, self.connections = {}, {}
     self.actors.onDeath = function(a, killer)
         Evolution.cancel(a) -- pending/queued drafts never survive elimination
+        if a.diagnostics and not a.diagnostics.deathReason then
+            a.diagnostics.deathReason = killer and killer ~= a and "Combat" or "Other"
+        end
         if killer and killer ~= a and killer.alive then
             killer.kills = killer.kills + 1
             killer.energy = math.min(Evolution.maxEnergy(killer), killer.energy + 25)
@@ -112,6 +157,7 @@ function Round:finish()
         a.reloadToken, a.reloading = a.reloadToken + 1, false
         if a.root.Parent then a.root.Anchored = true end
     end
+    emitDiagnostics(self)
 end
 function Round:reset()
     self.phase, self.id = "Resetting", self.id + 1
@@ -135,9 +181,16 @@ function Round:step(dt)
     local eliminatedThisTick = {}
     for _, a in ipairs(cohort) do
         if not a.root.Parent or not a.model.Parent or a.root.Position.Y < -30 then
+            if a.diagnostics then a.diagnostics.deathReason = "Fall" end
             self.actors:eliminate(a)
         elseif self.zone:outside(a.root.Position) then
+            local previousReason = a.diagnostics and a.diagnostics.deathReason
+            if a.diagnostics then a.diagnostics.deathReason = "Zone" end
             local hpLoss = self.actors:damage(a, self.zone.damage * dt, nil, true)
+            if a.diagnostics then
+                a.diagnostics.zoneDamage = (a.diagnostics.zoneDamage or 0) + (hpLoss or 0)
+                if a.alive then a.diagnostics.deathReason = previousReason end
+            end
             if hpLoss and hpLoss > 0 and a.player and os.clock() >= (a.nextZoneAudio or 0) then
                 a.nextZoneAudio = os.clock()+1.2
                 self.effects:FireClient(a.player, "ZoneDamage", self.id)
