@@ -209,4 +209,44 @@ local starter,startEntry=next(loot.items)
 check(startEntry.rarity=="Common","insertion weapons always use common tier")
 loot:clear()
 check(next(loot.items)==nil and #loot.folder:GetChildren()==0,"loot rarity state and cosmetic roots cleared together")
+
+-- Auto pickup must never delete loot that gives this actor no benefit.
+looter.inventory={{kind="Rifle",rarity="Epic",ammo=28,reserve=240}}
+loot:spawn(Vector3.new(0,0,0),"Rifle",true)
+local uselessWeapon=next(loot.items);uselessWeapon.Position=Vector3.new(0,0,0)
+local rewardsBefore=rewards
+loot:pickup(looter)
+check(loot.items[uselessWeapon]~=nil and uselessWeapon.Parent~=nil and rewards==rewardsBefore,
+    "full-ammo higher-tier owner leaves useless lower-tier weapon for another player")
+loot:clear()
+
+looter.inventory={{kind="Rifle",rarity="Common",ammo=28,reserve=240}}
+loot.rng={NextNumber=function() return .97 end}
+loot:spawn(Vector3.new(0,0,0),"Rifle")
+local upgrade=next(loot.items);upgrade.Position=Vector3.new(0,0,0)
+loot:pickup(looter)
+check(loot.items[upgrade]==nil and upgrade.Parent==nil and looter.received=="Epic",
+    "higher-tier weapon remains useful even when reserve ammo is already full")
+loot:clear()
+
+looter.inventory={{kind="Rifle",rarity="Common",ammo=28,reserve=240}}
+loot:spawn(Vector3.new(0,0,0),"Ammo")
+local fullAmmo=next(loot.items);fullAmmo.Position=Vector3.new(0,0,0)
+loot:pickup(looter)
+check(loot.items[fullAmmo]~=nil and fullAmmo.Parent~=nil,
+    "full reserves do not consume shared ammo loot")
+looter.inventory[1].reserve=200
+loot:pickup(looter)
+check(loot.items[fullAmmo]==nil and looter.inventory[1].reserve==230,
+    "ammo becomes useful again as soon as one weapon has reserve capacity")
+loot:clear()
+
+looter.inventory={}
+looter.humanoid.Health=50
+loot:spawn(Vector3.new(0,0,0),"Health")
+local healthPickup=next(loot.items);healthPickup.Position=Vector3.new(0,0,0)
+loot:pickup(looter)
+check(loot.items[healthPickup]==nil and looter.humanoid.Health==85,
+    "unarmed actors can still collect useful health loot")
+loot:clear()
 print("PASS: "..assertions.." total visual/pickup/pool assertions")
