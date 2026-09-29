@@ -28,6 +28,8 @@ fire.InputBegan:Connect(function(input)
 end)
 hud:button("Reload", "装填 R", 680, 275, 88, 56, function() send("Reload") end)
 hud:button("Build", "建築 Q", 680, 205, 88, 60, build)
+hud:button("Crouch", "しゃがみ", 784, 285, 82, 48, function() send("Crouch") end)
+hud:button("Slide", "スライド", 784, 340, 82, 48, function() send("Slide") end)
 for i, kind in ipairs({"Wall", "Floor", "Ramp"}) do
     local labels = {"壁", "床", "坂"}
     hud:button(kind, labels[i], 632 + (i - 1) * 82, 137, 76, 52, function()
@@ -61,6 +63,8 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif key == Enum.KeyCode.Z then buildType = "Wall"
     elseif key == Enum.KeyCode.X then buildType = "Floor"
     elseif key == Enum.KeyCode.C then buildType = "Ramp"
+    elseif key == Enum.KeyCode.LeftControl or key == Enum.KeyCode.RightControl then send("Crouch")
+    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then send("Slide")
     elseif key == Enum.KeyCode.Tab then spectateIndex = spectateIndex + 1 end
 end)
 UserInputService.InputEnded:Connect(function(input)

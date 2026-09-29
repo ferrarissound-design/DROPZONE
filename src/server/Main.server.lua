@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.DropzoneShared.Config)
 local Evolution = require(script.Parent.Evolution)
+local Movement = require(script.Parent.Movement)
 local World = require(script.Parent.World)
 local Actors = require(script.Parent.Actors)
 local Zone = require(script.Parent.Zone)
@@ -60,6 +61,10 @@ action.OnServerEvent:Connect(function(player, roundId, command, argument)
     elseif command == "Equip" then combat:equip(a, argument)
     elseif command == "Build" then builds:place(a, argument)
     elseif command == "Pickup" then loot:pickup(a)
+    elseif command == "Crouch" then
+        if Movement.toggleCrouch(a) then Evolution.refresh(a) end
+    elseif command == "Slide" then
+        if Movement.slide(a) then Evolution.refresh(a) end
     elseif command == "Evolve" and type(argument) == "table" then
         local gained = Evolution.select(a, roundId, argument.draftId, argument.index)
         if gained then effects:FireClient(player, "Notice", "EVOLUTION: " .. gained.name .. " " .. gained.rankText) end

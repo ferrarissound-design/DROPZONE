@@ -2,6 +2,7 @@ local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local Rules = require(game.ReplicatedStorage.DropzoneShared.Rules)
 local Cosmetics = require(script.Parent.Cosmetics)
 local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
+local Movement = require(script.Parent.Movement)
 local Actors = {}
 Actors.__index = Actors
 function Actors.new()
@@ -21,6 +22,7 @@ function Actors:add(model, player, id)
     humanoid.MaxHealth, humanoid.Health = Config.BaseHealth, Config.BaseHealth
     humanoid.WalkSpeed, humanoid.UseJumpPower, humanoid.JumpPower = Config.BaseSpeed, true, Config.BaseJump
     humanoid.BreakJointsOnDeath = false
+    Movement.initialize(a)
     local ff = model:FindFirstChildOfClass("ForceField")
     if ff then ff:Destroy() end
     model:SetAttribute("DropzoneActor", id)
