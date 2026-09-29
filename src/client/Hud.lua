@@ -173,6 +173,7 @@ function Hud:button(name, text, x, y, width, height, callback)
     local b = Instance.new("TextButton")
     b.Name, b.Text, b.Position, b.Size = name, text, UDim2.fromOffset(x, y), UDim2.fromOffset(width, height)
     b.BackgroundColor3, b.TextColor3, b.TextSize = Theme.Ink, white, 17
+    b.TextWrapped = true
     stroke(b, name == "Fire" and Theme.Orange or Theme.Cyan)
     b.BorderSizePixel, b.Font, b.Parent = 0, Enum.Font.GothamBold, self.canvas
     local corner = Instance.new("UICorner"); corner.CornerRadius, corner.Parent = UDim.new(0, 12), b
@@ -250,6 +251,18 @@ function Hud:update(s, onEvolutionPick)
     for name, button in pairs(self.buttons) do
         if name == "Spectate" then button.Visible = active and not playing
         else button.Visible = not not playing end
+    end
+    local crouchButton, slideButton = self.buttons.Crouch, self.buttons.Slide
+    if crouchButton then
+        crouchButton.Text = me and me.crouching and "立つ" or "しゃがみ"
+        crouchButton.BackgroundColor3 = me and me.crouching and Theme.Cyan or Theme.Ink
+        crouchButton.TextColor3 = me and me.crouching and Theme.Ink or white
+    end
+    if slideButton then
+        local cooldown = me and me.slideCooldown or 0
+        slideButton.Text = me and me.sliding and "滑走中" or (cooldown > 0.05 and string.format("スライド\n%.1f", cooldown) or "スライド")
+        slideButton.BackgroundColor3 = me and me.sliding and Theme.Orange or Theme.Ink
+        slideButton.TextColor3 = me and me.sliding and Theme.Ink or white
     end
     for i = 1, 3 do
         local b = self.buttons["Slot" .. i]
