@@ -11,7 +11,7 @@ function Loot.new(world, combat, effects)
     folder.Name, folder.Parent = "Loot", world.dynamic
     return setmetatable({world = world, combat = combat, effects = effects, folder = folder, items = {}}, Loot)
 end
-function Loot:spawn(position, kind)
+function Loot:spawn(position, kind, starter)
     local ground = World.ground(self.world, position)
     local color = Weapons[kind] and Weapons[kind].color or Color3.fromRGB(150, 225, 110)
     local p = World.part(self.folder, kind, Vector3.new(2.5, 1.2, 2.5), CFrame.new(ground + Vector3.new(0, 1.3, 0)), color, Enum.Material.Neon)
@@ -22,6 +22,10 @@ function Loot:spawn(position, kind)
     label.Size, label.BackgroundTransparency, label.TextSize = UDim2.fromScale(1, 1), 1, 14
     label.TextColor3, label.TextStrokeTransparency = Color3.new(1, 1, 1), 0.3
     label.Text, label.Parent = Weapons[kind] and Weapons[kind].label or labels[kind], gui
+    if starter then
+        label.Text = "▼ 武器を拾え · " .. label.Text
+        label.TextSize, gui.Size, gui.MaxDistance = 16, UDim2.fromOffset(210,32), 65
+    end
     self.items[p] = kind
 end
 function Loot:reset()
@@ -29,7 +33,7 @@ function Loot:reset()
     self.items = {}
     for i, position in ipairs(self.world.loot) do self:spawn(position, kinds[(i - 1) % #kinds + 1]) end
     -- Guaranteed weapon beside every insertion point.
-    for i, position in ipairs(self.world.spawns) do self:spawn(position + Vector3.new(0, 0, -6), i % 2 == 0 and "Rifle" or "Pistol") end
+    for i, position in ipairs(self.world.spawns) do self:spawn(position + Vector3.new(0, 0, -6), i % 2 == 0 and "Rifle" or "Pistol", true) end
 end
 function Loot:nearest(a, range)
     local nearest, distance = nil, range

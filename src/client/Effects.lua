@@ -21,6 +21,11 @@ function Effects.new()
     return self
 end
 function Effects:zone(z, active)
+    local previous = self.previousZone
+    if previous and previous.active == active and previous.radius == z.radius
+        and previous.nextRadius == z.nextRadius and previous.center == z.center
+        and previous.nextCenter == z.nextCenter then return end
+    self.previousZone = {active=active, radius=z.radius, nextRadius=z.nextRadius, center=z.center, nextCenter=z.nextCenter}
     for ring = 1, 2 do
         local radius, center = ring == 1 and z.radius or z.nextRadius, ring == 1 and z.center or z.nextCenter
         for i, p in ipairs(self.rings[ring]) do

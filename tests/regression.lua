@@ -27,7 +27,8 @@ Vector3 = {new = function(x,y,z) return setmetatable({X=x,Y=y,Z=z},vec) end}
 Vector3.zero = Vector3.new(0,0,0)
 Random = {new = function() return {NextNumber = function(_,a,b) return (a+b)/2 end, NextInteger = function(_,a,b) return a end} end}
 Color3 = {fromRGB = function(...) return {...} end, fromHSV = function(...) return {...} end}
-local fakeCF = setmetatable({}, {__mul=function() return fakeCF end})
+local fakeCF
+fakeCF = setmetatable({}, {__mul=function() return fakeCF end})
 CFrame = {new=function() return fakeCF end}
 Enum = {Material={Neon="Neon"}}
 Instance = {new=function(kind)
@@ -265,3 +266,50 @@ check(resetDraft.evolutionCount==0 and next(resetDraft.evolutionStacks)==nil
     "Round reset clears stack, pending offer, queue, visual state and model")
 
 print("PASS: " .. count .. " regression assertions")
+
+-- Execute the real card renderer with a strict Color3 property double.
+local shared = {WaitForChild=function(_, name) return name end}
+local services = {ReplicatedStorage={WaitForChild=function() return shared end}}
+game.GetService=function(_, name) return services[name] or {} end
+local Hud = load("Hud", "client/Hud.lua")
+local cards = {}
+for i=1,3 do
+    local properties = {}
+    cards[i] = setmetatable({}, {
+        __index=properties,
+        __newindex=function(_, key, value)
+            if key=="BackgroundColor3" then assert(type(value)=="table", "Color3 must never receive false/nil") end
+            properties[key]=value
+        end,
+    })
+end
+local view=setmetatable({draftCards=cards,currentDraft={id=1,options={
+    {name="Swift Legs",rankText="I",description="Speed +8%",category="Mobility"},
+    {name="Iron Skin",rankText="I",description="HP +20",category="Survival"},
+    {name="Builder",rankText="I",description="Energy -15%",category="Utility"},
+}}}, Hud)
+view:updateDraftCards()
+check(cards[1].Active and cards[3].Active,"fresh draft renderer accepts all cards without a Color3 runtime error")
+view.submittedDraftId,view.submittedChoice=1,2
+view:updateDraftCards()
+check(not cards[1].Active and not cards[2].Active and not cards[3].Active,"submission disables every card")
+check(cards[2].Text:find("送信中",1,true)~=nil,"pending selection never claims server confirmation")
+view.submittedDraftId,view.currentDraft.id=nil,2
+view:updateDraftCards()
+check(cards[1].Active and cards[2].TextTransparency==0,"next draft restores card input and appearance")
+local visualCalls=0
+combat.visual=function() visualCalls=visualCalls+1 end
+fighter.slot,fighter.reloading,fighter.reloadToken=1,true,90
+combat:equip(fighter,1)
+check(visualCalls==0 and fighter.reloading and fighter.reloadToken==90,"same-slot equip spam neither rebuilds parts nor cancels reload")
+-- Path construction failures release the bounded worker and leave recovery available.
+services.PathfindingService={CreatePath=function() error("simulated engine path failure") end}
+local Bots=load("Bots", "server/Bots.lua")
+local botService=Bots.new({}, {}, {}, {}, {})
+botService.rng={NextNumber=function() return 0 end}
+task.spawn=function(callback) callback() end
+local pathActor={alive=true,root={Position=Vector3.zero},humanoid={}}
+botService:path(pathActor,Vector3.zero,10)
+check(botService.jobs==0 and not pathActor.pathBusy and pathActor.humanoid.Jump,
+    "CreatePath failure releases worker and enables stuck recovery")
+print("PASS: " .. count .. " total regression assertions including release UI checks")

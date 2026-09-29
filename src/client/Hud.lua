@@ -45,7 +45,7 @@ function Hud.new()
     self.draft.ZIndex, self.draft.Active, self.draft.Selectable = 20, false, false
     self.draft.Visible, self.draft.Parent = false, canvas
     local draftCorner = Instance.new("UICorner"); draftCorner.CornerRadius, draftCorner.Parent = UDim.new(0, 14), self.draft
-    self.draftTitle = label(self.draft, "DraftTitle", UDim2.fromOffset(10, 4), UDim2.fromOffset(440, 28), "EVOLUTION DRAFT  ·  選択中も戦闘は続く", 16)
+    self.draftTitle = label(self.draft, "DraftTitle", UDim2.fromOffset(10, 4), UDim2.fromOffset(440, 28), "EVOLUTION READY · 3つから1つ選べ", 16)
     self.draftTitle.BackgroundTransparency = 1
     self.draftTitle.ZIndex = 21
     self.draftTimer = label(self.draft, "DraftTimer", UDim2.fromOffset(505, 4), UDim2.fromOffset(80, 28), "5秒", 15)
@@ -76,7 +76,7 @@ function Hud.new()
     end
     self.ammo = label(canvas, "Ammo", UDim2.fromOffset(328, 375), UDim2.fromOffset(244, 34), "武器を拾おう", 16)
     self.energy = label(canvas, "Energy", UDim2.fromOffset(630, 95), UDim2.fromOffset(242, 30), "BUILD ENERGY 60", 13)
-    self.notice = label(canvas, "Notice", UDim2.fromOffset(260, 103), UDim2.fromOffset(380, 43), "", 17)
+    self.notice = label(canvas, "Notice", UDim2.fromOffset(250, 88), UDim2.fromOffset(370, 36), "", 17)
     self.notice.Visible = false
     self.crosshair = label(canvas, "Crosshair", UDim2.fromOffset(435, 225), UDim2.fromOffset(30, 30), "+", 28)
     self.crosshair.BackgroundTransparency = 1
@@ -107,7 +107,7 @@ function Hud:updateDraftCards()
         local card = self.draftCards[i]
         local text = option and (option.name .. " " .. option.rankText .. "\n" .. option.description .. "\n\n" .. option.category) or "—"
         card.Text = submitted and (i == self.submittedChoice and (text .. "\n送信中…") or text) or text
-        card.BackgroundColor3 = submitted and (i == self.submittedChoice and Color3.fromRGB(46, 122, 99) or Color3.fromRGB(31, 43, 56))
+        card.BackgroundColor3 = submitted and (i == self.submittedChoice and Color3.fromRGB(46, 122, 99) or Color3.fromRGB(31, 43, 56)) or Color3.fromRGB(34, 69, 91)
         card.TextTransparency = submitted and (i == self.submittedChoice and 0 or 0.28) or 0
         card.Active, card.AutoButtonColor = not submitted, not submitted
     end
@@ -127,9 +127,27 @@ function Hud:toast(text)
     self.noticeUntil = os.clock() + 3
 end
 function Hud:update(s, onEvolutionPick)
+    if self.roundId ~= s.roundId then
+        self.roundId = s.roundId
+        self.submittedDraftId, self.submittedChoice, self.previousMe = nil, nil, nil
+        self.guideUntil = nil
+    end
     local me = s.me
     local active = s.phase == "Active" or s.phase == "FinalZone"
     local playing = active and me and me.alive
+    if playing and not self.guideUntil then self.guideUntil = os.clock() + 9 end
+    local previous = self.previousMe
+    if playing and previous and previous.alive then
+        if me.hp + me.shield < previous.hp + previous.shield then
+            self.stats.BackgroundColor3 = Color3.fromRGB(145, 45, 42)
+            if self.damageTween then self.damageTween:Cancel() end
+            self.damageTween = TweenService:Create(self.stats, TweenInfo.new(0.35), {BackgroundColor3=Color3.fromRGB(17,27,44)})
+            self.damageTween:Play()
+        end
+        if me.kills > previous.kills then self:toast("ELIMINATED  +" .. (me.kills - previous.kills) .. " KILL")
+        elseif me.evolutions > previous.evolutions then self:toast("EVOLUTION " .. me.evolutions .. " 獲得") end
+    end
+    self.previousMe = me
     local names = {Waiting = "参加待ち", Intermission = "次の試合まで", Starting = "降下準備中", Active = "生存者", FinalZone = "FINAL ZONE", Results = "RESULTS", Resetting = "リセット中"}
     self.top.Text = (names[s.phase] or s.phase) .. (active and ("  " .. s.alive .. "人   KILL " .. (me and me.kills or 0)) or ("  " .. s.remaining .. "秒"))
     local z = s.zone
@@ -144,6 +162,9 @@ function Hud:update(s, onEvolutionPick)
     self.energy.Text = "BUILD ENERGY " .. (me and me.energy or 0)
     self.ammo.Text = me and me.weapon and (me.weapon .. "  " .. me.ammo .. " / " .. me.reserve .. (me.reloading and "  装填中" or "")) or "光る武器に近づいて拾おう"
     self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
+    self.hint.Text = playing and os.clock() < (self.guideUntil or 0)
+        and "武器を拾え → 撃破して進化 → 最後の1人へ" or "安全地帯に残れ · 撃破で3択Evolution"
+    if playing and z.shrinking then self.hint.Text = "ZONE SHRINKING · 安全地帯へ移動" end
     local draft = Rules.shouldShowEvolutionDraft(s) and me.evolutionDraft or nil
     self.draft.Visible = draft ~= nil
     self.currentDraft = draft
@@ -169,10 +190,14 @@ function Hud:update(s, onEvolutionPick)
     if self.result.Visible then
         local title = s.phase == "Results" and (s.winner and me and me.rank == 1 and "#1 VICTORY" or (s.winner and "WINNER: " .. s.winner or "DRAW")) or "ELIMINATED"
         self.result.Text = title .. (me and string.format("\n\n順位 #%d   KILL %d\nDAMAGE %d   生存 %d秒\nEVOLUTION %d", me.rank or s.alive + 1, me.kills, me.damage, me.survival, me.evolutions) or "\n次の試合から参加できます")
+        if not active then
+            self.result.Text = self.result.Text .. "\n" .. buildText
+            self.result.TextColor3 = title == "#1 VICTORY" and Color3.fromRGB(255,220,100) or white
+        else self.result.TextColor3 = white end
         -- Compact death card leaves the spectator view clear.
         self.result.Position = active and UDim2.fromOffset(275, 150) or UDim2.fromOffset(265, 150)
         self.result.Size = active and UDim2.fromOffset(350, 115) or UDim2.fromOffset(370, 205)
-        self.result.TextSize = active and 15 or 22
+        self.result.TextSize = active and 15 or 19
     end
     local function mapPosition(p) return UDim2.fromOffset(61 + p.X / 720 * 78, 39 + p.Z / 720 * 78) end
     for _, pair in ipairs({{self.currentCircle, z.center, z.radius}, {self.nextCircle, z.nextCenter, z.nextRadius}}) do
@@ -182,6 +207,13 @@ function Hud:update(s, onEvolutionPick)
     end
     local char = Players.LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    if root then self.dot.Position = mapPosition(root.Position) end
+    if root then
+        self.dot.Position = mapPosition(root.Position)
+        local delta = root.Position - z.center
+        if playing and math.sqrt(delta.X*delta.X + delta.Z*delta.Z) >= z.radius - 12 then
+            self.hint.Text = "危険！ 安全地帯の内側へ移動"
+            self.hint.TextColor3 = Color3.fromRGB(255, 180, 90)
+        else self.hint.TextColor3 = white end
+    end
 end
 return Hud

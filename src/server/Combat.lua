@@ -33,7 +33,7 @@ function Combat:give(a, kind)
     return true
 end
 function Combat:equip(a, slot)
-    if type(slot) ~= "number" or slot % 1 ~= 0 or not a.inventory[slot] then return end
+    if type(slot) ~= "number" or slot % 1 ~= 0 or not a.inventory[slot] or slot == a.slot then return end
     a.reloadToken, a.reloading = a.reloadToken + 1, false
     a.slot, a.ammo = slot, a.inventory[slot].ammo
     self:visual(a)
