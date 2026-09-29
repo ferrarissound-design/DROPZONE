@@ -30,6 +30,13 @@ function Rules.totalDuration(phases)
     for _, p in ipairs(phases) do total = total + p.hold + p.shrink end
     return total
 end
+
+function Rules.shouldShowEvolutionDraft(snapshot)
+    if not snapshot then return false end
+    local active = snapshot.phase == "Active" or snapshot.phase == "FinalZone"
+    local me = snapshot.me
+    return active and me ~= nil and me.alive == true and me.evolutionDraft ~= nil
+end
 function Rules.closestLiveTarget(actor, actors, maxDistance)
     local target, distance = nil, maxDistance
     for _, candidate in ipairs(actors) do

@@ -8,7 +8,7 @@ return {
     BotInterval = 0.35, SnapshotInterval = 0.2,
     BuildGrid = 8, BuildCooldown = 0.55, BuildLimit = 100,
     BuildLifetime = 100, BuildCost = 20, BuildHealth = 150,
-    MaxEvolutions = 7,
+    MaxEvolutionRank = 3, EvolutionDraftSeconds = 5, EvolutionMaxQueue = 19, AdrenalineSeconds = 5,
     -- Each phase holds its current circle, then contracts toward the next.
     ZonePhases = {
         {radius = 320, nextRadius = 220, hold = 65, shrink = 40, damage = 2},

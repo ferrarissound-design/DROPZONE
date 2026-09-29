@@ -1,5 +1,6 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local World = require(script.Parent.World)
+local Evolution = require(script.Parent.Evolution)
 local Building = {}
 Building.__index = Building
 function Building.new(world)
@@ -10,7 +11,7 @@ end
 function Building:place(a, kind)
     if kind ~= "Wall" and kind ~= "Floor" and kind ~= "Ramp" then return end
     local now = os.clock()
-    local cost = math.ceil(Config.BuildCost * (a.evolutions.Builder and 0.7 or 1))
+    local cost = math.ceil(Config.BuildCost * math.max(0.67, 1 - Evolution.total(a, "Builder")))
     if not a.alive or now < (a.nextBuild or 0) or a.energy < cost or self.count >= Config.BuildLimit then return end
     local look = a.root.CFrame.LookVector
     local yaw = math.floor(math.atan2(-look.X, -look.Z) / (math.pi / 2) + 0.5) * (math.pi / 2)

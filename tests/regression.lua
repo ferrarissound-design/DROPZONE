@@ -25,10 +25,20 @@ vec.__div = function(a,b) return Vector3.new(a.X/b,a.Y/b,a.Z/b) end
 function vec:Lerp(b,t) return self + (b-self)*t end
 Vector3 = {new = function(x,y,z) return setmetatable({X=x,Y=y,Z=z},vec) end}
 Vector3.zero = Vector3.new(0,0,0)
-Random = {new = function() return {NextNumber = function(_,a,b) return (a+b)/2 end} end}
-Color3 = {fromRGB = function(...) return {...} end}
+Random = {new = function() return {NextNumber = function(_,a,b) return (a+b)/2 end, NextInteger = function(_,a,b) return a end} end}
+Color3 = {fromRGB = function(...) return {...} end, fromHSV = function(...) return {...} end}
+local fakeCF = setmetatable({}, {__mul=function() return fakeCF end})
+CFrame = {new=function() return fakeCF end}
+Enum = {Material={Neon="Neon"}}
+Instance = {new=function(kind)
+    local value = {ClassName=kind, children={}}
+    return setmetatable(value, {__newindex=function(t,k,v)
+        rawset(t,k,v)
+        if k=="Parent" and type(v)=="table" and v.children then table.insert(v.children,t) end
+    end})
+end}
 local delayed = {}
-task = {delay = function(_, f) table.insert(delayed,f) end}
+task = {delay = function(_, f) table.insert(delayed,f) end, defer = function(f) f() end}
 local players = {GetPlayers = function() return {} end}
 game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons"}}, GetService=function(_, name) if name=="Players" then return players end end}
 script = {Parent = {World="World", Actors="Actors", Evolution="Evolution"}}
@@ -37,12 +47,21 @@ local Rules = load("Rules", "shared/Rules.lua")
 load("Weapons", "shared/Weapons.lua")
 local World = load("World", "server/World.lua")
 local Actors = load("Actors", "server/Actors.lua")
-modules.Evolution = {step=function() end, grant=function() end, order={}}
+local Evolution = load("Evolution", "server/Evolution.lua")
 local Zone = load("Zone", "server/Zone.lua")
 local Round = load("Round", "server/Round.lua")
 local Combat = load("Combat", "server/Combat.lua")
 check(Rules.totalDuration(Config.ZonePhases)==375, "zone schedule is 375 seconds")
 check(World.townLootPosition(-130,-130).Z == -108, "town loot is outside the +Z roof footprint")
+check(not Rules.shouldShowEvolutionDraft({phase="Active",me={alive=true}}),
+    "snapshot without an Evolution draft hides the draft UI")
+check(not Rules.shouldShowEvolutionDraft({phase="Active",me={alive=false,evolutionDraft={id=1}}}),
+    "eliminated player cannot see or select a pending Evolution draft")
+check(not Rules.shouldShowEvolutionDraft({phase="Results",me={alive=true,evolutionDraft={id=1}}})
+    and not Rules.shouldShowEvolutionDraft({phase="Resetting",me={alive=true,evolutionDraft={id=1}}}),
+    "Results and Resetting close any stale draft UI")
+check(Rules.shouldShowEvolutionDraft({phase="FinalZone",me={alive=true,evolutionDraft={id=1}}}),
+    "living player keeps draft UI during FinalZone")
 check(Rules.botCount(1,12)==11, "solo bots")
 check(Rules.botCount(5,12)==7, "five humans")
 check(Rules.botCount(20,12)==0, "no negative bots")
@@ -73,12 +92,77 @@ zone:reset()
 check(zone.elapsed==0 and zone.radius==320,"second round zone reset")
 local actors = Actors.new()
 local function actor(id)
-    local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100},shield=0,kills=0,damage=0,
-        reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},startTime=os.clock(),root={Parent=true,Position=Vector3.zero},model={Parent=true}}
+    local model={Parent=true,parts={},mutationFolder=nil}
+    function model:FindFirstChild(name)
+        if name=="Mutation" then return self.mutationFolder end
+        return self.parts[name]
+    end
+    for _, name in ipairs({"Head","Torso","UpperTorso","LowerTorso","LeftLowerLeg","RightLowerLeg","LeftFoot","RightHand","LeftHand","Left Leg","Right Leg","Left Arm","Right Arm"}) do
+        model.parts[name]={Name=name,Size=Vector3.new(2,2,1),CFrame=fakeCF}
+    end
+    local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100,WalkSpeed=Config.BaseSpeed,JumpPower=Config.BaseJump},shield=0,kills=0,damage=0,
+        reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},evolutionStacks={},evolutionHistory={},
+        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),root={Parent=true,Position=Vector3.zero},model=model}
     function a.model:Destroy() self.Parent=false end
     table.insert(actors.list,a)
     return a
 end
+-- Evolution Draft offers are server-created, three distinct options from mixed build categories.
+local drafter=actor(31); drafter.player={}; drafter.roundId=41
+Evolution.onKill(drafter,41,nil)
+local draft=drafter.evolutionDraft
+check(draft and #draft.options==3, "kill creates exactly three server-side draft choices")
+local choiceIds,choiceCategories={},{}
+for _, option in ipairs(draft.options) do choiceIds[option.id]=true; choiceCategories[option.category]=true end
+local distinct=0; for _ in pairs(choiceIds) do distinct=distinct+1 end
+local categoryCount=0; for _ in pairs(choiceCategories) do categoryCount=categoryCount+1 end
+check(distinct==3 and categoryCount>=2, "draft choices are unique and favor varied categories")
+local staleCount=#delayed
+check(Evolution.select(drafter,41,draft.id,4)==nil and drafter.evolutionCount==0,
+    "candidate outside server-held choices cannot be acquired")
+local chosen=Evolution.select(drafter,41,draft.id,1)
+check(chosen~=nil and drafter.evolutionCount==1, "valid pick grants exactly one evolution")
+check(Evolution.select(drafter,41,draft.id,2)==nil and drafter.evolutionCount==1,
+    "a draft token cannot be selected twice")
+-- Fire the real five-second callback after advancing its deadline; stale callbacks are harmless.
+local timerActor=actor(32); timerActor.player={}; timerActor.roundId=42
+Evolution.onKill(timerActor,42,nil)
+local timerDraft=timerActor.evolutionDraft
+local timerCallback=delayed[#delayed]
+timerDraft.expiresAt=os.clock()-1
+timerCallback()
+check(timerActor.evolutionDraft==nil and timerActor.evolutionCount==1,
+    "expired draft auto-picks one offered ability")
+local deadDraft=actor(33); deadDraft.player={}; deadDraft.roundId=43
+Evolution.onKill(deadDraft,43,nil)
+local deadTimer=delayed[#delayed]
+Evolution.cancel(deadDraft); deadDraft.alive=false
+deadTimer()
+check(deadDraft.evolutionDraft==nil and deadDraft.evolutionCount==0,
+    "death cancels pending evolution and timer cannot grant later")
+local stackActor=actor(34)
+for _=1,4 do Evolution.grant(stackActor,"SwiftLegs") end
+check(Evolution.rank(stackActor,"SwiftLegs")==3 and stackActor.evolutionCount==3,
+    "same ability stacks to the configured rank cap")
+check(stackActor.humanoid.WalkSpeed<=Config.BaseSpeed*1.19,
+    "diminishing movement stacks stay under the stat cap")
+local diminishing = true
+for _, ability in ipairs(Evolution.abilities) do
+    for rank=2, Evolution.maxRank do if ability.values[rank] >= ability.values[rank-1] then diminishing=false end end
+end
+check(diminishing, "every stackable evolution has diminishing rank values")
+local shieldEvolution=actor(37)
+Evolution.grant(shieldEvolution,"CombatShield")
+check(shieldEvolution.shield==10,"Combat Shield grants its first rank when selected")
+Evolution.grant(shieldEvolution,"CombatShield")
+check(shieldEvolution.shield==17,"Combat Shield upgrade grants only its diminishing rank value")
+local visualParts=#stackActor.mutationFolder.children
+check(visualParts==3 and stackActor.mutationFolder.children[1].CanCollide==false
+    and stackActor.mutationFolder.children[1].CanTouch==false and stackActor.mutationFolder.children[1].CanQuery==false,
+    "stack visuals are cosmetic and do not add queryable hitboxes")
+
+-- Keep evolution-specific fixtures out of round population/rank assertions.
+actors:clear()
 local a,b,c = actor(1),actor(2),actor(3)
 local deaths=0
 actors.onDeath=function() deaths=deaths+1 end
@@ -165,5 +249,19 @@ check(#actors.list==0 and calls.bots==3 and calls.builds==3 and calls.loot==3,
     "third-round reset clears actors, bots, building and loot")
 check(zone.radius==320 and zone.elapsed==0 and round.winner==nil,
     "third-round reset clears the zone and winner")
+local resetDraft=actor(35); resetDraft.player={}; resetDraft.roundId=round.id
+Evolution.grant(resetDraft,"IronSkin"); Evolution.onKill(resetDraft,round.id,nil)
+local staleTimer=delayed[#delayed]
+actors.list={resetDraft}; actors.byPlayer[resetDraft.player]=resetDraft
+local resetServices={
+    actors=actors, zone=zone, bots=service("bots"), builds=service("builds"), loot=service("loot"),
+    effects={FireClient=function() end},
+}
+local resetRound=Round.new(resetServices)
+resetRound:reset(); staleTimer()
+check(resetDraft.evolutionCount==0 and next(resetDraft.evolutionStacks)==nil
+    and resetDraft.evolutionDraft==nil and resetDraft.queuedDrafts==0
+    and resetDraft.mutationFolder==nil and resetDraft.model.Parent==false,
+    "Round reset clears stack, pending offer, queue, visual state and model")
 
 print("PASS: " .. count .. " regression assertions")
