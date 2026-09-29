@@ -1,5 +1,6 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
+local Movement = require(script.Parent.Movement)
 local Evolution = {}
 Evolution.__index = Evolution
 
@@ -54,9 +55,10 @@ local function refreshStats(a)
     local swift = Evolution.total(a, "SwiftLegs")
     local adrenaline = Evolution.rank(a, "Adrenaline") > 0 and os.clock() < (a.adrenalineUntil or 0)
         and Evolution.total(a, "Adrenaline") or 0
-    a.humanoid.WalkSpeed = Config.BaseSpeed * (1 + swift + adrenaline)
+    a.humanoid.WalkSpeed = Config.BaseSpeed * (1 + swift + adrenaline) * Movement.speedMultiplier(a)
     a.humanoid.UseJumpPower = true
-    a.humanoid.JumpPower = Config.BaseJump * (1 + Evolution.total(a, "HighJump"))
+    a.humanoid.JumpPower = Movement.canJump(a) and Config.BaseJump * (1 + Evolution.total(a, "HighJump")) or 0
+    Movement.applyPosture(a)
     a.humanoid.MaxHealth = Config.BaseHealth + Evolution.total(a, "IronSkin")
     a.energy = math.min(a.energy, Evolution.maxEnergy(a))
 end
@@ -248,12 +250,17 @@ function Evolution.cancel(a)
 end
 function Evolution.step(a, dt)
     if not a.alive then return end
+    Movement.step(a)
     refreshStats(a)
     local regen = Evolution.total(a, "Regeneration")
     if regen > 0 and os.clock() - a.lastDamage >= 8 then
         a.humanoid.Health = math.min(a.humanoid.MaxHealth, a.humanoid.Health + regen * dt)
     end
 end
+function Evolution.refresh(a)
+    if a and a.alive then refreshStats(a) end
+end
+
 function Evolution.snapshot(a)
     local build = {}
     for _, ability in ipairs(Evolution.abilities) do
