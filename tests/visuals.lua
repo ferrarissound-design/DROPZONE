@@ -80,13 +80,13 @@ local Actors=load("Actors","server/Actors.lua")
 local World=load("World","server/World.lua")
 -- Eliminated bodies remain visible but leave weapon/LOS query space immediately.
 local corpse=folder(workspace,"Corpse")
-local corpsePart=Instance.new("Part");corpsePart.CanQuery,corpsePart.CanTouch=true,true;corpsePart.Parent=corpse
+local corpsePart=Instance.new("Part");corpsePart.CanCollide,corpsePart.CanQuery,corpsePart.CanTouch=true,true,true;corpsePart.Anchored=false;corpsePart.Parent=corpse
 local actorService=Actors.new()
-local deadActor={alive=true,model=corpse,humanoid={Health=100},startTime=os.clock(),reloading=false,reloadToken=0}
+local deadActor={alive=true,model=corpse,root=corpsePart,humanoid={Health=100},startTime=os.clock(),reloading=false,reloadToken=0}
 actorService.list={deadActor}
 actorService:eliminate(deadActor)
-check(corpsePart.CanQuery==false and corpsePart.CanTouch==false,
-    "eliminated body no longer intercepts weapon rays, LOS, or touch queries")
+check(corpsePart.Anchored and corpsePart.CanCollide==false and corpsePart.CanQuery==false and corpsePart.CanTouch==false,
+    "eliminated body stays stable without blocking movement, weapon rays, LOS, or touch queries")
 
 -- Ground projection must use only explicitly designated walkable surfaces.
 RaycastParams={new=function() return {} end}
