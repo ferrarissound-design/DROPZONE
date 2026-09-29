@@ -1,0 +1,48 @@
+{
+  "name": "DROPZONE",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "DropzoneShared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "DropzoneServer": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "$properties": {
+        "CameraMinZoomDistance": 6,
+        "CameraMaxZoomDistance": 24
+      },
+      "StarterPlayerScripts": {
+        "DropzoneClient": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "FilteringEnabled": true
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "ClockTime": 14,
+        "Brightness": 2,
+        "Ambient": [
+          0.45,
+          0.48,
+          0.55
+        ]
+      }
+    },
+    "StarterGui": {
+      "$properties": {
+        "ScreenOrientation": "LandscapeSensor"
+      }
+    }
+  }
+}
