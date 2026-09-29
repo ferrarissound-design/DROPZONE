@@ -463,6 +463,9 @@ check(confirmed and confirmed.player==shooter.player and confirmed.args[1]==77 a
     "shotgun aggregates pellets per victim and confirms damage to shooter only with roundId")
 check(math.abs(confirmed.args[2][1].hp-20)<.0001 and math.abs(confirmed.args[2][1].shield-30)<.0001 and confirmed.args[2][1].eliminated,
     "damage feedback contains actual HP/Shield losses, not overkill")
+check(shooter.diagnostics.shots.Shotgun==1 and shooter.diagnostics.hits.Shotgun==1
+    and math.abs(shooter.diagnostics.weaponDamage.Shotgun-50)<.0001,
+    "accepted combat records one shot-level hit and exact non-overkill weapon damage")
 local eventCount=#messages
 shotCombat:fire(shooter,Vector3.new(1,0,0))
 check(#messages==eventCount and shooter.ammo==5,"fire spam cannot generate extra damage feedback")
@@ -470,6 +473,9 @@ shooter.nextShot=0;workspace.Raycast=function() return nil end
 messages={};shotCombat:fire(shooter,Vector3.new(1,0,0))
 local damageEvents=0;for _,event in ipairs(messages) do if event.kind=="Damage" then damageEvents=damageEvents+1 end end
 check(damageEvents==0,"misses never produce a damage number")
+check(shooter.diagnostics.shots.Shotgun==2 and shooter.diagnostics.hits.Shotgun==1
+    and math.abs(shooter.diagnostics.weaponDamage.Shotgun-50)<.0001,
+    "misses count as shots but never inflate hit or damage diagnostics")
 print("PASS: "..count.." total gameplay assertions including movement, rarity and confirmed combat")
 
 local shotEvent
