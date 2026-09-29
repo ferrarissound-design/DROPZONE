@@ -121,15 +121,28 @@ function Round:step(dt)
     self.zone:update(dt)
     if self.zone.phase == #Config.ZonePhases then self.phase = "FinalZone" end
     self.remaining = math.max(0, math.ceil(Rules.totalDuration(Config.ZonePhases) - self.zone.elapsed))
-    -- Continuous damage bypasses shield. Zero radius damages everyone, even at its exact center.
-    for _, a in ipairs(self.actors:alive()) do
-        if #self.actors:alive() <= 1 then break end
-        if not a.root.Parent or not a.model.Parent then self.actors:eliminate(a)
-        elseif a.root.Position.Y < -30 then self.actors:eliminate(a)
+    -- Resolve a stable start-of-tick cohort before deciding the winner. Environmental
+    -- eliminations in this tick share the same finishing rank, independent of list order.
+    -- Zero-radius storm damage also applies at the exact center.
+    local cohort = self.actors:alive()
+    local eliminatedThisTick = {}
+    for _, a in ipairs(cohort) do
+        if not a.root.Parent or not a.model.Parent or a.root.Position.Y < -30 then
+            self.actors:eliminate(a)
+        elseif self.zone:outside(a.root.Position) then
+            self.actors:damage(a, self.zone.damage * dt, nil, true)
+        end
+        if not a.alive then
+            table.insert(eliminatedThisTick, a)
         else
-            if self.zone:outside(a.root.Position) then self.actors:damage(a, self.zone.damage * dt, nil, true) end
             Evolution.step(a, dt)
         end
+    end
+    -- Multiple environmental deaths at one tick share a placement. A simultaneous
+    -- final storm elimination is a draw, never a traversal-order winner.
+    if #eliminatedThisTick > 1 then
+        local sharedRank = #self.actors:alive() + 1
+        for _, a in ipairs(eliminatedThisTick) do a.rank = sharedRank end
     end
     -- Fail-safe is deterministic and only used after the circle is already zero.
     if self.zone.elapsed > Rules.totalDuration(Config.ZonePhases) + Config.SuddenDeath then

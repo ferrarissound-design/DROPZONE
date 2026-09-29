@@ -98,7 +98,7 @@ function Hud:update(s)
     end
     self.result.Visible = s.phase == "Results" or (active and me ~= nil and not me.alive)
     if self.result.Visible then
-        local title = s.phase == "Results" and (me and me.rank == 1 and "#1 VICTORY" or (s.winner and "WINNER: " .. s.winner or "DRAW")) or "ELIMINATED"
+        local title = s.phase == "Results" and (s.winner and me and me.rank == 1 and "#1 VICTORY" or (s.winner and "WINNER: " .. s.winner or "DRAW")) or "ELIMINATED"
         self.result.Text = title .. (me and string.format("\n\n順位 #%d   KILL %d\nDAMAGE %d   生存 %d秒\nEVOLUTION %d / 7", me.rank or s.alive + 1, me.kills, me.damage, me.survival, me.evolutions) or "\n次の試合から参加できます")
         -- Compact death card leaves the spectator view clear.
         self.result.Position = active and UDim2.fromOffset(275, 150) or UDim2.fromOffset(265, 150)

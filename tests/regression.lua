@@ -35,16 +35,24 @@ script = {Parent = {World="World", Actors="Actors", Evolution="Evolution"}}
 local Config = load("Config", "shared/Config.lua")
 local Rules = load("Rules", "shared/Rules.lua")
 load("Weapons", "shared/Weapons.lua")
-load("World", "server/World.lua")
+local World = load("World", "server/World.lua")
 local Actors = load("Actors", "server/Actors.lua")
 modules.Evolution = {step=function() end, grant=function() end, order={}}
 local Zone = load("Zone", "server/Zone.lua")
 local Round = load("Round", "server/Round.lua")
 local Combat = load("Combat", "server/Combat.lua")
+check(Rules.totalDuration(Config.ZonePhases)==375, "zone schedule is 375 seconds")
+check(World.townLootPosition(-130,-130).Z == -108, "town loot is outside the +Z roof footprint")
 check(Rules.botCount(1,12)==11, "solo bots")
 check(Rules.botCount(5,12)==7, "five humans")
 check(Rules.botCount(20,12)==0, "no negative bots")
 check(not Rules.finite(0/0) and not Rules.finite(math.huge), "NaN and infinity rejected")
+local scout, corpse, living =
+    {alive=true, root={Position=Vector3.new(0,0,0)}},
+    {alive=false, root={Position=Vector3.new(1,0,0)}},
+    {alive=true, root={Position=Vector3.new(12,0,0)}}
+local target, targetDistance = Rules.closestLiveTarget(scout, {scout,corpse,living}, 145)
+check(target==living and targetDistance==12, "bot targeting skips actors eliminated earlier this decision cycle")
 local hp,shield,dealt = Rules.resolveDamage(100,20,35,false)
 check(hp==85 and shield==0 and dealt==35,"shield first")
 hp,shield,dealt = Rules.resolveDamage(10,20,999,false)
@@ -54,7 +62,7 @@ check(hp==90 and shield==50,"storm bypasses shield")
 local zone = Zone.new(); zone:reset()
 check(zone.radius==320 and zone.phase==1,"zone reset")
 local previous = 320
-for _=1,475 do
+for _=1,Rules.totalDuration(Config.ZonePhases) do
     zone:update(1)
     check(zone.radius<=previous and zone.radius>=0,"zone monotonically shrinks")
     previous=zone.radius
@@ -66,7 +74,7 @@ check(zone.elapsed==0 and zone.radius==320,"second round zone reset")
 local actors = Actors.new()
 local function actor(id)
     local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100},shield=0,kills=0,damage=0,
-        reloadToken=0,reloading=false,startTime=os.clock(),root={Parent=true,Position=Vector3.zero},model={Parent=true}}
+        reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},startTime=os.clock(),root={Parent=true,Position=Vector3.zero},model={Parent=true}}
     function a.model:Destroy() self.Parent=false end
     table.insert(actors.list,a)
     return a
@@ -111,6 +119,51 @@ local fresh=actor(4)
 check(fresh.kills==0 and fresh.damage==0 and fresh.shield==0 and fresh.alive,"fresh second-round actor")
 round.phase,round.started="Active",os.clock(); round:step(0.1)
 check(round.phase=="Results" and round.winner=="4","second-round result")
+check(fresh.evolutionCount==0 and #fresh.inventory==0 and fresh.energy==Config.StartEnergy, "fresh actor has no kills, evolution, inventory or energy residue")
 round:reset()
 check(#actors.list==0 and calls.builds==2,"second reset")
+-- Simultaneous lethal storm damage must tie, not elect whichever actor is visited last.
+local function stormOutcome(order)
+    actors = Actors.new()
+    local stormActors = {}
+    for _, id in ipairs(order) do
+        local fighter = actor(id)
+        fighter.humanoid.Health = 5
+        table.insert(stormActors, fighter)
+    end
+    local stormZone = {
+        phase = #Config.ZonePhases, elapsed = 374, damage = 10,
+        update = function(self, dt) self.elapsed = self.elapsed + dt end,
+        outside = function() return true end,
+        snapshot = function() return {} end,
+        reset = function() end,
+    }
+    local stormRound = Round.new({actors=actors,zone=stormZone,bots=service("bots"),
+        builds=service("builds"),loot=service("loot"),effects={FireClient=function() end}})
+    stormRound.phase, stormRound.started = "FinalZone", os.clock()
+    stormRound:step(1)
+    local ranks = {}
+    for _, a in ipairs(stormActors) do ranks[tostring(a.id)] = a.rank end
+    return stormRound.winner, ranks, stormRound.phase
+end
+local winnerForward, rankForward, phaseForward = stormOutcome({21,22})
+local winnerReverse, rankReverse, phaseReverse = stormOutcome({22,21})
+check(winnerForward==nil and winnerReverse==nil, "simultaneous final storm is a draw in either actor order")
+check(rankForward["21"]==1 and rankForward["22"]==1 and rankReverse["21"]==1 and rankReverse["22"]==1,
+    "same-tick storm deaths share an order-independent rank")
+check(phaseForward=="Results" and phaseReverse=="Results", "simultaneous storm resolves the round")
+
+-- Three consecutive lifecycles clear service state, not just the Actor list.
+actors = Actors.new()
+local third = actor(5)
+round.actors = actors
+round.phase, round.started = "Active", os.clock()
+round:step(0.1)
+check(round.phase=="Results" and round.winner=="5", "third-round actor can finish a fresh round")
+round:reset()
+check(#actors.list==0 and calls.bots==3 and calls.builds==3 and calls.loot==3,
+    "third-round reset clears actors, bots, building and loot")
+check(zone.radius==320 and zone.elapsed==0 and round.winner==nil,
+    "third-round reset clears the zone and winner")
+
 print("PASS: " .. count .. " regression assertions")

@@ -1,5 +1,6 @@
 local PathfindingService = game:GetService("PathfindingService")
 local World = require(script.Parent.World)
+local Rules = require(game.ReplicatedStorage.DropzoneShared.Rules)
 local Bots = {}
 Bots.__index = Bots
 function Bots.new(actors, combat, loot, zone, world)
@@ -33,13 +34,7 @@ function Bots:step()
             local params = RaycastParams.new()
             params.FilterType = Enum.RaycastFilterType.Exclude
             params.FilterDescendantsInstances = {a.model}
-            local target, distance = nil, 145
-            for _, enemy in ipairs(alive) do
-                if enemy ~= a then
-                    local d = (enemy.root.Position - pos).Magnitude
-                    if d < distance then target, distance = enemy, d end
-                end
-            end
+            local target, distance = Rules.closestLiveTarget(a, alive, 145)
             local goal
             if self.zone:outside(pos, 18) then
                 -- Zone safety always wins over chasing or looting.

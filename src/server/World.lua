@@ -1,4 +1,9 @@
 local World = {}
+
+-- Loot lies just beyond the open +Z entrance and roof footprint.
+function World.townLootPosition(x, z)
+    return Vector3.new(x, 2, z + 22)
+end
 local function part(parent, name, size, cf, color, material)
     local p = Instance.new("Part")
     p.Name, p.Size, p.CFrame = name, size, cf
@@ -32,7 +37,7 @@ function World.create()
             part(map, "TownSide", Vector3.new(2, 14, 28), CFrame.new(x - 14, 7, z), c)
             part(map, "TownSide", Vector3.new(2, 14, 28), CFrame.new(x + 14, 7, z), c)
             part(map, "TownRoof", Vector3.new(32, 2, 30), CFrame.new(x, 15, z), Color3.fromRGB(64, 83, 108))
-            table.insert(self.loot, Vector3.new(x, 2, z))
+            table.insert(self.loot, World.townLootPosition(x, z))
         end
     end
     for x = 70, 190, 40 do

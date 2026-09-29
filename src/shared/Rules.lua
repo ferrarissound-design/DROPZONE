@@ -30,6 +30,16 @@ function Rules.totalDuration(phases)
     for _, p in ipairs(phases) do total = total + p.hold + p.shrink end
     return total
 end
+function Rules.closestLiveTarget(actor, actors, maxDistance)
+    local target, distance = nil, maxDistance
+    for _, candidate in ipairs(actors) do
+        if candidate ~= actor and candidate.alive then
+            local current = (candidate.root.Position - actor.root.Position).Magnitude
+            if current < distance then target, distance = candidate, current end
+        end
+    end
+    return target, distance
+end
 function Rules.canFire(actor, weapon, now)
     return actor.alive and weapon ~= nil and not actor.reloading
         and actor.ammo > 0 and now >= actor.nextShot

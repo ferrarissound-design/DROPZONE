@@ -42,14 +42,14 @@ The generated arena is deliberately compact. Performance budgets are design limi
 
 ## Balance and implementation scope
 
-Zone schedule is 475 seconds plus up to 30 seconds emergency resolution. Earlier kills can end a match earlier.
-All circle shifts keep the next circle contained and the last combat around Core. Storm bypasses shield.
+Zone schedule is 375 seconds (6 minutes 15 seconds) plus up to 30 seconds emergency resolution. Earlier kills can end a match earlier.
+All circle shifts keep the next circle contained and the last combat around Core. Storm bypasses shield. Same-tick environmental eliminations share a finishing rank; simultaneous final storm deaths result in a draw.
 Bots prioritize safety, then nearby loot, then combat/wandering. Blocked shots can damage player-built cover.
 Bots start with a pistol, humans have guaranteed nearby pickups. They share damage and reload code.
 Bots use rigid R6-style procedural rigs: animation/art polish remains pending.
 
 Builds are simple ground-snapped pieces, not a multi-storey Fortnite construction system.
-Mutations use fixed unlock order, max seven, cosmetic non-queryable welded parts, no hitbox enlargement.
+Evolution unlocks in a fixed order on kills (not randomly), max seven, with cosmetic non-queryable welded parts and no hitbox enlargement. Random or choice-based evolution is a future extension.
 Regeneration is interrupted by storm damage as well as weapon hits. No persistence across rounds.
 Audio and full airborne insertion are deferred; there are no external assets to fail moderation/loading.
 
