@@ -26,11 +26,14 @@ function World.create()
     map.Name, map.Parent = "Map", root
     local dynamic = Instance.new("Folder")
     dynamic.Name, dynamic.Parent = "Round", root
-    local self = {root = root, map = map, dynamic = dynamic, spawns = {}, loot = {}}
-    part(map, "Island", Vector3.new(520, 4, 520), CFrame.new(0, -2, 0), Theme.Grass[1], Enum.Material.Grass)
+    local self = {root = root, map = map, dynamic = dynamic, spawns = {}, loot = {}, groundSurfaces = {}}
+    local island = part(map, "Island", Vector3.new(520, 4, 520), CFrame.new(0, -2, 0), Theme.Grass[1], Enum.Material.Grass)
+    table.insert(self.groundSurfaces, island)
     local road = Color3.fromRGB(111, 118, 116)
-    part(map, "RoadX", Vector3.new(510, 0.2, 24), CFrame.new(0, 0.1, 0), road, Enum.Material.Asphalt)
-    part(map, "RoadZ", Vector3.new(24, 0.2, 510), CFrame.new(0, 0.1, 0), road, Enum.Material.Asphalt)
+    local roadX = part(map, "RoadX", Vector3.new(510, 0.2, 24), CFrame.new(0, 0.1, 0), road, Enum.Material.Asphalt)
+    local roadZ = part(map, "RoadZ", Vector3.new(24, 0.2, 510), CFrame.new(0, 0.1, 0), road, Enum.Material.Asphalt)
+    table.insert(self.groundSurfaces, roadX)
+    table.insert(self.groundSurfaces, roadZ)
     -- Cosmetic markings never alter navigation, placement overlap or weapon rays.
     for offset = -220, 220, 20 do
         for axis = 1, 2 do
@@ -70,13 +73,15 @@ function World.create()
     hill.Name, hill.Size = "Hill", Vector3.new(90, 18, 110)
     hill.CFrame, hill.Color = CFrame.new(135, 9, 135), Theme.Grass[2]
     hill.Anchored, hill.Parent = true, map
+    table.insert(self.groundSurfaces, hill)
     for i = 1, 8 do
         local angle = i * math.pi / 4
         local x, z = math.cos(angle) * 42, math.sin(angle) * 42
         part(map, "CentralCover", Vector3.new(12, 7, 4), CFrame.new(x, 3.5, z) * CFrame.Angles(0, -angle, 0), Theme.Slate, Enum.Material.Concrete)
         table.insert(self.loot, Vector3.new(x * 0.65, 2, z * 0.65))
     end
-    part(map, "CentralPad", Vector3.new(32, 0.3, 32), CFrame.new(0, 0.2, 0), Theme.Blue, Enum.Material.Metal)
+    local centralPad = part(map, "CentralPad", Vector3.new(32, 0.3, 32), CFrame.new(0, 0.2, 0), Theme.Blue, Enum.Material.Metal)
+    table.insert(self.groundSurfaces, centralPad)
     for i = 1, 24 do
         local a = (i - 1) * math.pi * 2 / 24
         local position = Vector3.new(math.cos(a) * 245, 4, math.sin(a) * 245)
@@ -99,9 +104,12 @@ function World.create()
     return self
 end
 function World.ground(self, position)
+    local surfaces = self.groundSurfaces
+    if not surfaces or #surfaces == 0 then return Vector3.new(position.X, 0, position.Z) end
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Include
-    params.FilterDescendantsInstances = {self.map}
+    -- Only true walkable ground participates. Roofs, containers, trees, and cover must not become "ground".
+    params.FilterDescendantsInstances = surfaces
     local hit = workspace:Raycast(Vector3.new(position.X, 80, position.Z), Vector3.new(0, -120, 0), params)
     return hit and hit.Position or Vector3.new(position.X, 0, position.Z)
 end

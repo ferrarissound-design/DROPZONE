@@ -35,6 +35,9 @@ end
 function methods:FindFirstChild(name) for child in pairs(self._children) do if child.Name==name then return child end end end
 function methods:WaitForChild(name) return assert(self:FindFirstChild(name),name) end
 function methods:GetPropertyChangedSignal() return signal() end
+function methods:IsA(kind)
+    return self.ClassName==kind or (kind=="BasePart" and (self.ClassName=="Part" or self.ClassName=="WedgePart"))
+end
 function methods:Destroy() self:ClearAllChildren();self.Parent=nil;self._destroyed=true end
 function methods:ClearAllChildren() for _,child in ipairs(self:GetChildren()) do child:Destroy() end end
 local propertiesOf={}
@@ -74,6 +77,26 @@ for _,key in ipairs(shared:GetChildren()) do modules[key]=modules[key.Name] end
 local Cosmetics=load("Cosmetics","server/Cosmetics.lua")
 local MapVisuals=load("MapVisuals","server/MapVisuals.lua")
 local Actors=load("Actors","server/Actors.lua")
+local World=load("World","server/World.lua")
+-- Eliminated bodies remain visible but leave weapon/LOS query space immediately.
+local corpse=folder(workspace,"Corpse")
+local corpsePart=Instance.new("Part");corpsePart.CanQuery,corpsePart.CanTouch=true,true;corpsePart.Parent=corpse
+local actorService=Actors.new()
+local deadActor={alive=true,model=corpse,humanoid={Health=100},startTime=os.clock(),reloading=false,reloadToken=0}
+actorService.list={deadActor}
+actorService:eliminate(deadActor)
+check(corpsePart.CanQuery==false and corpsePart.CanTouch==false,
+    "eliminated body no longer intercepts weapon rays, LOS, or touch queries")
+
+-- Ground projection must use only explicitly designated walkable surfaces.
+RaycastParams={new=function() return {} end}
+local groundA,groundB=Instance.new("Part"),Instance.new("Part")
+local capturedGroundFilter
+workspace.Raycast=function(_,_,_,params) capturedGroundFilter=params.FilterDescendantsInstances;return nil end
+World.ground({map=folder(workspace,"MapForGround"),groundSurfaces={groundA,groundB}},Vector3.new(4,3,2))
+check(capturedGroundFilter and #capturedGroundFilter==2 and capturedGroundFilter[1]==groundA and capturedGroundFilter[2]==groundB,
+    "ground projection excludes roofs, containers, trees, and cover")
+
 local function cosmeticCount(root,anchored)
     local count=0
     for _,p in ipairs(root:GetDescendants()) do

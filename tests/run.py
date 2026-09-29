@@ -54,3 +54,24 @@ client = (ROOT / 'src' / 'client' / 'Main.client.lua').read_text()
 round_reset = re.search(r'if not state or state\.roundId ~= s\.roundId then(?P<body>.*?)\n    end\n    state = s', client, re.S)
 assert round_reset and 'submittedEvolutionDraft = nil' in round_reset.group('body')
 print('PASS: a new round clears the submitted Evolution draft token')
+
+
+actors_source = (ROOT / 'src' / 'server' / 'Actors.lua').read_text()
+assert 'descendant.CanQuery = false' in actors_source and 'descendant.CanTouch = false' in actors_source
+print('PASS: eliminated actors are removed from raycast and touch queries')
+
+world_source = (ROOT / 'src' / 'server' / 'World.lua').read_text()
+assert 'groundSurfaces = {}' in world_source
+assert 'params.FilterDescendantsInstances = surfaces' in world_source
+assert 'if not surfaces or #surfaces == 0 then return Vector3.new(position.X, 0, position.Z) end' in world_source
+for required in ['island', 'roadX', 'roadZ', 'hill', 'centralPad']:
+    assert f'table.insert(self.groundSurfaces, {required})' in world_source
+print('PASS: ground raycasts use only designated walkable surfaces')
+
+server_source = (ROOT / 'src' / 'server' / 'Main.server.lua').read_text()
+assert 'ReplicatedStorage:GetChildren()' in server_source and 'child.Name == "DropzoneRemotes"' in server_source
+assert 'remotes:GetChildren()' in server_source and 'child:IsA("RemoteEvent")' in server_source
+print('PASS: Studio/Rojo startup deduplicates the remote folder and events')
+
+assert 'hud.crosshair.TextColor3 = Theme.Paper' in client
+print('PASS: hit marker restores the shared themed crosshair color')
