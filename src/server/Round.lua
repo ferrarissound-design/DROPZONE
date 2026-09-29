@@ -181,7 +181,9 @@ function Round:step(dt)
     local eliminatedThisTick = {}
     for _, a in ipairs(cohort) do
         if not a.root.Parent or not a.model.Parent or a.root.Position.Y < -30 then
-            if a.diagnostics then a.diagnostics.deathReason = "Fall" end
+            if a.diagnostics then
+                a.diagnostics.deathReason = a.root.Parent and a.model.Parent and a.root.Position.Y < -30 and "Fall" or "Other"
+            end
             self.actors:eliminate(a)
         elseif self.zone:outside(a.root.Position) then
             local previousReason = a.diagnostics and a.diagnostics.deathReason
