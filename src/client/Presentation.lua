@@ -5,7 +5,8 @@ local Presentation = {}
 Presentation.__index = Presentation
 function Presentation.new(folder, player)
     local self = setmetatable({player=player, audio=Audio.new(folder), animations=Animations.new(),
-        flashes={}, cursor=0, vertical=0, horizontal=0, kick=0, tilt=0, fov=0, offset=0, nextStep=0}, Presentation)
+        flashes={}, cursor=0, vertical=0, horizontal=0, kick=0, tilt=0, fov=0, offset=0, aimBlend=0,
+        aimHeld=false, combatAimHeld=false, combatAimUntil=0, nextStep=0}, Presentation)
     for _ = 1, Config.FlashPool do
         local p = Instance.new("Part")
         p.Name, p.Shape, p.Material = "MuzzleFlash", Enum.PartType.Ball, Enum.Material.Neon
@@ -20,6 +21,26 @@ function Presentation.new(folder, player)
     pulse.Parent = folder
     self.pulse = pulse
     return self
+end
+function Presentation:setAimHeld(enabled)
+    self.aimHeld = enabled == true
+end
+function Presentation:setCombatAim(enabled)
+    if enabled then
+        self.combatAimHeld = true
+        self.combatAimUntil = 0
+    else
+        if self.combatAimHeld then
+            self.combatAimUntil = math.max(self.combatAimUntil or 0, os.clock() + Config.MobileCombatAimHold)
+        end
+        self.combatAimHeld = false
+    end
+end
+function Presentation:cancelAim()
+    self.aimHeld, self.combatAimHeld, self.combatAimUntil, self.aimActive = false, false, 0, false
+end
+function Presentation:isAiming()
+    return self.aimActive == true or (self.aimBlend or 0) > .35
 end
 function Presentation:undoCamera()
     if self.camera and self.applied then
@@ -44,7 +65,8 @@ function Presentation:clear()
     self.animations.movementKey = nil
     self.audio:clear()
     self.camera, self.baseFov, self.humanoid, self.baseOffset, self.character = nil,nil,nil,nil,nil
-    self.vertical,self.horizontal,self.fov,self.offset = 0,0,0,0
+    self.vertical,self.horizontal,self.fov,self.offset,self.aimBlend = 0,0,0,0,0
+    self.aimHeld,self.combatAimHeld,self.combatAimUntil,self.aimActive = false,false,0,false
     self.me, self.previous, self.roundId, self.readyAt, self.slideSound = nil,nil,nil,nil,nil
     self.pulse.Enabled, self.pulse.Adornee = false,nil
     self.nextStep, self.lastShrink = 0,nil
@@ -137,10 +159,20 @@ function Presentation:step(dt)
         self.camera, self.baseFov = camera, camera and camera.FieldOfView
     end
     local alpha = 1-math.exp(-Config.CameraRecovery*dt)
+    local aimAlpha = 1-math.exp(-Config.AimRecovery*dt)
     local me = self.me
-    self.fov = self.fov + ((me.sliding and Config.SlideFov or me.sprinting and Config.SprintFov or 0)-self.fov)*alpha
+    local aimIntent = self.aimHeld or self.combatAimHeld or now < (self.combatAimUntil or 0)
+    local aimAllowed = not me.sprinting and not me.sliding and me.evolutionDraft == nil
+    self.aimActive = aimIntent and aimAllowed
+    self.aimBlend = self.aimBlend + ((self.aimActive and 1 or 0)-self.aimBlend)*aimAlpha
+    local targetFov = self.aimActive and Config.AimFov or me.sliding and Config.SlideFov or me.sprinting and Config.SprintFov or 0
+    self.fov = self.fov + (targetFov-self.fov)*alpha
     self.offset = self.offset + ((me.sliding and Config.SlideOffset or me.crouching and Config.CrouchOffset or 0)-self.offset)*alpha
-    self.humanoid.CameraOffset = self.baseOffset + Vector3.new(0,self.offset,0)
+    self.humanoid.CameraOffset = self.baseOffset + Vector3.new(
+        Config.AimShoulderX*self.aimBlend,
+        self.offset + Config.AimShoulderY*self.aimBlend,
+        0
+    )
     local decay = math.exp(-(self.recovery or 18)*dt)
     self.vertical,self.horizontal,self.kick = self.vertical*decay,self.horizontal*decay,self.kick*decay
     if camera then
