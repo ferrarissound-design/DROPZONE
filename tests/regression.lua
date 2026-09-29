@@ -115,7 +115,9 @@ local function actor(id)
     end
     local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100,WalkSpeed=Config.BaseSpeed,JumpPower=Config.BaseJump,HipHeight=2,AutoRotate=true,FloorMaterial="Grass"},shield=0,kills=0,damage=0,
         reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},evolutionStacks={},evolutionHistory={},
-        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),root={Parent=true,Position=Vector3.zero,Anchored=false,AssemblyLinearVelocity=Vector3.new(10,0,0)},model=model}
+        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),
+        diagnostics={shots={},hits={},weaponDamage={},builds=0,pickups=0,zoneDamage=0},
+        root={Parent=true,Position=Vector3.zero,Anchored=false,AssemblyLinearVelocity=Vector3.new(10,0,0)},model=model}
     function a.model:Destroy() self.Parent=false end
     table.insert(actors.list,a)
     return a
@@ -260,7 +262,11 @@ local function stormOutcome(order)
     stormRound.phase, stormRound.started = "FinalZone", os.clock()
     stormRound:step(1)
     local ranks = {}
-    for _, a in ipairs(stormActors) do ranks[tostring(a.id)] = a.rank end
+    for _, a in ipairs(stormActors) do
+        ranks[tostring(a.id)] = a.rank
+        check(a.diagnostics.deathReason=="Zone" and math.abs(a.diagnostics.zoneDamage-5)<.0001,
+            "lethal storm records exact zone damage and Zone death reason")
+    end
     return stormRound.winner, ranks, stormRound.phase
 end
 local winnerForward, rankForward, phaseForward = stormOutcome({21,22})
