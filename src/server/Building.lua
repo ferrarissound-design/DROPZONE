@@ -29,8 +29,8 @@ function Building:place(a, kind)
     -- Reject intersections with buildings, players, and other builds; avoid entombing actors.
     local params = OverlapParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
-    local ignore = {self.world.map:FindFirstChild("Island"), self.world.map:FindFirstChild("RoadX"), self.world.map:FindFirstChild("RoadZ"), self.world.map:FindFirstChild("CentralPad")}
-    params.FilterDescendantsInstances = ignore
+    -- Every designated ground surface is allowed beneath a build, including the Hill slope.
+    params.FilterDescendantsInstances = self.world.groundSurfaces or {}
     for _, hit in ipairs(workspace:GetPartBoundsInBox(cf, size - Vector3.new(0.15, 0.15, 0.15), params)) do
         if hit.CanCollide or hit.Name == "HumanoidRootPart" then return end
     end
