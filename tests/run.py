@@ -75,3 +75,20 @@ print('PASS: Studio/Rojo startup deduplicates the remote folder and events')
 
 assert 'hud.crosshair.TextColor3 = Theme.Paper' in client
 print('PASS: hit marker restores the shared themed crosshair color')
+
+
+building_source = (ROOT / 'src' / 'server' / 'Building.lua').read_text()
+assert 'params.FilterDescendantsInstances = self.world.groundSurfaces or {}' in building_source
+print('PASS: build overlap ignores every designated ground surface, including Hill')
+
+bots_source = (ROOT / 'src' / 'server' / 'Bots.lua').read_text()
+assert re.search(r'function Bots:clear\(\).*?self\.jobs = 0', bots_source, re.S)
+assert 'if currentGeneration then self.jobs = math.max(0, self.jobs - 1) end' in bots_source
+print('PASS: bot path worker accounting is generation-safe across resets')
+
+round_source = (ROOT / 'src' / 'server' / 'Round.lua').read_text()
+assert 'a.roundId = -1' in round_source
+print('PASS: Results invalidates stale deferred Evolution work')
+
+assert 'descendant.CanCollide = false' in actors_source and 'a.root.Anchored = true' in actors_source
+print('PASS: eliminated actors are physically non-blocking and remain stable')
