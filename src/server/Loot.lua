@@ -44,17 +44,33 @@ function Loot:reset()
     -- Guaranteed weapon beside every insertion point.
     for i, position in ipairs(self.world.spawns) do self:spawn(position + Vector3.new(0, 0, -6), i % 2 == 0 and "Rifle" or "Pistol", true) end
 end
+local function useful(a, item)
+    local kind = item.kind
+    if kind == "Health" then return a.humanoid.Health < a.humanoid.MaxHealth end
+    if kind == "Shield" then return a.shield < 100 end
+    if kind == "Energy" then return a.energy < Evolution.maxEnergy(a) end
+    if kind == "Ammo" then
+        for _, weapon in ipairs(a.inventory) do
+            if weapon.reserve < 240 then return true end
+        end
+        return false
+    end
+    if Weapons[kind] then
+        for _, weapon in ipairs(a.inventory) do
+            if weapon.kind == kind then
+                return WeaponStats.rank(item.rarity) > WeaponStats.rank(weapon.rarity)
+                    or weapon.reserve < 240
+            end
+        end
+        return true
+    end
+    return false
+end
 function Loot:nearest(a, range)
     local nearest, distance = nil, range
     for p, item in pairs(self.items) do
-        local kind = item.kind
-        local useful = true
-        if kind == "Health" and a.humanoid.Health >= a.humanoid.MaxHealth then useful = false end
-        if kind == "Shield" and a.shield >= 100 then useful = false end
-        if kind == "Energy" and a.energy >= Evolution.maxEnergy(a) then useful = false end
-        if #a.inventory == 0 and not Weapons[kind] then useful = false end
         local d = (p.Position - a.root.Position).Magnitude
-        if useful and d < distance then nearest, distance = p, d end
+        if useful(a, item) and d < distance then nearest, distance = p, d end
     end
     return nearest
 end
