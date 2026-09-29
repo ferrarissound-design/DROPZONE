@@ -41,10 +41,12 @@ function Actors:eliminate(a, killer)
     a.rank = #self:alive() + 1
     a.survival = math.max(0, os.clock() - a.startTime)
     a.reloading, a.reloadToken = false, a.reloadToken + 1
-    -- Keep the corpse visible, but never let it block shots, LOS checks, or touch triggers.
+    -- Keep the corpse visible and stable, but never let it block movement, shots, LOS, or touch triggers.
+    if a.root then a.root.Anchored = true end
     if a.model and a.model.Parent then
         for _, descendant in ipairs(a.model:GetDescendants()) do
             if descendant:IsA("BasePart") then
+                descendant.CanCollide = false
                 descendant.CanQuery = false
                 descendant.CanTouch = false
             end

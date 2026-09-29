@@ -102,11 +102,18 @@ local function actor(id)
         return self.parts[name]
     end
     for _, name in ipairs({"Head","Torso","UpperTorso","LowerTorso","LeftLowerLeg","RightLowerLeg","LeftFoot","RightHand","LeftHand","Left Leg","Right Leg","Left Arm","Right Arm"}) do
-        model.parts[name]={Name=name,Size=Vector3.new(2,2,1),CFrame=fakeCF}
+        local p={Name=name,Size=Vector3.new(2,2,1),CFrame=fakeCF,CanCollide=true,CanQuery=true,CanTouch=true}
+        function p:IsA(kind) return kind=="BasePart" end
+        model.parts[name]=p
+    end
+    function model:GetDescendants()
+        local result={}
+        for _, p in pairs(self.parts) do table.insert(result,p) end
+        return result
     end
     local a={id=id,name=tostring(id),alive=true,humanoid={Health=100,MaxHealth=100,WalkSpeed=Config.BaseSpeed,JumpPower=Config.BaseJump},shield=0,kills=0,damage=0,
         reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},evolutionStacks={},evolutionHistory={},
-        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),root={Parent=true,Position=Vector3.zero},model=model}
+        queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),root={Parent=true,Position=Vector3.zero,Anchored=false},model=model}
     function a.model:Destroy() self.Parent=false end
     table.insert(actors.list,a)
     return a
@@ -173,6 +180,8 @@ actors.onDeath=function() deaths=deaths+1 end
 actors:damage(b,1000,a)
 actors:eliminate(b,a)
 check(deaths==1 and b.rank==3 and #actors:alive()==2,"death is idempotent and rank correct")
+check(b.root.Anchored and b.model.parts.Torso.CanCollide==false and b.model.parts.Torso.CanQuery==false and b.model.parts.Torso.CanTouch==false,
+    "eliminated actor remains visible but cannot block movement, shots, LOS or touch")
 check(a.damage==100,"damage accounting")
 actors:eliminate(c)
 check(c.rank==2 and #actors:alive()==1,"last survivor count")
@@ -240,6 +249,24 @@ check(winnerForward==nil and winnerReverse==nil, "simultaneous final storm is a 
 check(rankForward["21"]==1 and rankForward["22"]==1 and rankReverse["21"]==1 and rankReverse["22"]==1,
     "same-tick storm deaths share an order-independent rank")
 check(phaseForward=="Results" and phaseReverse=="Results", "simultaneous storm resolves the round")
+
+-- Deferred Evolution work captured before Results cannot reopen/apply after the round finishes.
+actors = Actors.new()
+local lateEvolution=actor(36); lateEvolution.player={}; lateEvolution.roundId=77
+Evolution.onKill(lateEvolution,77,nil)
+Evolution.onKill(lateEvolution,77,nil)
+local lateDraft=lateEvolution.evolutionDraft
+local deferredEvolution
+task.defer=function(callback) deferredEvolution=callback end
+check(Evolution.select(lateEvolution,77,lateDraft.id,1)~=nil and deferredEvolution~=nil,
+    "queued evolution schedules its next draft")
+local finishRound=Round.new({actors=actors,zone=zone,bots=service("bots"),builds=service("builds"),loot=service("loot"),effects={FireClient=function() end}})
+finishRound.id,finishRound.phase,finishRound.started=77,"Active",os.clock()
+finishRound:finish()
+deferredEvolution()
+check(lateEvolution.roundId==-1 and lateEvolution.evolutionDraft==nil and lateEvolution.queuedDrafts==0,
+    "Results invalidates deferred evolution work from the finished round")
+task.defer=function(callback) callback() end
 
 -- Three consecutive lifecycles clear service state, not just the Actor list.
 actors = Actors.new()
@@ -315,4 +342,19 @@ local pathActor={alive=true,root={Position=Vector3.zero},humanoid={}}
 botService:path(pathActor,Vector3.zero,10)
 check(botService.jobs==0 and not pathActor.pathBusy and pathActor.humanoid.Jump,
     "CreatePath failure releases worker and enables stuck recovery")
+-- A stale path completion from the previous round must never consume a new round's worker slot.
+local queuedPaths={}
+task.spawn=function(callback) table.insert(queuedPaths,callback) end
+local oldPathActor={alive=true,root={Position=Vector3.zero},humanoid={}}
+local newPathActor={alive=true,root={Position=Vector3.zero},humanoid={}}
+botService:path(oldPathActor,Vector3.zero,20)
+check(botService.jobs==1,"old generation reserves one path worker")
+botService:clear()
+check(botService.jobs==0,"round clear releases old generation path slots immediately")
+botService:path(newPathActor,Vector3.zero,30)
+check(botService.jobs==1 and #queuedPaths==2,"new round can start a path while old computation is still pending")
+queuedPaths[1]()
+check(botService.jobs==1,"stale path completion cannot decrement the current generation worker count")
+queuedPaths[2]()
+check(botService.jobs==0,"current generation path completion releases its worker exactly once")
 print("PASS: " .. count .. " total regression assertions including release UI checks")

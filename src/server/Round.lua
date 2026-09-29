@@ -103,6 +103,8 @@ function Round:finish()
     self.winner = alive[1] and alive[1].name or nil
     for _, a in ipairs(self.actors.list) do
         Evolution.cancel(a)
+        -- Invalidate deferred/timeout Evolution work from the finished round before Results begins.
+        a.roundId = -1
         if a.alive then a.rank, a.survival = 1, os.clock() - self.started end
         a.reloadToken, a.reloading = a.reloadToken + 1, false
         if a.root.Parent then a.root.Anchored = true end
