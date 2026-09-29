@@ -4,6 +4,7 @@ local Rules = require(game.ReplicatedStorage.DropzoneShared.Rules)
 local World = require(script.Parent.World)
 local Actors = require(script.Parent.Actors)
 local Evolution = require(script.Parent.Evolution)
+local Movement = require(script.Parent.Movement)
 local Round = {}
 Round.__index = Round
 function Round.new(services)
@@ -104,6 +105,8 @@ function Round:finish()
     for _, a in ipairs(self.actors.list) do
         Evolution.cancel(a)
         -- Invalidate deferred/timeout Evolution work from the finished round before Results begins.
+        Movement.reset(a)
+        Evolution.refresh(a)
         a.roundId = -1
         if a.alive then a.rank, a.survival = 1, os.clock() - self.started end
         a.reloadToken, a.reloading = a.reloadToken + 1, false
@@ -168,14 +171,14 @@ function Round:snapshot(player)
         zone = self.zone:snapshot(), winner = self.winner, targets = targets}
     if a then
         local item = a.inventory[a.slot]
-        local slots = {}
-        for i, w in ipairs(a.inventory) do slots[i] = w.kind end
+        local slots, slotRarities = {}, {}
+        for i, w in ipairs(a.inventory) do slots[i], slotRarities[i] = w.kind, w.rarity or "Common" end
         local evolutionBuild, evolutionDraft = Evolution.snapshot(a)
         data.me = {alive = a.alive, hp = math.ceil(a.humanoid.Health), maxHp = a.humanoid.MaxHealth, shield = math.ceil(a.shield),
             kills = a.kills, damage = math.floor(a.damage), energy = a.energy, maxEnergy = Evolution.maxEnergy(a), evolutions = a.evolutionCount,
-            evolutionBuild = evolutionBuild, evolutionDraft = evolutionDraft, weapon = item and item.kind, ammo = item and item.ammo or 0,
+            evolutionBuild = evolutionBuild, evolutionDraft = evolutionDraft, weapon = item and item.kind, rarity = item and (item.rarity or "Common"), slotRarities = slotRarities, ammo = item and item.ammo or 0,
             reserve = item and item.reserve or 0, reloading = a.reloading, slots = slots, slot = a.slot,
-            crouching = a.crouching == true, sliding = a.sliding == true,
+            crouching = a.crouching == true, sliding = a.sliding == true, sprinting = a.sprinting == true,
             slideCooldown = math.max(0, (a.nextSlide or 0) - os.clock()),
             rank = a.rank, survival = math.floor(a.alive and os.clock() - a.startTime or a.survival)}
     end

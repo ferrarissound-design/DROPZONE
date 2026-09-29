@@ -73,7 +73,7 @@ assert 'ReplicatedStorage:GetChildren()' in server_source and 'child.Name == "Dr
 assert 'remotes:GetChildren()' in server_source and 'child:IsA("RemoteEvent")' in server_source
 print('PASS: Studio/Rojo startup deduplicates the remote folder and events')
 
-assert 'hud.crosshair.TextColor3 = Theme.Paper' in client
+assert 'and Theme.Orange or Theme.Paper' in client
 print('PASS: hit marker restores the shared themed crosshair color')
 
 
@@ -101,9 +101,28 @@ assert 'a.root.AssemblyLinearVelocity' in movement_source
 print('PASS: crouch and slide are server-authoritative with cooldown and movement gates')
 
 assert 'command == "Crouch"' in server_source and 'command == "Slide"' in server_source
-assert 'hud:button("Crouch"' in client and 'hud:button("Slide"' in client
+assert 'hud:button("Crouch"' in client and 'hud:button("Sprint"' in client
 assert 'Enum.KeyCode.LeftControl' in client and 'Enum.KeyCode.LeftShift' in client
 print('PASS: mobile buttons and keyboard movement controls are wired')
 
 assert 'crouching = a.crouching == true' in round_source and 'slideCooldown = math.max' in round_source
 print('PASS: authoritative crouch/slide state is replicated in snapshots')
+
+# Server ingress guards must run before every movement dispatch, including Results.
+assert server_source.index('roundId ~= round.id or not round:isActive()') < server_source.index('command == "Sprint"')
+assert server_source.index('not a or not a.alive') < server_source.index('command == "Sprint"')
+assert 'send("Sprint", true)' in client and 'send("Sprint", false)' in client
+assert 'UserInputService.JumpRequest' in client and 'command == "Jump"' in server_source
+print('PASS: sprint/posture/jump use existing round/alive/ingress validation')
+# Rectangles from actual button call sites; Draft stays clear at any uniform UIScale.
+rects = []
+for match in re.finditer(r'hud:button\("(Fire|Reload|Build|Sprint|Crouch)",\s*"[^"]+",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', client):
+    rects.append((match[1], *map(int, match.groups()[1:])))
+assert len(rects)==5
+rects += [('Draft',16,132,600,177)]
+rects += [(f'BuildType{i}',632+i*82,137,76,52) for i in range(3)]
+rects += [(f'Slot{i}',279+i*116,418,110,48) for i in range(3)]
+for i,(name,x,y,w,h) in enumerate(rects):
+    for other,ox,oy,ow,oh in rects[i+1:]:
+        assert x+w<=ox or ox+ow<=x or y+h<=oy or oy+oh<=y, (name,other)
+print('PASS: movement/combat/build/slot/Draft rectangles do not overlap on the shared canvas')

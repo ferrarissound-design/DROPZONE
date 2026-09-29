@@ -61,6 +61,14 @@ action.OnServerEvent:Connect(function(player, roundId, command, argument)
     elseif command == "Equip" then combat:equip(a, argument)
     elseif command == "Build" then builds:place(a, argument)
     elseif command == "Pickup" then loot:pickup(a)
+    elseif command == "Sprint" then
+        if Movement.sprint(a, argument) then Evolution.refresh(a) end
+    elseif command == "Jump" then
+        if Movement.jump(a) then Evolution.refresh(a); a.humanoid.Jump = true end
+    elseif command == "Posture" then
+        local changed
+        if a.sprinting then changed = Movement.slide(a) else changed = Movement.toggleCrouch(a) end
+        if changed then Evolution.refresh(a) end
     elseif command == "Crouch" then
         if Movement.toggleCrouch(a) then Evolution.refresh(a) end
     elseif command == "Slide" then
