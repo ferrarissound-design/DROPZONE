@@ -73,8 +73,28 @@ assert 'ReplicatedStorage:GetChildren()' in server_source and 'child.Name == "Dr
 assert 'remotes:GetChildren()' in server_source and 'child:IsA("RemoteEvent")' in server_source
 print('PASS: Studio/Rojo startup deduplicates the remote folder and events')
 
-assert 'and Theme.Orange or Theme.Paper' in client
-print('PASS: hit marker restores the shared themed crosshair color')
+assert 'and Theme.Cyan or Theme.Paper' in client
+print('PASS: hit marker restores the shared aim crosshair color')
+
+# Draft input and camera handoff are source-level guards; Studio remains the
+# authority for actual touch hit testing and camera-controller render order.
+assert 'local function gameplayInput()' in client
+assert 'not state.me.evolutionDraft or command == "Evolve"' in client
+assert 'if not gameplayInput() then' in client
+assert 'shooting and gameplayInput()' in client
+assert 'presentation.camera == camera and presentation.applied' in client
+assert 'button.Active = button.Visible and draft == nil' in hud
+print('PASS: draft blocks background gameplay input and camera recoil removal checks camera identity')
+
+loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text()
+assert '"Notice", self.id, "敗退' in (ROOT / 'src' / 'server' / 'Round.lua').read_text()
+assert '"Notice", a.roundId, "取得:' in loot_source
+assert '"Notice", round.id, "EVOLUTION:' in (ROOT / 'src' / 'server' / 'Main.server.lua').read_text()
+assert 'kind == "Notice" and state and a == state.roundId' in client
+print('PASS: delayed notices carry a server round ID and cannot appear in a later round')
+assert 'a.roundId ~= round.id' in server_source
+assert 'a.humanoid.Health <= 0' in server_source
+print('PASS: action ingress rejects stale actors and the death-before-Died window')
 
 
 building_source = (ROOT / 'src' / 'server' / 'Building.lua').read_text()
@@ -127,7 +147,6 @@ for i,(name,x,y,w,h) in enumerate(rects):
         assert x+w<=ox or ox+ow<=x or y+h<=oy or oy+oh<=y, (name,other)
 print('PASS: movement/combat/build/slot/Draft rectangles do not overlap on the shared canvas')
 
-loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text()
 assert 'local function useful(a, item)' in loot_source
 assert 'WeaponStats.rank(item.rarity) > WeaponStats.rank(weapon.rarity)' in loot_source
 assert 'weapon.reserve < 240' in loot_source
