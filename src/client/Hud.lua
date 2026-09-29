@@ -2,19 +2,42 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Rules = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("Rules"))
+local Theme = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("VisualTheme"))
 local Hud = {}
 Hud.__index = Hud
-local white = Color3.fromRGB(237, 246, 255)
+local white = Theme.Paper
+local function escapeRichText(text)
+    return text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+end
 local function label(parent, name, position, size, text, textSize)
     local t = Instance.new("TextLabel")
     t.Name, t.Position, t.Size = name, position, size
-    t.BackgroundColor3, t.BackgroundTransparency = Color3.fromRGB(17, 27, 44), 0.18
+    t.BackgroundColor3, t.BackgroundTransparency = Theme.Ink, 0.08
     t.BorderSizePixel, t.TextColor3 = 0, white
     t.Text, t.TextSize, t.Font = text, textSize or 16, Enum.Font.GothamBold
     t.TextWrapped, t.Parent = true, parent
     local corner = Instance.new("UICorner")
     corner.CornerRadius, corner.Parent = UDim.new(0, 9), t
+    t.Active, t.Selectable = false, false
     return t
+end
+local function stroke(parent, color, thickness)
+    local line = Instance.new("UIStroke")
+    line.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    line.Color, line.Thickness, line.Parent = color, thickness or 1.5, parent
+    return line
+end
+local function bar(parent, name, x,y,w,h, color)
+    local track = Instance.new("Frame")
+    track.Name, track.Position, track.Size = name, UDim2.fromOffset(x,y), UDim2.fromOffset(w,h)
+    track.BackgroundColor3, track.BorderSizePixel, track.Active, track.Parent = Theme.Slate, 0, false, parent
+    local fill = Instance.new("Frame")
+    fill.Name, fill.Size, fill.BackgroundColor3 = "Fill", UDim2.fromScale(0,1), color
+    fill.BorderSizePixel, fill.Active, fill.Parent = 0, false, track
+    for _, frame in ipairs({track,fill}) do
+        local c=Instance.new("UICorner"); c.CornerRadius, c.Parent=UDim.new(0,3),frame
+    end
+    return fill
 end
 function Hud.new()
     local gui = Instance.new("ScreenGui")
@@ -38,10 +61,19 @@ function Hud.new()
     self.top = label(canvas, "Round", UDim2.fromOffset(270, 8), UDim2.fromOffset(360, 38), "DROPZONE", 18)
     self.zone = label(canvas, "Zone", UDim2.fromOffset(280, 51), UDim2.fromOffset(340, 33), "安全地帯", 15)
     self.stats = label(canvas, "Health", UDim2.fromOffset(22, 16), UDim2.fromOffset(218, 58), "HP —", 17)
+    self.stats.TextYAlignment = Enum.TextYAlignment.Top
+    self.stats.TextSize = 15
+    self.hpBar = bar(self.stats, "HPBar", 10,27,198,11, Theme.Green)
+    self.shieldBar = bar(self.stats, "ShieldBar", 10,43,198,8, Theme.Cyan)
+    stroke(self.stats, Theme.Green)
+    stroke(self.top, Theme.Cyan, 2)
     self.evo = label(canvas, "Evolution", UDim2.fromOffset(22, 80), UDim2.fromOffset(218, 43), "EVOLUTION 0", 13)
+    self.evo.BackgroundColor3, self.evo.TextColor3 = Theme.Paper, Theme.Ink
+    self.evo.RichText = true
+    self.top.BackgroundColor3, self.top.TextColor3 = Theme.Paper, Theme.Ink
     self.draft = Instance.new("Frame")
     self.draft.Name, self.draft.Position, self.draft.Size = "EvolutionDraft", UDim2.fromOffset(16, 132), UDim2.fromOffset(600, 177)
-    self.draft.BackgroundColor3, self.draft.BackgroundTransparency, self.draft.BorderSizePixel = Color3.fromRGB(12, 21, 34), 0.08, 0
+    self.draft.BackgroundColor3, self.draft.BackgroundTransparency, self.draft.BorderSizePixel = Theme.Ink, 0.04, 0
     self.draft.ZIndex, self.draft.Active, self.draft.Selectable = 20, false, false
     self.draft.Visible, self.draft.Parent = false, canvas
     local draftCorner = Instance.new("UICorner"); draftCorner.CornerRadius, draftCorner.Parent = UDim.new(0, 14), self.draft
@@ -51,15 +83,20 @@ function Hud.new()
     self.draftTimer = label(self.draft, "DraftTimer", UDim2.fromOffset(505, 4), UDim2.fromOffset(80, 28), "5秒", 15)
     self.draftTimer.BackgroundTransparency = 1
     self.draftTimer.ZIndex = 21
-    self.draftCards = {}
+    self.draftCards, self.cardStrokes = {}, {}
     for i = 1, 3 do
         local card = Instance.new("TextButton")
         card.Name, card.Position, card.Size = "Choice" .. i, UDim2.fromOffset(10 + (i - 1) * 195, 38), UDim2.fromOffset(190, 127)
-        card.BackgroundColor3, card.TextColor3, card.TextSize = Color3.fromRGB(34, 69, 91), white, 16
+        card.BackgroundColor3, card.TextColor3, card.TextSize = Theme.Paper, Theme.Ink, 16
         card.BorderSizePixel, card.Font, card.TextWrapped, card.Parent = 0, Enum.Font.GothamBold, true, self.draft
         card.ZIndex, card.AutoButtonColor = 22, true
         local corner = Instance.new("UICorner"); corner.CornerRadius, corner.Parent = UDim.new(0, 11), card
-        local stroke = Instance.new("UIStroke"); stroke.Color, stroke.Thickness, stroke.Parent = Color3.fromRGB(92, 183, 207), 1.5, card
+        card.RichText = true
+        self.cardStrokes[i] = stroke(card, Theme.Cyan, 2)
+        local strip = Instance.new("Frame")
+        strip.Name, strip.Position, strip.Size = "CategoryStrip", UDim2.fromOffset(8,4), UDim2.new(1,-16,0,4)
+        strip.BorderSizePixel, strip.Active, strip.ZIndex = 0, false, 23
+        strip.BackgroundColor3, strip.Parent = Theme.Cyan, card
         card.Activated:Connect(function()
             if self.onEvolutionPick and self.currentDraft and self.submittedDraftId ~= self.currentDraft.id then
                 local sent = self.onEvolutionPick(self.currentDraft.id, i)
@@ -67,26 +104,38 @@ function Hud.new()
                     self.submittedDraftId, self.submittedChoice = self.currentDraft.id, i
                     for _, choice in ipairs(self.draftCards) do choice.Active, choice.AutoButtonColor = false, false end
                     self:updateDraftCards()
-                    card.BackgroundColor3 = Color3.fromRGB(63, 160, 126)
-                    TweenService:Create(card, TweenInfo.new(0.16), {BackgroundColor3 = Color3.fromRGB(46, 122, 99)}):Play()
+                    if self.pickTween then self.pickTween:Cancel() end
+                    local outline = self.cardStrokes[i]
+                    outline.Thickness = 4
+                    self.pickTween = TweenService:Create(outline, TweenInfo.new(0.3), {Thickness=2})
+                    self.pickTween:Play()
                 end
             end
         end)
         self.draftCards[i] = card
     end
-    self.ammo = label(canvas, "Ammo", UDim2.fromOffset(328, 375), UDim2.fromOffset(244, 34), "武器を拾おう", 16)
+    self.ammo = label(canvas, "Ammo", UDim2.fromOffset(328, 371), UDim2.fromOffset(244, 40), "武器を拾おう", 16)
+    self.ammo.RichText = true
+    stroke(self.ammo, Theme.Gold)
     self.energy = label(canvas, "Energy", UDim2.fromOffset(630, 95), UDim2.fromOffset(242, 30), "BUILD ENERGY 60", 13)
+    self.energy.TextYAlignment = Enum.TextYAlignment.Top
+    self.energyBar = bar(self.energy, "EnergyBar", 10,22,222,6, Theme.Gold)
+    self.energy.TextColor3 = Theme.Gold
     self.notice = label(canvas, "Notice", UDim2.fromOffset(250, 88), UDim2.fromOffset(370, 36), "", 17)
     self.notice.Visible = false
+    stroke(self.notice, Theme.Gold)
+    self.notice.BackgroundColor3, self.notice.TextColor3 = Theme.Gold, Theme.Ink
     self.crosshair = label(canvas, "Crosshair", UDim2.fromOffset(435, 225), UDim2.fromOffset(30, 30), "+", 28)
     self.crosshair.BackgroundTransparency = 1
-    self.crosshair.ZIndex = 30
+    -- Keep the aim anchor unchanged, but never draw the reticle over card text.
+    self.crosshair.ZIndex = 10
     self.result = label(canvas, "Result", UDim2.fromOffset(265, 150), UDim2.fromOffset(370, 205), "", 22)
-    self.result.Visible = false
+    self.result.Visible, self.result.RichText = false, true
+    self.resultStroke = stroke(self.result, Theme.Gold, 3)
     self.hint = label(canvas, "Hint", UDim2.fromOffset(260, 340), UDim2.fromOffset(380, 28), "近づくと自動取得 / Eで取得", 13)
     self.mini = Instance.new("Frame")
     self.mini.Name, self.mini.Position, self.mini.Size = "Minimap", UDim2.fromOffset(750, 10), UDim2.fromOffset(122, 78)
-    self.mini.BackgroundColor3, self.mini.BorderSizePixel, self.mini.Parent = Color3.fromRGB(20, 39, 49), 0, canvas
+    self.mini.BackgroundColor3, self.mini.BorderSizePixel, self.mini.Parent = Theme.Ink, 0, canvas
     local function circle(color, solid)
         local f = Instance.new("Frame")
         f.AnchorPoint, f.BackgroundColor3 = Vector2.new(0.5, 0.5), color
@@ -105,17 +154,26 @@ function Hud:updateDraftCards()
     for i = 1, 3 do
         local option = draft and draft.options[i]
         local card = self.draftCards[i]
-        local text = option and (option.name .. " " .. option.rankText .. "\n" .. option.description .. "\n\n" .. option.category) or "—"
-        card.Text = submitted and (i == self.submittedChoice and (text .. "\n送信中…") or text) or text
-        card.BackgroundColor3 = submitted and (i == self.submittedChoice and Color3.fromRGB(46, 122, 99) or Color3.fromRGB(31, 43, 56)) or Color3.fromRGB(34, 69, 91)
+        local category = option and option.category or "Utility"
+        local accent = Theme.Category[category] or Theme.Purple
+        local status = submitted and (i == self.submittedChoice and "送信中…" or "選択待ち") or "EVOLVE  ›"
+        local text = option and string.format('<font size="14">%s</font>\n<font size="20"><b>%s %s</b></font>\n<font size="16">%s</font>\n<font size="14"><b>%s</b></font>',
+            string.upper(category), string.upper(option.name), option.rankText, option.description, status) or "—"
+        card.Text = text
+        card.BackgroundColor3 = submitted and (i == self.submittedChoice and Color3.fromRGB(188,242,199) or Color3.fromRGB(202,211,213)) or Theme.Paper
         card.TextTransparency = submitted and (i == self.submittedChoice and 0 or 0.28) or 0
+        if self.cardStrokes then
+            self.cardStrokes[i].Color = accent
+            card.CategoryStrip.BackgroundColor3 = accent
+        end
         card.Active, card.AutoButtonColor = not submitted, not submitted
     end
 end
 function Hud:button(name, text, x, y, width, height, callback)
     local b = Instance.new("TextButton")
     b.Name, b.Text, b.Position, b.Size = name, text, UDim2.fromOffset(x, y), UDim2.fromOffset(width, height)
-    b.BackgroundColor3, b.TextColor3, b.TextSize = Color3.fromRGB(33, 78, 100), white, 17
+    b.BackgroundColor3, b.TextColor3, b.TextSize = Theme.Ink, white, 17
+    stroke(b, name == "Fire" and Theme.Orange or Theme.Cyan)
     b.BorderSizePixel, b.Font, b.Parent = 0, Enum.Font.GothamBold, self.canvas
     local corner = Instance.new("UICorner"); corner.CornerRadius, corner.Parent = UDim.new(0, 12), b
     if callback then b.Activated:Connect(callback) end
@@ -131,6 +189,10 @@ function Hud:update(s, onEvolutionPick)
         self.roundId = s.roundId
         self.submittedDraftId, self.submittedChoice, self.previousMe = nil, nil, nil
         self.guideUntil = nil
+        if self.pickTween then self.pickTween:Cancel(); self.pickTween = nil end
+        if self.damageTween then self.damageTween:Cancel(); self.damageTween = nil end
+        self.stats.BackgroundColor3 = Theme.Ink
+        for _, outline in ipairs(self.cardStrokes) do outline.Thickness = 2 end
     end
     local me = s.me
     local active = s.phase == "Active" or s.phase == "FinalZone"
@@ -141,26 +203,31 @@ function Hud:update(s, onEvolutionPick)
         if me.hp + me.shield < previous.hp + previous.shield then
             self.stats.BackgroundColor3 = Color3.fromRGB(145, 45, 42)
             if self.damageTween then self.damageTween:Cancel() end
-            self.damageTween = TweenService:Create(self.stats, TweenInfo.new(0.35), {BackgroundColor3=Color3.fromRGB(17,27,44)})
+            self.damageTween = TweenService:Create(self.stats, TweenInfo.new(0.35), {BackgroundColor3=Theme.Ink})
             self.damageTween:Play()
         end
         if me.kills > previous.kills then self:toast("ELIMINATED  +" .. (me.kills - previous.kills) .. " KILL")
-        elseif me.evolutions > previous.evolutions then self:toast("EVOLUTION " .. me.evolutions .. " 獲得") end
+        elseif me.evolutions > previous.evolutions then self:toast("EVOLVED  ·  EVOLUTION " .. me.evolutions) end
     end
     self.previousMe = me
     local names = {Waiting = "参加待ち", Intermission = "次の試合まで", Starting = "降下準備中", Active = "生存者", FinalZone = "FINAL ZONE", Results = "RESULTS", Resetting = "リセット中"}
     self.top.Text = (names[s.phase] or s.phase) .. (active and ("  " .. s.alive .. "人   KILL " .. (me and me.kills or 0)) or ("  " .. s.remaining .. "秒"))
     local z = s.zone
     self.zone.Text = active and string.format("ZONE %d  %s %d秒  半径%d → %d", z.phase, z.shrinking and "縮小中" or "縮小まで", z.remaining, math.floor(z.radius), z.nextRadius) or "撃破して進化。最後の1人になれ。"
-    self.stats.Text = me and string.format("HP %d / %d   SHIELD %d", me.hp, me.maxHp, me.shield) or "DROPZONE\n次のラウンドを待っています"
+    self.stats.Text = me and string.format("HP %d/%d   ◇ %d", me.hp, me.maxHp, me.shield) or "DROPZONE\n次のラウンドを待っています"
+    self.hpBar.Size = UDim2.fromScale(me and math.clamp(me.hp / math.max(1,me.maxHp),0,1) or 0,1)
+    self.shieldBar.Size = UDim2.fromScale(me and math.clamp(me.shield / 100,0,1) or 0,1)
+    self.energyBar.Size = UDim2.fromScale(me and math.clamp(me.energy / math.max(1,me.maxEnergy),0,1) or 0,1)
     local build = {}
     for _, ability in ipairs(me and me.evolutionBuild or {}) do
         if #build < 3 then table.insert(build, ability.name .. " " .. ability.rankText) end
     end
     local buildText = table.concat(build, " · ")
-    self.evo.Text = me and ("EVOLUTION " .. me.evolutions .. (buildText ~= "" and ("\n" .. buildText) or "\n撃破で能力獲得")) or "EVOLUTION 0"
+    -- One prominent ability on the compact HUD; the result retains the three-item build.
+    self.evo.Text = me and string.format('<font size="17"><b>EVOLUTION %d</b></font>\n%s', me.evolutions, build[1] or "撃破で能力獲得") or "EVOLUTION 0"
     self.energy.Text = "BUILD ENERGY " .. (me and me.energy or 0)
-    self.ammo.Text = me and me.weapon and (me.weapon .. "  " .. me.ammo .. " / " .. me.reserve .. (me.reloading and "  装填中" or "")) or "光る武器に近づいて拾おう"
+    self.ammo.Text = me and me.weapon and string.format('<font size="13">%s</font>  <font size="27"><b>%d</b></font><font size="14"> / %d%s</font>',
+        string.upper(me.weapon), me.ammo, me.reserve, me.reloading and " 装填中" or "") or "光る武器に近づいて拾おう"
     self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
     self.hint.Text = playing and os.clock() < (self.guideUntil or 0)
         and "武器を拾え → 撃破して進化 → 最後の1人へ" or "安全地帯に残れ · 撃破で3択Evolution"
@@ -175,6 +242,8 @@ function Hud:update(s, onEvolutionPick)
         self:updateDraftCards()
     else
         self.submittedDraftId, self.submittedChoice = nil, nil
+        if self.pickTween then self.pickTween:Cancel(); self.pickTween = nil end
+        for _, outline in ipairs(self.cardStrokes) do outline.Thickness = 2 end
         for _, card in ipairs(self.draftCards) do card.Active, card.AutoButtonColor, card.TextTransparency = true, true, 0 end
     end
     if self.noticeUntil and os.clock() > self.noticeUntil then self.notice.Visible = false end
@@ -184,12 +253,13 @@ function Hud:update(s, onEvolutionPick)
     end
     for i = 1, 3 do
         local b = self.buttons["Slot" .. i]
-        if b then b.Text = tostring(i) .. " " .. (me and me.slots[i] or "—"); b.BackgroundColor3 = me and me.slot == i and Color3.fromRGB(48, 143, 157) or Color3.fromRGB(33, 78, 100) end
+        if b then b.Text = tostring(i) .. " " .. (me and me.slots[i] or "—"); b.BackgroundColor3 = me and me.slot == i and Theme.Blue or Theme.Ink end
     end
     self.result.Visible = s.phase == "Results" or (active and me ~= nil and not me.alive)
     if self.result.Visible then
         local title = s.phase == "Results" and (s.winner and me and me.rank == 1 and "#1 VICTORY" or (s.winner and "WINNER: " .. s.winner or "DRAW")) or "ELIMINATED"
-        self.result.Text = title .. (me and string.format("\n\n順位 #%d   KILL %d\nDAMAGE %d   生存 %d秒\nEVOLUTION %d", me.rank or s.alive + 1, me.kills, me.damage, me.survival, me.evolutions) or "\n次の試合から参加できます")
+        local heading = title == "#1 VICTORY" and '<font size="38"><b>#1  VICTORY</b></font>' or escapeRichText(title)
+        self.result.Text = heading .. (me and string.format("\n\n順位 #%d   KILL %d\nDAMAGE %d   生存 %d秒\nEVOLUTION %d", me.rank or s.alive + 1, me.kills, me.damage, me.survival, me.evolutions) or "\n次の試合から参加できます")
         if not active then
             self.result.Text = self.result.Text .. "\n" .. buildText
             self.result.TextColor3 = title == "#1 VICTORY" and Color3.fromRGB(255,220,100) or white

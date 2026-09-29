@@ -1,5 +1,7 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local Rules = require(game.ReplicatedStorage.DropzoneShared.Rules)
+local Cosmetics = require(script.Parent.Cosmetics)
+local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
 local Actors = {}
 Actors.__index = Actors
 function Actors.new()
@@ -93,7 +95,7 @@ function Actors.botModel(parent, index)
     for _, s in ipairs(specs) do
         local p = Instance.new("Part")
         p.Name, p.Size, p.Position = s[1], s[2], s[3]
-        p.Color = s[1] == "Head" and Color3.fromRGB(255, 190, 75) or Color3.fromRGB(100, 121, 150)
+        p.Color = s[1] == "Head" and Theme.Paper or Theme.Slate
         p.CanCollide = s[1] == "Torso"
         p.Parent, parts[s[1]] = model, p
     end
@@ -108,6 +110,7 @@ function Actors.botModel(parent, index)
             joint.Parent = joint.Part0
         end
     end
+    Cosmetics.drone(model, parts)
     local humanoid = Instance.new("Humanoid")
     humanoid.DisplayName, humanoid.Parent = "DRONE " .. index, model
     model.PrimaryPart, model.Parent = parts.HumanoidRootPart, parent

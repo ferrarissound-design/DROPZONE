@@ -2,6 +2,7 @@ local Shared = game.ReplicatedStorage.DropzoneShared
 local Weapons = require(Shared.Weapons)
 local Rules = require(Shared.Rules)
 local Evolution = require(script.Parent.Evolution)
+local Cosmetics = require(script.Parent.Cosmetics)
 local Combat = {}
 Combat.__index = Combat
 function Combat.new(actors, effects, builds)
@@ -14,13 +15,7 @@ function Combat:visual(a)
     if not item then return end
     local hand = a.model:FindFirstChild("RightHand") or a.model:FindFirstChild("Right Arm")
     if not hand then return end
-    local p = Instance.new("Part")
-    p.Name, p.Size = "HeldWeapon", Vector3.new(0.45, 0.55, item.kind == "Pistol" and 1.5 or 3)
-    p.Color, p.Material = Weapons[item.kind].color, Enum.Material.Metal
-    p.CanCollide, p.CanTouch, p.CanQuery, p.Massless = false, false, false, true
-    p.CFrame, p.Parent = hand.CFrame * CFrame.new(0, -0.3, -1), a.model
-    local weld = Instance.new("WeldConstraint")
-    weld.Part0, weld.Part1, weld.Parent = hand, p, p
+    Cosmetics.weapon(a.model, item.kind, hand.CFrame * CFrame.new(0, -0.3, -1), hand)
 end
 function Combat:give(a, kind)
     local spec = Weapons[kind]

@@ -41,11 +41,14 @@ end}
 local delayed = {}
 task = {delay = function(_, f) table.insert(delayed,f) end, defer = function(f) f() end}
 local players = {GetPlayers = function() return {} end}
-game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons"}}, GetService=function(_, name) if name=="Players" then return players end end}
-script = {Parent = {World="World", Actors="Actors", Evolution="Evolution"}}
+game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons", VisualTheme="VisualTheme"}}, GetService=function(_, name) if name=="Players" then return players end end}
+script = {Parent = {World="World", Actors="Actors", Evolution="Evolution", Cosmetics="Cosmetics", MapVisuals="MapVisuals"}}
 local Config = load("Config", "shared/Config.lua")
 local Rules = load("Rules", "shared/Rules.lua")
 load("Weapons", "shared/Weapons.lua")
+load("VisualTheme", "shared/VisualTheme.lua")
+load("Cosmetics", "server/Cosmetics.lua")
+load("MapVisuals", "server/MapVisuals.lua")
 local World = load("World", "server/World.lua")
 local Actors = load("Actors", "server/Actors.lua")
 local Evolution = load("Evolution", "server/Evolution.lua")

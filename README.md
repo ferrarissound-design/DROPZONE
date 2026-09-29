@@ -149,3 +149,20 @@ Luau型検査、Roblox物理、ネットワーク、Pathfinding、実機性能�
 - 道路の装飾ラインは非衝突・非接触・Raycast対象外。新しい武器、能力、外部Sound Assetは追加していません。
 
 武器・Evolution・建築の数値は維持しています。Pistolは22 damage/0.32秒、Rifleは16/0.14秒、Shotgunは11×7/0.85秒で距離減衰します。BOTの射撃は0.35秒判断と意図的な照準誤差で制限されています。机上の数値確認は対人/実機バランステストの代わりにはなりません。
+
+## Visual Identity — Colorful Combat Experiment
+
+明るい未来の戦闘実験フィールドとして、Paper / Sky Blue / Cyan / Orange / Yellowを基調に統一しました。外部Asset・Texture・Iconは使用していません。
+
+- Rifleは青いレシーバーと大きいMagazine、ShotgunはオレンジのPump/Stockと太い銃身、Pistolは黄色いSlide。武器ごとに4〜6Part。
+- Combat Droneは白いHelmet、シアンVisor、オレンジChest Core、青いShoulder。既存R6のHitboxは維持。
+- Evolutionカードは能力名を最大の文字にし、Mobility=Cyan、Attack=Orange、Survival=Green、Utility=Purple。選択時は0.3秒の枠フラッシュで送信中を示します。取得確定はサーバーSnapshot後です。
+- HP/Shield/Energyバー、大きい装弾数、Gold Victory。通常HUDは主要能力1つ、Resultは最大3つを表示し、小画面での文字過密を抑えます。
+- Townの外壁色・窓・ひさし、Warehouseの色分け、丸い樹冠、道路境界/横断帯、草地の色面、Hill裾の低い岩、上空のEvolution Core。
+- Lootは武器モデル／Ammo box／Medical case／Shield canister／Energy cell。建築は既存本体に白いFrameを2Part追加。
+- 明るい昼、弱いBloom。戦闘を隠すFogや大量Light/Particleを追加していません。
+
+主な表示専用ファイル：`src/shared/VisualTheme.lua`、`src/server/Cosmetics.lua`、`src/server/MapVisuals.lua`。
+新規装飾は非衝突・非接触・非Raycast・Massless。Map装飾は地面探索対象のMapフォルダから分離しています。Spawn、地形の当たり判定、移動、武器/能力/建築/Lootの性能は変更していません。EnergyバーのためSnapshotにサーバー算出のmaxEnergyを追加しています。
+
+**見た目の最終承認はStudio/スマホ実機で行ってください。** Offlineのモデル構築・破棄・UI状態テストは、Robloxの描画品質や実測FPSを保証するものではありません。

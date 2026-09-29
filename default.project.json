@@ -30,13 +30,37 @@
     },
     "Lighting": {
       "$properties": {
-        "ClockTime": 14,
-        "Brightness": 2,
+        "ClockTime": 13.5,
+        "Brightness": 2.5,
         "Ambient": [
-          0.45,
-          0.48,
-          0.55
-        ]
+          0.6,
+          0.64,
+          0.68
+        ],
+        "OutdoorAmbient": [
+          0.7,
+          0.73,
+          0.75
+        ],
+        "FogStart": 2000,
+        "FogEnd": 10000,
+        "ShadowSoftness": 0.65
+      },
+      "DropzoneColor": {
+        "$className": "ColorCorrectionEffect",
+        "$properties": {
+          "Brightness": 0.015,
+          "Contrast": 0.035,
+          "Saturation": 0.08
+        }
+      },
+      "DropzoneBloom": {
+        "$className": "BloomEffect",
+        "$properties": {
+          "Intensity": 0.08,
+          "Size": 12,
+          "Threshold": 1.5
+        }
       }
     },
     "StarterGui": {
