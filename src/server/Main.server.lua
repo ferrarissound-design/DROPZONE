@@ -55,7 +55,8 @@ action.OnServerEvent:Connect(function(player, roundId, command, argument)
     limit.tokens = limit.tokens - 1
     if roundId ~= round.id or not round:isActive() then return end
     local a = actors.byPlayer[player]
-    if not a or not a.alive or not a.root.Parent then return end
+    if not a or not a.alive or a.roundId ~= round.id or not a.root.Parent
+        or not a.model.Parent or not a.humanoid.Parent or a.humanoid.Health <= 0 then return end
     local wasSliding = a.sliding
     if command == "Fire" then combat:fire(a, argument)
     elseif command == "Reload" then combat:reload(a)
@@ -76,7 +77,7 @@ action.OnServerEvent:Connect(function(player, roundId, command, argument)
         if Movement.slide(a) then Evolution.refresh(a) end
     elseif command == "Evolve" and type(argument) == "table" then
         local gained = Evolution.select(a, roundId, argument.draftId, argument.index)
-        if gained then effects:FireClient(player, "Notice", "EVOLUTION: " .. gained.name .. " " .. gained.rankText) end
+        if gained then effects:FireClient(player, "Notice", round.id, "EVOLUTION: " .. gained.name .. " " .. gained.rankText) end
     end
     if not wasSliding and a.sliding then
         for observer, actor in pairs(actors.byPlayer) do
