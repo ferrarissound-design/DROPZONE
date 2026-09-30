@@ -160,6 +160,8 @@ hud:button("Crouch", "", 0,0,1,1)
 me.rarity="Epic";me.sprinting=true;me.slideCooldown=0
 hud:update(s)
 check(hud.ammo.Text:find("Epic",1,true) and hud.ammo.TextColor3==Theme.Purple,"equipped rarity is labeled and colored")
+check(hud.ammo.Text:find("/ 12",1,true) and hud.ammo.Text:find("予備 48",1,true),
+    "ammo HUD separates magazine capacity from reserve ammunition")
 check(hud.buttons.Sprint.Text=="走行中" and hud.buttons.Crouch.Text=="スライド","posture button follows server sprint state")
 s.me.alive=false;hud:update(s);check(not hud.draft.Visible,"death closes decorated draft")
 check(not hud.buttons.Sprint.Visible and not hud.buttons.Crouch.Visible,"death hides movement controls")

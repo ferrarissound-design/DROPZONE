@@ -194,4 +194,55 @@ assert round_source_text.count('[DROPZONE DIAG]') == 2
 assert 'print(' not in combat_source
 print('PASS: diagnostics collect silently during play and print only bounded round summaries')
 
+# First hands-on showed a 90s all-combat round. Keep the pace fix explicit
+# and data-driven without changing weapon damage.
+bots_source = (ROOT / 'src' / 'server' / 'Bots.lua').read_text()
+for required in (
+    'BotAggroRange = 110',
+    'BotOpeningSeconds = 10',
+    'BotOpeningLootRange = 90',
+    'BotShotgunRange = 32',
+):
+    assert required in config_source
+assert 'opening = now - (a.startTime or now) < Config.BotOpeningSeconds' in bots_source
+assert 'retaliating = (a.lastDamage or 0) > (a.startTime or math.huge)' in bots_source
+assert 'Rules.closestLiveTarget(a, alive, Config.BotAggroRange)' in bots_source
+assert 'Config.BotOpeningLootRange' in bots_source
+assert 'distance < Config.BotShotgunRange' in bots_source
+assert 'closestLiveTarget(a, alive, 145)' not in bots_source
+assert 'distance < 38' not in bots_source
+print('PASS: BOT opening pace uses loot-first grace, retaliation, shorter aggro and shotgun ranges')
+
+# A quick desktop click must fire immediately; holding continues through RenderStepped.
+assert 'local playing, send, aim' in client
+assert 'local function tryShoot()' in client
+assert client.count('tryShoot()') >= 3
+assert 'if shooting then tryShoot() end' in client
+assert 'if shooting and playing() and os.clock() >= nextShot then' not in client
+print('PASS: desktop tap fires immediately while hold-to-fire remains rate limited')
+
+effects_source = (ROOT / 'src' / 'client' / 'Effects.lua').read_text()
+presentation_config_source = (ROOT / 'src' / 'shared' / 'PresentationConfig.lua').read_text()
+assert 'function Effects:shot(origin, endpoints, kind, localShot, impacts)' in effects_source
+assert 'local width = localShot and' in effects_source and 'local life = localShot and' in effects_source
+assert 'effects:shot(a, b, c, localShot, impacts)' in client
+assert 'Rifle = {Vertical = .52' in presentation_config_source
+assert 'Shotgun = {Vertical = 1.00' in presentation_config_source
+assert 'Pistol = {Vertical = .38' in presentation_config_source
+assert '予備 %d' in (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+print('PASS: local-player shots have stronger presentation-only tracer, muzzle flash and recoil feedback')
+
+hud_source = (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+assert 'self.hitMarker = label(canvas, "HitMarker"' in hud_source
+assert 'function Effects:impact(position, enemy)' in effects_source
+assert '"BulletStreak"' in effects_source
+assert 'effects:shot(a, b, c, localShot, impacts)' in client
+assert 'effects:impact(damage.position, true)' in client
+assert 'hud.hitMarker.Visible = playing() and now < (hud.hitMarkerUntil or 0)' in client
+assert 'self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id, a.roundId, impacts)' in combat_source
+assert '"ImpactSpark"' in effects_source and 'local life = enemy and .32 or .28' in effects_source
+assert '1/2/3で武器切替' in (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+assert '▶ ' in (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+print('PASS: firing has visible travel, strong impact sparks, hit confirmation and clear weapon switching')
+
 subprocess.run([sys.executable, str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)

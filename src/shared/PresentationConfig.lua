@@ -1,9 +1,9 @@
 -- Presentation only: none of these values enter movement, ammo or damage rules.
 return {
     Weapons = {
-        Rifle = {Vertical = .38, Horizontal = .10, Recovery = 18, Kick = .16, Flash = .30, Duration = .045},
-        Shotgun = {Vertical = .85, Horizontal = .18, Recovery = 10, Kick = .34, Flash = .52, Duration = .065},
-        Pistol = {Vertical = .28, Horizontal = .08, Recovery = 23, Kick = .12, Flash = .24, Duration = .04},
+        Rifle = {Vertical = .52, Horizontal = .12, Recovery = 16, Kick = .22, Flash = .42, Duration = .07},
+        Shotgun = {Vertical = 1.00, Horizontal = .20, Recovery = 9, Kick = .42, Flash = .68, Duration = .09},
+        Pistol = {Vertical = .38, Horizontal = .09, Recovery = 20, Kick = .17, Flash = .34, Duration = .06},
     },
     MaxRecoil = 1.4, MaxHorizontal = .3,
     SprintFov = 5, SlideFov = 6, CameraRecovery = 12,

@@ -130,6 +130,10 @@ function Hud.new()
     self.crosshair.BackgroundTransparency = 1
     -- Keep the aim anchor unchanged, but never draw the reticle over card text.
     self.crosshair.ZIndex = 10
+    self.hitMarker = label(canvas, "HitMarker", UDim2.fromOffset(420, 210), UDim2.fromOffset(60, 60), "×", 42)
+    self.hitMarker.BackgroundTransparency, self.hitMarker.Visible, self.hitMarker.ZIndex = 1, false, 11
+    self.hitMarker.TextColor3 = Theme.Orange
+    self.hitMarker.TextStrokeTransparency = .15
     self.result = label(canvas, "Result", UDim2.fromOffset(265, 150), UDim2.fromOffset(370, 205), "", 22)
     self.result.Visible, self.result.RichText = false, true
     self.resultStroke = stroke(self.result, Theme.Gold, 3)
@@ -238,12 +242,14 @@ function Hud:update(s, onEvolutionPick)
     -- One prominent ability on the compact HUD; the result retains the three-item build.
     self.evo.Text = me and string.format('<font size="17"><b>EVOLUTION %d</b></font>\n%s', me.evolutions, build[1] or "撃破で能力獲得") or "EVOLUTION 0"
     self.energy.Text = "BUILD ENERGY " .. (me and me.energy or 0)
-    self.ammo.Text = me and me.weapon and string.format('<font size="12">%s</font>  <font size="25"><b>%d</b></font><font size="14"> / %d%s</font>',
-        string.upper(me.weapon) .. " · " .. (me.rarity or "Common"), me.ammo, me.reserve, me.reloading and " 装填中" or "") or "光る武器に近づいて拾おう"
+    local equippedStats = me and me.weapon and WeaponStats.get(me.weapon, me.rarity or "Common") or nil
+    self.ammo.Text = me and me.weapon and string.format('<font size="12">%s</font>  <font size="25"><b>%d</b></font><font size="14"> / %d　予備 %d%s</font>',
+        string.upper(me.weapon) .. " · " .. (me.rarity or "Common"), me.ammo, equippedStats and equippedStats.magazine or 0,
+        me.reserve, me.reloading and " 装填中" or "") or "光る武器に近づいて拾おう"
     self.ammo.TextColor3 = me and me.weapon and WeaponStats.rarities[me.rarity or "Common"].color or white
     self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
     self.hint.Text = playing and os.clock() < (self.guideUntil or 0)
-        and "武器を拾え → 撃破して進化 → 最後の1人へ" or "安全地帯に残れ · 撃破で3択Evolution"
+        and "武器を拾え · 1/2/3で武器切替 · 撃破して進化" or "安全地帯に残れ · 1/2/3で武器切替 · 撃破で3択Evolution"
     if playing and z.shrinking then self.hint.Text = "ZONE SHRINKING · 安全地帯へ移動" end
     local draft = Rules.shouldShowEvolutionDraft(s) and me.evolutionDraft or nil
     self.draft.Visible = draft ~= nil
@@ -280,8 +286,11 @@ function Hud:update(s, onEvolutionPick)
         if b then
             local rarity = me and me.slotRarities and me.slotRarities[i]
             local tier = WeaponStats.rarities[rarity or "Common"]
-            b.TextColor3 = me and me.slot == i and Theme.Paper or tier.color
-            b.Text = tostring(i) .. " " .. (me and me.slots[i] or "—") .. (rarity and (" [" .. tier.short .. "]") or ""); b.BackgroundColor3 = me and me.slot == i and Theme.Blue or Theme.Ink end
+            local selected = me and me.slot == i
+            b.TextColor3 = selected and Theme.Paper or tier.color
+            b.Text = (selected and "▶ " or "") .. tostring(i) .. " " .. (me and me.slots[i] or "—") .. (rarity and (" [" .. tier.short .. "]") or "")
+            b.BackgroundColor3 = selected and Theme.Blue or Theme.Ink
+        end
     end
     self.result.Visible = s.phase == "Results" or (active and me ~= nil and not me.alive)
     if self.result.Visible then

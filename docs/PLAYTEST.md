@@ -13,9 +13,9 @@
 1. 空のDROPZONE Placeへ同期し、Play。OutputをServer/Client両方開く。
 2. ロビー→約12秒→分散スポーン。残り12人（自分 + BOT11体）。
 3. 近くの発光武器を拾う。取得通知、銃の外観、武器名、Ammoを確認。
-4. Rifle/Pistol/Shotgunで弾薬消費、弾切れ、装填、1/2/3の切替を確認。
+4. PCは左クリック1回で必ず1発、長押しで連射することを確認。自分の発射では弾道Tracerと移動するBulletStreakが見え、壁などに当たればImpact Sparkが出ることも確認。Rifle/Pistol/Shotgunで弾薬消費、弾切れ、装填、1/2/3の切替も確認。
 5. 装填途中に持ち替えても別の武器へ弾が移らない。
-6. 自分・BOT双方にHP/Shieldダメージ。壁越しに命中しない。
+6. 自分・BOT双方にHP/Shieldダメージ。敵へ命中した時は中央に明確な×Hit Marker、敵位置にHit Spark、HP/Shield Damage Numberが出る。壁越しに命中しない。
 7. 撃破でKill/残数が1回だけ更新し、3枚のEvolution候補を確認。1枚選び、能力名/ランク/発光パーツの反映を確認する。選択中にも移動・射撃でき、他のBOT/プレイヤーが動き続ける。別の撃破で5秒放置し、候補から自動選択されることも確認。
 8. 壁・床・坂を設置。Energy消費、通行、弾での破壊、寿命、障害物への重複拒否。
 9. BOTがコンテナ/町/森で探索し、ゾーン外から帰還する。詰まった座標を記録。
@@ -88,6 +88,8 @@ Offlineの `python3 tests/run.py` は `tests/preplay_analysis.py` も実行し�
 - [ ] 初回Draftを開いてClient OutputにColor3エラーなし。手動/Auto Pick、死亡、Results、Resetで残留なし。
 - [ ] HP/Shield低下のフラッシュ、撃破通知、進化取得、Zone警告、Victory/Build結果が読める。
 - [ ] 16:9と狭い横画面で移動/Jump/視点/Fireを維持し、Draft・建築・装填・Slotの誤操作なし。
+- [ ] 開幕10秒はBOTがLoot/移動を優先し、未攻撃なら即座に隣のBOTへ発砲しない。人間などに撃たれたBOTは開幕中でも反撃できる。
+- [ ] 通常BOT索敵110stud、Shotgun優先32studで、12人戦が90秒前後の即決着から改善するか診断ログで確認する。
 - [ ] BOTが武器を持ち替え、町内部の敵を追い、Zoneへ戻り、障害物で永久停止しない。
 - [ ] PistolでもBOTを倒せる。Shotgun遠距離と最大Stackが過剰でない。Wall/Ramp/Floorが役立つ。
 - [ ] 途中参加/退出/全員退出/ロード遅延、同tickのZone複数死亡で進行停止なし。
