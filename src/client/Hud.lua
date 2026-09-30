@@ -40,7 +40,7 @@ local function bar(parent, name, x,y,w,h, color)
     end
     return fill
 end
-function Hud.new()
+function Hud.new(mobile)
     local gui = Instance.new("ScreenGui")
     gui.Name, gui.ResetOnSpawn, gui.IgnoreGuiInset = "DropzoneHUD", false, false
     gui.DisplayOrder, gui.ZIndexBehavior = 10, Enum.ZIndexBehavior.Sibling
@@ -54,11 +54,14 @@ function Hud.new()
     local scale = Instance.new("UIScale")
     scale.Parent = canvas
     local function resize()
-        scale.Scale = math.min(gui.AbsoluteSize.X / 900, gui.AbsoluteSize.Y / 480)
+        scale.Scale = math.min(gui.AbsoluteSize.X / 900, gui.AbsoluteSize.Y / 480, mobile and math.huge or 1)
+        if not mobile then
+            canvas.Size = UDim2.fromOffset(gui.AbsoluteSize.X / scale.Scale, gui.AbsoluteSize.Y / scale.Scale)
+        end
     end
     gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
     resize()
-    local self = setmetatable({gui = gui, canvas = canvas, buttons = {}}, Hud)
+    local self = setmetatable({gui = gui, canvas = canvas, buttons = {}, mobile = mobile == true, learned = {}}, Hud)
     self.top = label(canvas, "Round", UDim2.fromOffset(270, 8), UDim2.fromOffset(360, 38), "DROPZONE", 18)
     self.zone = label(canvas, "Zone", UDim2.fromOffset(280, 51), UDim2.fromOffset(340, 33), "安全地帯", 15)
     self.stats = label(canvas, "Health", UDim2.fromOffset(22, 16), UDim2.fromOffset(218, 58), "HP —", 17)
@@ -151,7 +154,94 @@ function Hud.new()
     end
     self.currentCircle, self.nextCircle, self.dot = circle(Color3.fromRGB(68, 208, 255)), circle(Color3.fromRGB(240, 240, 240)), circle(Color3.fromRGB(255, 214, 70), true)
     self.dot.Size = UDim2.fromOffset(5, 5)
+    self.ready = self:button("EvolutionReady", "EVOLUTION READY [V]", 22, 128, 218, 30, function() self:toggleDraft() end)
+    if not self.mobile then self:layoutDesktop() end
     return self
+end
+-- Edge anchors keep the center clear at wide resolutions; desktop never scales up.
+function Hud:layoutDesktop()
+    local function place(obj, x, y, dx, dy, w, h)
+        obj.AnchorPoint = Vector2.new(x,y)
+        obj.Position, obj.Size = UDim2.new(x,dx,y,dy), UDim2.fromOffset(w,h)
+    end
+    place(self.stats,0,1,22,-22,218,58)
+    place(self.ammo,1,1,-22,-66,300,54)
+    place(self.top,.5,0,0,8,220,26)
+    place(self.zone,.5,0,0,35,220,24)
+    place(self.notice,.5,0,0,66,320,28)
+    place(self.hint,.5,1,0,-128,370,28)
+    place(self.energy,0,1,22,-92,218,30)
+    self.energyBar.Parent.Size = UDim2.fromOffset(198,6)
+    place(self.ready,0,1,22,-130,218,30)
+    place(self.draft,0,1,16,-170,600,177)
+    place(self.mini,1,0,-22,12,122,78)
+    self.crosshair.AnchorPoint = Vector2.new(.5,.5)
+    self.crosshair.Position = UDim2.fromScale(.5,.5)
+    self.hitMarker.AnchorPoint = Vector2.new(.5,.5)
+    self.hitMarker.Position = UDim2.fromScale(.5,.5)
+    for _, obj in ipairs({self.stats,self.ammo,self.top,self.zone,self.hint,self.energy}) do
+        obj.BackgroundTransparency = .75
+        local outline = obj:FindFirstChild("UIStroke")
+        if outline then outline.Enabled = false end
+    end
+    self.top.BackgroundColor3, self.top.TextColor3 = Theme.Ink, white
+    self.mini.BackgroundTransparency = .65
+end
+function Hud:toggleDraft()
+    if self.currentDraft then
+        self.draftExpanded = not self.draftExpanded
+        self.draft.Visible = self.draftExpanded
+    end
+end
+function Hud:learn(command)
+    if command == "Sprint" or command == "Posture" or command == "Build" or command == "Equip" then
+        self.learned[command] = true
+    end
+    if command == "Build" then self.buildUntil = os.clock() + 3 end
+end
+-- Client-only presentation of replicated loot; collection remains server-owned.
+function Hud:updatePickup(playing)
+    local world = workspace:FindFirstChild("DropzoneWorld")
+    local round = world and world:FindFirstChild("Round")
+    local loot = round and round:FindFirstChild("Loot")
+    if not loot then return end
+    local character = Players.LocalPlayer.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    local nearest, distance = nil, 9
+    for _, item in ipairs(loot:GetChildren()) do
+        if item:IsA("BasePart") then
+            local billboard = item:FindFirstChildOfClass("BillboardGui")
+            if billboard then
+                billboard.Enabled = false
+                if playing and root then
+                    local d = (item.Position - root.Position).Magnitude
+                    if d < distance then nearest, distance = billboard, d end
+                end
+            end
+        end
+    end
+    if nearest then
+        local text = nearest:FindFirstChildOfClass("TextLabel")
+        if text then
+            local original = text:GetAttribute("PickupTitle")
+            if not original then
+                original = text.Text:gsub("▼ 武器を拾え · ", "")
+                text:SetAttribute("PickupTitle", original)
+            end
+            text.Text = original .. (self.mobile and "\n近づくと取得" or "\n[E] PICK UP")
+            text.TextSize, text.TextWrapped = 14, true
+            nearest.Size = UDim2.fromOffset(200,44)
+        end
+        nearest.Enabled = true
+    end
+end
+function Hud:step(now, playing)
+    if self.noticeUntil and now >= self.noticeUntil then self.notice.Visible = false end
+    if not self.mobile then
+        local combat = now < (self.shotUntil or 0) or now < (self.hitUntil or 0)
+        self.ammo.BackgroundTransparency = combat and .3 or .75
+    end
+    self:updatePickup(playing)
 end
 function Hud:updateDraftCards()
     local draft = self.currentDraft
@@ -183,6 +273,17 @@ function Hud:button(name, text, x, y, width, height, callback)
     b.BorderSizePixel, b.Font, b.Parent = 0, Enum.Font.GothamBold, self.canvas
     local corner = Instance.new("UICorner"); corner.CornerRadius, corner.Parent = UDim.new(0, 12), b
     if callback then b.Activated:Connect(callback) end
+    if not self.mobile then
+        if name:match("^Slot") then
+            local index = tonumber(name:sub(5))
+            b.AnchorPoint = Vector2.new(1,1)
+            b.Position, b.Size = UDim2.new(1,-22-(3-index)*102,1,-22), UDim2.fromOffset(98,36)
+        elseif name == "Spectate" then
+            b.AnchorPoint = Vector2.new(0,1)
+            b.Position, b.Size = UDim2.new(0,22,1,-22), UDim2.fromOffset(218,36)
+            b.Text = "観戦切替 [Tab]"
+        end
+    end
     self.buttons[name] = b
     return b
 end
@@ -191,7 +292,8 @@ function Hud:toast(text)
     self.noticeUntil = os.clock() + 3
 end
 function Hud:eliminated()
-    self:toast("ELIMINATED  ·  撃破して進化")
+    self:toast("ELIMINATED  +1")
+    self.noticeUntil = os.clock() + 1.5
     self.eliminationUntil = os.clock() + .6
     if self.eliminationTween then self.eliminationTween:Cancel() end
     self.notice.BackgroundColor3 = Theme.Paper
@@ -201,6 +303,7 @@ end
 function Hud:update(s, onEvolutionPick)
     if self.roundId ~= s.roundId then
         self.roundId = s.roundId
+        self.draftExpanded, self.displayedDraftId, self.buildUntil = false, nil, nil
         self.submittedDraftId, self.submittedChoice, self.previousMe = nil, nil, nil
         self.guideUntil, self.eliminationUntil, self.reserveGainUntil = nil, nil, nil
         if self.eliminationTween then self.eliminationTween:Cancel(); self.eliminationTween = nil end
@@ -234,10 +337,14 @@ function Hud:update(s, onEvolutionPick)
     end
     self.previousMe = me
     local names = {Waiting = "参加待ち", Intermission = "次の試合まで", Starting = "降下準備中", Active = "生存者", FinalZone = "FINAL ZONE", Results = "RESULTS", Resetting = "リセット中"}
-    self.top.Text = (names[s.phase] or s.phase) .. (active and ("  " .. s.alive .. "人   KILL " .. (me and me.kills or 0)) or ("  " .. s.remaining .. "秒"))
+    self.top.Text = active and (s.alive .. " ALIVE") or ((names[s.phase] or s.phase) .. " " .. s.remaining .. "秒")
     local z = s.zone
-    self.zone.Text = active and string.format("ZONE %d  %s %d秒  半径%d → %d", z.phase, z.shrinking and "縮小中" or "縮小まで", z.remaining, math.floor(z.radius), z.nextRadius) or "撃破して進化。最後の1人になれ。"
-    self.stats.Text = me and string.format("HP %d/%d   ◇ %d", me.hp, me.maxHp, me.shield) or "DROPZONE\n次のラウンドを待っています"
+    local seconds = math.max(0, math.ceil(z.remaining))
+    self.zone.Text = active and string.format("%s %d:%02d", z.shrinking and "ZONE CLOSING" or "ZONE", math.floor(seconds/60), seconds%60) or ""
+    self.zone.Visible = active
+    self.zone.TextColor3 = active and (z.shrinking or seconds <= 10) and Theme.Orange or white
+    self.stats.Visible, self.ammo.Visible, self.mini.Visible = not not playing, not not playing, active
+    self.stats.Text = me and string.format("HP %d   SHIELD %d", me.hp, me.shield) or "DROPZONE\n次のラウンドを待っています"
     self.hpBar.Size = UDim2.fromScale(me and math.clamp(me.hp / math.max(1,me.maxHp),0,1) or 0,1)
     self.shieldBar.Size = UDim2.fromScale(me and math.clamp(me.shield / 100,0,1) or 0,1)
     self.energyBar.Size = UDim2.fromScale(me and math.clamp(me.energy / math.max(1,me.maxEnergy),0,1) or 0,1)
@@ -248,19 +355,31 @@ function Hud:update(s, onEvolutionPick)
     local buildText = table.concat(build, " · ")
     -- One prominent ability on the compact HUD; the result retains the three-item build.
     self.evo.Text = me and string.format('<font size="17"><b>EVOLUTION %d</b></font>\n%s', me.evolutions, build[1] or "撃破で能力獲得") or "EVOLUTION 0"
-    self.energy.Text = "BUILD ENERGY " .. (me and me.energy or 0)
+    self.evo.Visible = false
+    self.energy.Visible = playing and (self.mobile or os.clock() < (self.buildUntil or 0)) or false
+    self.energy.Text = self.mobile and ("BUILD ENERGY " .. (me and me.energy or 0))
+        or (string.upper(self.buildType or "Wall") .. " [Q] · " .. (me and me.energy or 0))
     local equippedStats = me and me.weapon and WeaponStats.get(me.weapon, me.rarity or "Common") or nil
     local reserveGain = os.clock() < (self.reserveGainUntil or 0) and (" (+" .. self.reserveGain .. ")") or ""
     self.ammo.Text = equippedStats and string.format('<font size="12">%s%s</font>\n<font size="20"><b>%d / %d</b></font>  <font size="14">予備 %d%s</font>',
         string.upper(me.weapon) .. " · " .. (me.rarity or "Common"), me.reloading and " 装填中" or "",
-        me.ammo, equippedStats.magazine, me.reserve, reserveGain) or "光る武器に近づいて拾おう"
+        me.ammo, equippedStats.magazine, me.reserve, reserveGain) or "武器なし"
     self.ammo.TextColor3 = me and me.weapon and WeaponStats.rarities[me.rarity or "Common"].color or white
-    self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
-    self.hint.Text = playing and os.clock() < (self.guideUntil or 0)
-        and "1 / 2 / 3で武器切替 · 下のSlotをクリック / タップ" or "1 / 2 / 3で武器切替 · 右クリック長押しでAim"
-    if playing and z.shrinking then self.hint.Text = "ZONE SHRINKING · 安全地帯へ移動" end
+    self.crosshair.Visible = not not playing
+    local tips = {}
+    if not self.learned.Equip then tips[#tips+1] = "1 / 2 / 3 武器切替" end
+    if not self.learned.Sprint then tips[#tips+1] = "Shift 走る" end
+    if not self.learned.Posture then tips[#tips+1] = "Ctrl しゃがみ / 滑走" end
+    if not self.learned.Build then tips[#tips+1] = "Q 建築 · Z/X/C 壁/床/坂" end
+    self.hint.Text = tips[math.min(#tips, 1 + math.floor(math.max(0, 9 - ((self.guideUntil or 0) - os.clock())) / 2.5))] or ""
+    self.hint.Visible = playing and not self.mobile and #tips > 0 and os.clock() < (self.guideUntil or 0) or false
     local draft = Rules.shouldShowEvolutionDraft(s) and me.evolutionDraft or nil
-    self.draft.Visible = draft ~= nil
+    if draft and draft.id ~= self.displayedDraftId then
+        self.displayedDraftId, self.draftExpanded = draft.id, self.mobile
+    elseif not draft then self.displayedDraftId, self.draftExpanded = nil, false end
+    self.draft.Visible = draft ~= nil and self.draftExpanded == true
+    self.ready.Visible = draft ~= nil
+    if draft then self.ready.Text = string.format("EVOLUTION READY %0.1fs%s", draft.seconds, self.mobile and "" or " [V]") end
     self.currentDraft = draft
     self.onEvolutionPick = onEvolutionPick
     if draft then
@@ -275,8 +394,9 @@ function Hud:update(s, onEvolutionPick)
     end
     if self.noticeUntil and os.clock() > self.noticeUntil then self.notice.Visible = false end
     for name, button in pairs(self.buttons) do
-        if name == "Spectate" then button.Visible = active and not playing
-        else button.Visible = not not playing end
+        if name == "EvolutionReady" then button.Visible = draft ~= nil
+        elseif name == "Spectate" then button.Visible = active and not playing
+        else button.Visible = not not playing and (self.mobile or name:match("^Slot") ~= nil) end
     end
     local crouchButton, sprintButton = self.buttons.Crouch, self.buttons.Sprint
     if crouchButton then
@@ -315,7 +435,9 @@ function Hud:update(s, onEvolutionPick)
             self.result.TextColor3 = title == "#1 VICTORY" and Color3.fromRGB(255,220,100) or white
         else self.result.TextColor3 = white end
         -- Compact death card leaves the spectator view clear.
-        self.result.Position = active and UDim2.fromOffset(275, 150) or UDim2.fromOffset(265, 150)
+        self.result.AnchorPoint = self.mobile and Vector2.new(0,0) or active and Vector2.new(0,1) or Vector2.new(.5,.5)
+        self.result.Position = self.mobile and (active and UDim2.fromOffset(275,150) or UDim2.fromOffset(265,150))
+            or active and UDim2.new(0,22,1,-72) or UDim2.fromScale(.5,.5)
         self.result.Size = active and UDim2.fromOffset(350, 115) or UDim2.fromOffset(370, 205)
         self.result.TextSize = active and 15 or 19
     end
@@ -332,8 +454,10 @@ function Hud:update(s, onEvolutionPick)
         local delta = root.Position - z.center
         if playing and math.sqrt(delta.X*delta.X + delta.Z*delta.Z) >= z.radius - 12 then
             self.hint.Text = "危険！ 安全地帯の内側へ移動"
+            self.hint.Visible = true
             self.hint.TextColor3 = Color3.fromRGB(255, 180, 90)
         else self.hint.TextColor3 = white end
     end
 end
 return Hud
+

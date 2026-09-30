@@ -46,6 +46,9 @@ function hud:button(name,_,x,y,w,h,callback)
     return b
 end
 function hud:update() end
+function hud:learn() end
+function hud:step() end
+function hud:toggleDraft() self.draft.Visible = not self.draft.Visible end
 function hud:toast() end
 function hud:eliminated() self.kills=(self.kills or 0)+1 end
 local effects={folder={},shots={},hits={},clears=0}
@@ -122,6 +125,27 @@ check(#effects.shots==0,"Results refuses otherwise matching Shot")
 state={roundId=6,phase="Active",me=state.me,zone=state.zone,targets={}};snapshot:emit(state)
 check(hud.hitMarkerUntil==0 and effects.clears>=3,"new round clears timers and pools")
 print("PASS: "..count.." actual client input/event/lifecycle assertions")
+
+-- Expanded draft consumes only pointer clicks inside its rectangle.
+hud.draft.Visible=true;hud.draft.AbsolutePosition=Vector2.new(16,100);hud.draft.AbsoluteSize=Vector2.new(600,177)
+local before=#requests
+input.InputBegan:emit({UserInputType="MouseButton1",Position=Vector2.new(100,150)},false)
+check(#requests==before,"draft card click does not fire background weapon")
+input.InputBegan:emit({KeyCode="R"},false)
+check(requests[#requests][2]=="Reload","keyboard gameplay remains available with draft open")
+input.InputBegan:emit({UserInputType="MouseButton2",Position=Vector2.new(800,300)},false)
+run.RenderStepped:emit();check(input.MouseBehavior=="Default","expanded draft leaves pointer available")
+hud.draft.Visible=false;run.RenderStepped:emit()
+check(input.MouseBehavior=="LockCenter","collapsed ready notification does not prevent aiming")
+input.InputEnded:emit({UserInputType="MouseButton2"})
+local subjects={{},{}}
+state.me.alive=false;state.targets={}
+for i=1,2 do state.targets[i]={model={FindFirstChildOfClass=function() return subjects[i] end}} end
+snapshot:emit(state);local first=workspace.CurrentCamera.CameraSubject
+input.InputBegan:emit({KeyCode="Tab"},true);snapshot:emit(state)
+check(workspace.CurrentCamera.CameraSubject~=first,"processed Tab still cycles spectator subject after death")
+state.me.alive=true;state.targets={};snapshot:emit(state)
+print("PASS: "..count.." client assertions including draft pointer boundaries and spectator Tab")
 
 -- Feed real client Fire payloads into real Combat.fire. Intersections depend on
 -- the actual ray, so a wrong sign, rotation, camera, origin or endpoint fails.
@@ -276,3 +300,4 @@ local invalid={Vector3.zero,Vector3.new(0/0,0,0),Vector3.new(math.huge,0,0),Vect
 for _,value in ipairs(invalid) do combat:fire(shooter,value) end
 check(shooter.ammo==28 and #events==0,"invalid aim payloads consume no ammo and cause no damage")
 print("PASS: "..count.." client/server assertions including numeric aim, recoil, cover, spread and tracer provenance")
+

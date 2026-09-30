@@ -26,7 +26,11 @@ Vector2={new=function(x,y) return {X=x,Y=y} end}
 TweenInfo={new=function(t) return t end}
 math.clamp=function(v,a,b) return math.min(b,math.max(a,v)) end
 Random={new=function() return {NextNumber=function(_,a,b) return (a+b)/2 end} end}
-local function signal() return {Connect=function() return {Disconnect=function() end} end} end
+local function signal()
+    local callbacks = {}
+    return {Connect=function(_,f) callbacks[#callbacks+1]=f; return {Disconnect=function() end} end,
+        Fire=function(_,...) for _,f in ipairs(callbacks) do f(...) end end}
+end
 local methods={}
 function methods:GetChildren() local out={}; for child in pairs(self._children) do out[#out+1]=child end;return out end
 function methods:GetDescendants()
@@ -34,7 +38,11 @@ function methods:GetDescendants()
 end
 function methods:FindFirstChild(name) for child in pairs(self._children) do if child.Name==name then return child end end end
 function methods:WaitForChild(name) return assert(self:FindFirstChild(name),name) end
-function methods:GetPropertyChangedSignal() return signal() end
+function methods:GetPropertyChangedSignal(name)
+    self._signals = self._signals or {}
+    self._signals[name] = self._signals[name] or signal()
+    return self._signals[name]
+end
 function methods:IsA(kind)
     return self.ClassName==kind or (kind=="BasePart" and (self.ClassName=="Part" or self.ClassName=="WedgePart"))
 end
@@ -140,7 +148,7 @@ local scenery=MapVisuals.create(world)
 local mapCount=cosmeticCount(scenery,true)
 check(mapCount<=210 and scenery.Parent==world.root and scenery.Parent~=world.map,"scenery budget and ground-ray exclusion")
 local Hud=load("Hud","client/Hud.lua")
-local hud=Hud.new()
+local hud=Hud.new(true)
 local cards={
     {name="Swift Legs",rankText="III",description="移動速度 +4%",category="Mobility"},
     {name="Regeneration",rankText="II",description="静穏時 1.5 HP/s",category="Survival"},
@@ -456,3 +464,40 @@ fx:step(12)
 check(fx.tracers[1].expires==0 and fx.tracers[1].streak.Transparency==1,"expired trace hidden")
 fx:destroy();check(fx.folder.Parent==nil,"effect teardown removes fixed pool")
 print("PASS: "..assertions.." total visual assertions including bounded shot effects and ammo HUD")
+
+
+-- Desktop HUD behavior and viewport geometry, using the real Hud constructor.
+local desktop=Hud.new(false)
+for _,name in ipairs({"Fire","Build","Reload","Sprint","Crouch","Wall","Floor","Ramp","Slot1","Slot2","Slot3","Spectate"}) do desktop:button(name,"",0,0,80,40) end
+s.roundId=10;s.phase="Active";s.me=me;me.alive=true;me.evolutionDraft={id=10,seconds=5,options=cards}
+desktop:update(s,function() return true end)
+check(not desktop.draft.Visible and desktop.ready.Visible,"PC draft begins as a small ready notification")
+desktop:toggleDraft();check(desktop.draft.Visible,"ready click opens draft")
+desktop:update(s);check(desktop.draft.Visible,"same draft snapshot preserves expansion")
+me.evolutionDraft={id=11,seconds=5,options=cards};desktop:update(s)
+check(not desktop.draft.Visible,"queued new draft starts collapsed")
+check(not desktop.evo.Visible and not desktop.energy.Visible,"ability summary and build energy are absent at rest")
+for _,name in ipairs({"Fire","Build","Reload","Sprint","Crouch","Wall","Floor","Ramp"}) do check(not desktop.buttons[name].Visible,"PC hides touch control "..name) end
+check(desktop.buttons.Slot1.Visible and desktop.ammo.Visible,"PC retains usable slots and ammunition")
+for _,command in ipairs({"Equip","Sprint","Posture","Build"}) do desktop:learn(command) end
+desktop:update(s);check(not desktop.hint.Visible and desktop.energy.Visible,"used tutorials disappear; building exposes contextual energy")
+for _,viewport in ipairs({{900,480},{1280,720},{1920,1080},{2560,1080},{640,360}}) do
+    desktop.gui.AbsoluteSize=Vector2.new(viewport[1],viewport[2]);desktop.gui:GetPropertyChangedSignal("AbsoluteSize"):Fire()
+    local factor=desktop.canvas:FindFirstChild("UIScale").Scale
+    local width,height=desktop.canvas.Size.X.Offset,desktop.canvas.Size.Y.Offset
+    check(factor<=1 and math.abs(width*factor-viewport[1])<.001 and math.abs(height*factor-viewport[2])<.001,"desktop fits viewport without upscaling")
+    local function rect(obj)
+        local x=obj.Position.X.Scale*width+obj.Position.X.Offset-obj.AnchorPoint.X*obj.Size.X.Offset
+        local y=obj.Position.Y.Scale*height+obj.Position.Y.Offset-obj.AnchorPoint.Y*obj.Size.Y.Offset
+        return x,y,obj.Size.X.Offset,obj.Size.Y.Offset
+    end
+    for _,obj in ipairs({desktop.stats,desktop.ammo,desktop.ready,desktop.draft,desktop.mini,desktop.buttons.Slot1,desktop.buttons.Slot3}) do
+        local x,y,w,h=rect(obj);check(x>=0 and y>=0 and x+w<=width and y+h<=height,"anchored HUD stays within viewport: "..obj.Name)
+    end
+    local x,y,w,h=rect(desktop.crosshair)
+    check(x+w/2==width/2 and y+h/2==height/2,"reticle stays centered after resize")
+end
+me.alive=false;desktop:update(s)
+check(not desktop.ready.Visible and not desktop.draft.Visible and desktop.buttons.Spectate.Visible,"spectator hides draft and exposes target switching")
+check(desktop.result.AnchorPoint.X==0 and desktop.result.AnchorPoint.Y==1,"spectator result is anchored away from center")
+print("PASS: "..assertions.." visual assertions including desktop HUD states and five viewport sizes")
