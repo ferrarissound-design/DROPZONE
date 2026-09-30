@@ -18,6 +18,16 @@ local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall
 local submittedEvolutionDraft
 local touchFire = nil
 local nextJumpRequest = 0
+local aim
+local function tryShoot()
+    if not playing or not playing() or os.clock() < nextShot then return end
+    local spec = state and state.me and Weapons[state.me.weapon]
+    if not spec then return end
+    nextShot = os.clock() + spec.interval
+    if state.me.ammo == 0 and not state.me.reloading then presentation.audio:play("Empty") end
+    local direction = aim and aim()
+    if direction then send("Fire", direction) end
+end
 local function playing()
     return state and (state.phase == "Active" or state.phase == "FinalZone") and state.me and state.me.alive
 end
@@ -39,7 +49,11 @@ fire.InputBegan:Connect(function(input)
         touchFire, shooting = input, true
         presentation:setCombatAim(true)
         if state and state.me and state.me.sprinting then send("Sprint", false) end
-    elseif input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true end
+        tryShoot()
+    elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+        shooting = true
+        tryShoot()
+    end
 end)
 hud:button("Reload", "装填 R", 680, 275, 88, 56, function() send("Reload") end)
 hud:button("Build", "建築 Q", 680, 205, 88, 60, build)
@@ -82,7 +96,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if not playing() or ((input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.MouseButton2) and mouseOnEvolutionPanel(input)) then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        shooting = true
+        tryShoot()
     elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
         presentation:setAimHeld(true)
         if state.me.sprinting then send("Sprint", false) end
@@ -121,7 +137,7 @@ UserInputService.JumpRequest:Connect(function()
         send("Jump")
     end
 end)
-local function aim()
+aim = function()
     local camera, character = workspace.CurrentCamera, player.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
     if not camera or not root then return nil end
@@ -245,13 +261,5 @@ RunService.RenderStepped:Connect(function()
     if playing() and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     else UserInputService.MouseBehavior = Enum.MouseBehavior.Default end
-    if shooting and playing() and os.clock() >= nextShot then
-        local spec = Weapons[state.me.weapon]
-        if spec then
-            nextShot = os.clock() + spec.interval
-            local direction = aim()
-            if state.me.ammo == 0 and not state.me.reloading then presentation.audio:play("Empty") end
-            if direction then send("Fire", direction) end
-        end
-    end
+    if shooting then tryShoot() end
 end)
