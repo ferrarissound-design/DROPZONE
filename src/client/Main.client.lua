@@ -18,7 +18,7 @@ local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall
 local submittedEvolutionDraft
 local touchFire = nil
 local nextJumpRequest = 0
-local aim
+local playing, send, aim
 local function tryShoot()
     if not playing or not playing() or os.clock() < nextShot then return end
     local spec = state and state.me and Weapons[state.me.weapon]
@@ -28,10 +28,10 @@ local function tryShoot()
     local direction = aim and aim()
     if direction then send("Fire", direction) end
 end
-local function playing()
+playing = function()
     return state and (state.phase == "Active" or state.phase == "FinalZone") and state.me and state.me.alive
 end
-local function send(command, argument)
+send = function(command, argument)
     if playing() then action:FireServer(state.roundId, command, argument) end
 end
 local function cancelAim()
