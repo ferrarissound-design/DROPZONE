@@ -213,4 +213,12 @@ assert 'closestLiveTarget(a, alive, 145)' not in bots_source
 assert 'distance < 38' not in bots_source
 print('PASS: BOT opening pace uses loot-first grace, retaliation, shorter aggro and shotgun ranges')
 
+# A quick desktop click must fire immediately; holding continues through RenderStepped.
+assert 'local playing, send, aim' in client
+assert 'local function tryShoot()' in client
+assert client.count('tryShoot()') >= 3
+assert 'if shooting then tryShoot() end' in client
+assert 'if shooting and playing() and os.clock() >= nextShot then' not in client
+print('PASS: desktop tap fires immediately while hold-to-fire remains rate limited')
+
 subprocess.run([sys.executable, str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)
