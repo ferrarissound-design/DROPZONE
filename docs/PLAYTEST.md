@@ -88,6 +88,8 @@ Offlineの `python3 tests/run.py` は `tests/preplay_analysis.py` も実行し�
 - [ ] 初回Draftを開いてClient OutputにColor3エラーなし。手動/Auto Pick、死亡、Results、Resetで残留なし。
 - [ ] HP/Shield低下のフラッシュ、撃破通知、進化取得、Zone警告、Victory/Build結果が読める。
 - [ ] 16:9と狭い横画面で移動/Jump/視点/Fireを維持し、Draft・建築・装填・Slotの誤操作なし。
+- [ ] 開幕10秒はBOTがLoot/移動を優先し、未攻撃なら即座に隣のBOTへ発砲しない。人間などに撃たれたBOTは開幕中でも反撃できる。
+- [ ] 通常BOT索敵110stud、Shotgun優先32studで、12人戦が90秒前後の即決着から改善するか診断ログで確認する。
 - [ ] BOTが武器を持ち替え、町内部の敵を追い、Zoneへ戻り、障害物で永久停止しない。
 - [ ] PistolでもBOTを倒せる。Shotgun遠距離と最大Stackが過剰でない。Wall/Ramp/Floorが役立つ。
 - [ ] 途中参加/退出/全員退出/ロード遅延、同tickのZone複数死亡で進行停止なし。
