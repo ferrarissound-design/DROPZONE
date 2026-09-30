@@ -229,7 +229,7 @@ assert 'effects:shot(a, b, c, localShot, impacts)' in client
 assert 'Rifle = {Vertical = .52' in presentation_config_source
 assert 'Shotgun = {Vertical = 1.00' in presentation_config_source
 assert 'Pistol = {Vertical = .38' in presentation_config_source
-assert '予備 %d' in hud_source or '予備 %d' in (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+assert '予備 %d' in (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
 print('PASS: local-player shots have stronger presentation-only tracer, muzzle flash and recoil feedback')
 
 hud_source = (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
