@@ -130,6 +130,10 @@ function Hud.new()
     self.crosshair.BackgroundTransparency = 1
     -- Keep the aim anchor unchanged, but never draw the reticle over card text.
     self.crosshair.ZIndex = 10
+    self.hitMarker = label(canvas, "HitMarker", UDim2.fromOffset(420, 210), UDim2.fromOffset(60, 60), "×", 42)
+    self.hitMarker.BackgroundTransparency, self.hitMarker.Visible, self.hitMarker.ZIndex = 1, false, 11
+    self.hitMarker.TextColor3 = Theme.Orange
+    self.hitMarker.TextStrokeTransparency = .15
     self.result = label(canvas, "Result", UDim2.fromOffset(265, 150), UDim2.fromOffset(370, 205), "", 22)
     self.result.Visible, self.result.RichText = false, true
     self.resultStroke = stroke(self.result, Theme.Gold, 3)
