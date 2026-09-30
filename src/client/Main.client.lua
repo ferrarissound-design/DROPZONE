@@ -11,7 +11,7 @@ local Presentation = require(script.Parent.Presentation)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("DropzoneRemotes")
 local action = remotes:WaitForChild("Action")
-local hud, effects = Hud.new(), Effects.new()
+local hud, effects = Hud.new(UserInputService.TouchEnabled), Effects.new()
 local damageFeedback = DamageFeedback.new(effects.folder)
 local presentation = Presentation.new(effects.folder, player)
 local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall", 1
@@ -32,6 +32,7 @@ playing = function()
     return state and (state.phase == "Active" or state.phase == "FinalZone") and state.me and state.me.alive
 end
 send = function(command, argument)
+    if playing() then hud:learn(command) end
     if playing() then action:FireServer(state.roundId, command, argument) end
 end
 local function cancelAim()
@@ -104,15 +105,16 @@ UserInputService.InputBegan:Connect(function(input, processed)
         if state.me.sprinting then send("Sprint", false) end
     end
     local key = input.KeyCode
-    if key == Enum.KeyCode.R then send("Reload")
+    if key == Enum.KeyCode.V then hud:toggleDraft()
+    elseif key == Enum.KeyCode.R then send("Reload")
     elseif key == Enum.KeyCode.Q then build()
     elseif key == Enum.KeyCode.E then send("Pickup")
     elseif key == Enum.KeyCode.One then send("Equip", 1)
     elseif key == Enum.KeyCode.Two then send("Equip", 2)
     elseif key == Enum.KeyCode.Three then send("Equip", 3)
-    elseif key == Enum.KeyCode.Z then buildType = "Wall"
-    elseif key == Enum.KeyCode.X then buildType = "Floor"
-    elseif key == Enum.KeyCode.C then buildType = "Ramp"
+    elseif key == Enum.KeyCode.Z then buildType = "Wall"; hud.buildUntil = os.clock() + 3
+    elseif key == Enum.KeyCode.X then buildType = "Floor"; hud.buildUntil = os.clock() + 3
+    elseif key == Enum.KeyCode.C then buildType = "Ramp"; hud.buildUntil = os.clock() + 3
     elseif key == Enum.KeyCode.LeftControl or key == Enum.KeyCode.RightControl then posture()
     elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then cancelAim(); send("Sprint", true) end
 end)
@@ -205,6 +207,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     end
     local draft = s.me and s.me.evolutionDraft
     if not draft or draft.id ~= submittedEvolutionDraft then submittedEvolutionDraft = nil end
+    hud.buildType = buildType
     hud:update(s, function(draftId, index)
         if playing() and draftId == submittedEvolutionDraft then return false end
         if playing() and draft and draft.id == draftId then
@@ -284,13 +287,15 @@ RunService.RenderStepped:Connect(function()
     if now >= feedbackClock then
         feedbackClock = now + .1
         damageFeedback:step(now)
+        hud:step(now, playing())
         local aiming = presentation:isAiming()
         hud.crosshair.TextColor3 = now < (hud.hitUntil or 0) and Theme.Orange or aiming and Theme.Cyan or Theme.Paper
         hud.crosshair.TextSize = now < (hud.shotUntil or 0) and (aiming and 26 or 32) or (aiming and 22 or 28)
     end
-    local draftOpen = playing() and state.me.evolutionDraft ~= nil
+    local draftOpen = hud.draft.Visible
     if playing() and presentation.aimHeld and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     else UserInputService.MouseBehavior = Enum.MouseBehavior.Default end
     if shooting and playing() then tryShoot() end
 end)
+
