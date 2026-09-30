@@ -242,8 +242,10 @@ function Hud:update(s, onEvolutionPick)
     -- One prominent ability on the compact HUD; the result retains the three-item build.
     self.evo.Text = me and string.format('<font size="17"><b>EVOLUTION %d</b></font>\n%s', me.evolutions, build[1] or "撃破で能力獲得") or "EVOLUTION 0"
     self.energy.Text = "BUILD ENERGY " .. (me and me.energy or 0)
-    self.ammo.Text = me and me.weapon and string.format('<font size="12">%s</font>  <font size="25"><b>%d</b></font><font size="14"> / %d%s</font>',
-        string.upper(me.weapon) .. " · " .. (me.rarity or "Common"), me.ammo, me.reserve, me.reloading and " 装填中" or "") or "光る武器に近づいて拾おう"
+    local equippedStats = me and me.weapon and WeaponStats.get(me.weapon, me.rarity or "Common") or nil
+    self.ammo.Text = me and me.weapon and string.format('<font size="12">%s</font>  <font size="25"><b>%d</b></font><font size="14"> / %d　予備 %d%s</font>',
+        string.upper(me.weapon) .. " · " .. (me.rarity or "Common"), me.ammo, equippedStats and equippedStats.magazine or 0,
+        me.reserve, me.reloading and " 装填中" or "") or "光る武器に近づいて拾おう"
     self.ammo.TextColor3 = me and me.weapon and WeaponStats.rarities[me.rarity or "Common"].color or white
     self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
     self.hint.Text = playing and os.clock() < (self.guideUntil or 0)
