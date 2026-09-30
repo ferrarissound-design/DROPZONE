@@ -9,6 +9,7 @@ return {
     StartEnergy = 60, MaxEnergy = 150,
     MapHalfSize = 250, PickupRadius = 9,
     BotInterval = 0.35, SnapshotInterval = 0.2,
+    BotAggroRange = 110, BotOpeningSeconds = 10, BotOpeningLootRange = 90, BotShotgunRange = 32,
     -- Pre-release only: prints one bounded server summary at the end of each round.
     PlaytestDiagnostics = true,
     BuildGrid = 8, BuildCooldown = 0.55, BuildLimit = 100,
