@@ -7,7 +7,7 @@ function Effects.new()
     if old then old:Destroy() end
     local folder = Instance.new("Folder")
     folder.Name, folder.Parent = "DropzoneLocalEffects", workspace
-    local self = setmetatable({folder = folder, rings = {}, tracers = 0}, Effects)
+    local self = setmetatable({folder = folder, rings = {}, tracers = 0, impacts = 0}, Effects)
     for ring = 1, 2 do
         self.rings[ring] = {}
         for i = 1, 48 do
@@ -40,8 +40,27 @@ function Effects:zone(z, active)
         end
     end
 end
-function Effects:shot(origin, endpoints, kind, localShot)
-    for _, endpoint in ipairs(endpoints) do
+local function transientPart(folder, name, size, cf, color)
+    local p = Instance.new("Part")
+    p.Name, p.Size, p.CFrame = name, size, cf
+    p.Anchored, p.CanCollide, p.CanTouch, p.CanQuery = true, false, false, false
+    p.CastShadow, p.Material, p.Color, p.Parent = false, Enum.Material.Neon, color, folder
+    return p
+end
+function Effects:impact(position, enemy)
+    if self.impacts >= 18 then return end
+    self.impacts = self.impacts + 1
+    local size = enemy and .75 or .42
+    local color = enemy and Color3.fromRGB(255, 164, 70) or Color3.fromRGB(255, 238, 160)
+    local p = transientPart(self.folder, enemy and "EnemyHit" or "Impact", Vector3.new(size,size,size), CFrame.new(position), color)
+    p.Shape = Enum.PartType.Ball
+    p.Transparency = enemy and 0 or .12
+    TweenService:Create(p, TweenInfo.new(enemy and .16 or .12), {Transparency = 1, Size = p.Size * 1.8}):Play()
+    Debris:AddItem(p, enemy and .19 or .15)
+    task.delay(enemy and .19 or .15, function() self.impacts = math.max(0, self.impacts - 1) end)
+end
+function Effects:shot(origin, endpoints, kind, localShot, impacts)
+    for index, endpoint in ipairs(endpoints) do
         if self.tracers >= 72 then break end
         local distance = (origin - endpoint).Magnitude
         if distance > 0.01 then
@@ -57,6 +76,24 @@ function Effects:shot(origin, endpoints, kind, localShot)
             TweenService:Create(p, TweenInfo.new(life), {Transparency = 1}):Play()
             Debris:AddItem(p, life + 0.03)
             task.delay(life + 0.03, function() self.tracers = self.tracers - 1 end)
+            if localShot and index == 1 then
+                local direction = endpoint - origin
+                if direction.Magnitude > 1 then
+                    local travel = math.clamp(direction.Magnitude / 1200, .045, .12)
+                    local start = origin + direction.Unit * 2
+                    local finish = endpoint - direction.Unit * 1.2
+                    local streak = transientPart(self.folder, "BulletStreak", Vector3.new(.18,.18,2.8),
+                        CFrame.lookAt(start, endpoint), kind == "Shotgun" and Color3.fromRGB(255,180,70) or Color3.fromRGB(255,245,185))
+                    TweenService:Create(streak, TweenInfo.new(travel, Enum.EasingStyle.Linear), {CFrame=CFrame.lookAt(finish, endpoint)}):Play()
+                    Debris:AddItem(streak, travel + .03)
+                end
+            end
+        end
+    end
+    if localShot then
+        for i, position in ipairs(impacts or {}) do
+            if i > (kind == "Shotgun" and 3 or 1) then break end
+            self:impact(position, false)
         end
     end
 end
