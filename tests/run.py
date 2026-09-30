@@ -223,12 +223,13 @@ print('PASS: desktop tap fires immediately while hold-to-fire remains rate limit
 
 effects_source = (ROOT / 'src' / 'client' / 'Effects.lua').read_text()
 presentation_config_source = (ROOT / 'src' / 'shared' / 'PresentationConfig.lua').read_text()
-assert 'function Effects:shot(origin, endpoints, kind, localShot)' in effects_source
+assert 'function Effects:shot(origin, endpoints, kind, localShot, impacts)' in effects_source
 assert 'local width = localShot and' in effects_source and 'local life = localShot and' in effects_source
-assert 'effects:shot(a, b, c, localShot)' in client
+assert 'effects:shot(a, b, c, localShot, impacts)' in client
 assert 'Rifle = {Vertical = .52' in presentation_config_source
 assert 'Shotgun = {Vertical = 1.00' in presentation_config_source
 assert 'Pistol = {Vertical = .38' in presentation_config_source
+assert '予備 %d' in hud_source or '予備 %d' in (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
 print('PASS: local-player shots have stronger presentation-only tracer, muzzle flash and recoil feedback')
 
 hud_source = (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
