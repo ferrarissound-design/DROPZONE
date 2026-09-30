@@ -487,6 +487,8 @@ print("PASS: "..count.." total gameplay assertions including movement, rarity an
 local shotEvent
 for _,event in ipairs(messages) do if event.kind=="Shot" then shotEvent=event end end
 check(shotEvent and shotEvent.args[5]==77,"presentation shot carries server round ID even on a miss")
+check(type(shotEvent.args[6])=="table" and #shotEvent.args[6]==0,
+    "miss presentation carries an empty authoritative world-impact list")
 shooter.reloading=true;shooter.nextShot=0
 local beforeReloadShot=#messages
 shotCombat:fire(shooter,Vector3.new(1,0,0))
