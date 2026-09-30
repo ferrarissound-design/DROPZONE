@@ -142,17 +142,19 @@ aim = function()
     local root = character and character:FindFirstChild("HumanoidRootPart")
     if not camera or not root then return nil end
     local center = hud.crosshair.AbsolutePosition + hud.crosshair.AbsoluteSize / 2
-    -- Aim uses the camera before cosmetic recoil. Restore the displayed frame immediately.
-    local displayFrame = camera.CFrame
-    if presentation.camera == camera and presentation.applied then camera.CFrame = displayFrame*presentation.applied:Inverse() end
+    -- AbsolutePosition is in GUI-inset coordinates, matching ScreenPointToRay.
+    -- Use the displayed camera: undoing recoil here aims away from the reticle.
     local ray = camera:ScreenPointToRay(center.X, center.Y)
-    camera.CFrame = displayFrame
+    local origin = root.Position + Vector3.new(0, 1.4, 0)
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {character, effects.folder}
-    local hit = workspace:Raycast(ray.Origin, ray.Direction * 300, params)
-    local target = hit and hit.Position or ray.Origin + ray.Direction * 300
-    local origin = root.Position + Vector3.new(0, 1.4, 0)
+    -- Skip the camera-to-character segment. A wall behind the shooter must not
+    -- become a target that turns the server's root-origin ray backwards.
+    -- Cover ahead of the firing origin is still resolved by the server raycast.
+    local aimStart = ray.Origin + ray.Direction * math.max(0, (origin - ray.Origin):Dot(ray.Direction))
+    local hit = workspace:Raycast(aimStart, ray.Direction * 300, params)
+    local target = hit and hit.Position or aimStart + ray.Direction * 300
     -- Modest mobile assistance only inside the reticle cone and with line of sight.
     if UserInputService.TouchEnabled then
         local best = math.cos(math.rad(5))
@@ -161,7 +163,8 @@ aim = function()
             local other = model and model:FindFirstChild("HumanoidRootPart")
             if other and model ~= character then
                 local delta = other.Position + Vector3.new(0, 0.8, 0) - ray.Origin
-                if delta.Magnitude > 1 and delta.Magnitude < 180 then
+                if delta.Magnitude > 1 and delta.Magnitude < 180
+                    and (other.Position + Vector3.new(0, 0.8, 0) - origin):Dot(ray.Direction) > 0 then
                     local dot = delta.Unit:Dot(ray.Direction)
                     if dot > best then
                         local block = workspace:Raycast(ray.Origin, delta, params)

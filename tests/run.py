@@ -101,7 +101,7 @@ assert 'button.Active = button.Visible and draft == nil' not in hud
 assert 'me.evolutionDraft == nil' not in (ROOT / 'src' / 'client' / 'Presentation.lua').read_text(encoding='utf-8')
 assert client.index('if input.KeyCode == Enum.KeyCode.Tab then') < client.index('if processed then return end')
 assert 'and (state.phase == "Active" or state.phase == "FinalZone") then' in client
-assert 'presentation.camera == camera and presentation.applied' in client
+assert 'camera:ScreenPointToRay(center.X, center.Y)' in client
 print('PASS: draft panel alone blocks pointer input; gameplay and spectator Tab remain available')
 
 loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text(encoding='utf-8')
@@ -177,7 +177,7 @@ assert client.count('presentation:damage(b)') == 1
 confirmed_handler = client[client.index('elseif kind == "Damage"'):client.index('local feedbackClock')]
 assert 'a == state.roundId' in confirmed_handler and 'presentation:damage(b)' in confirmed_handler
 assert 'roundId == state.roundId' in client
-assert 'displayFrame*presentation.applied:Inverse()' in client
+assert 'camera.CFrame =' not in client
 assert 'Enum.RenderPriority.Camera.Value-1' in client and 'Enum.RenderPriority.Camera.Value+1' in client
 assert 'UnbindFromRenderStep("DropzonePresentationBefore")' in client
 assert 'UnbindFromRenderStep("DropzonePresentationAfter")' in client
@@ -193,7 +193,7 @@ audio_config = (ROOT / 'src/shared/AudioConfig.lua').read_text(encoding='utf-8')
 for required_id in ('9114727096','5656322299','9119136387','8145744063','9119074309','9119060148','9120705982','9119802009','9119902088'):
     assert required_id in audio_config
 assert 'Audio.Footstep = cue("",' in audio_config and 'Audio.SlideLoop = cue("",' in audio_config
-print('PASS: confirmed hit/round provenance, recoil-free aim, camera cleanup and reviewed audio defaults')
+print('PASS: confirmed hit/round provenance, displayed-camera aim, camera cleanup and reviewed audio defaults')
 
 # Playtest instrumentation must remain bounded and non-authoritative.
 config_source = (ROOT / 'src' / 'shared' / 'Config.lua').read_text(encoding='utf-8')
@@ -207,4 +207,4 @@ assert round_source_text.count('[DROPZONE DIAG]') == 2
 assert 'print(' not in combat_source
 print('PASS: diagnostics collect silently during play and print only bounded round summaries')
 
-subprocess.run([sys.executable, str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)
+subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)
