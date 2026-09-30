@@ -11,7 +11,8 @@ function DamageFeedback.new(parent)
         anchor.CastShadow, anchor.Parent = false, parent
         local gui = Instance.new("BillboardGui")
         gui.Size, gui.MaxDistance, gui.Enabled, gui.Parent = UDim2.fromOffset(155,52), 280, false, anchor
-        gui.AlwaysOnTop = false
+        -- These are short, server-confirmed numbers, not persistent enemy tracking.
+        gui.AlwaysOnTop, gui.LightInfluence = true, 0
         local function line(y, color)
             local label = Instance.new("TextLabel")
             label.Position, label.Size = UDim2.fromOffset(0,y), UDim2.fromOffset(155,25)

@@ -1,5 +1,4 @@
-local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
+local Config = require(game.ReplicatedStorage.DropzoneShared.PresentationConfig)
 local Effects = {}
 Effects.__index = Effects
 function Effects.new()
@@ -7,7 +6,7 @@ function Effects.new()
     if old then old:Destroy() end
     local folder = Instance.new("Folder")
     folder.Name, folder.Parent = "DropzoneLocalEffects", workspace
-    local self = setmetatable({folder = folder, rings = {}, tracers = 0}, Effects)
+    local self = setmetatable({folder = folder, rings = {}, tracers = {}, impacts = {}, cursors = {}}, Effects)
     for ring = 1, 2 do
         self.rings[ring] = {}
         for i = 1, 48 do
@@ -17,6 +16,21 @@ function Effects.new()
             p.Parent = folder
             self.rings[ring][i] = p
         end
+    end
+    local function part(name)
+        local p = Instance.new("Part")
+        p.Name, p.Anchored, p.CanCollide, p.CanTouch, p.CanQuery = name, true, false, false, false
+        p.CastShadow, p.Material, p.Transparency, p.Parent = false, Enum.Material.Neon, 1, folder
+        return p
+    end
+    for i = 1, Config.TracerPool do
+        self.tracers[i] = {trail=part("Tracer"), streak=part("BulletStreak"), expires=0}
+    end
+    for i = 1, Config.ImpactPool do
+        local slot = {parts={}, expires=0}
+        for j = 1, 5 do slot.parts[j] = part(j == 5 and "ImpactMark" or "ImpactSpark") end
+        slot.parts[5].Material = Enum.Material.SmoothPlastic
+        self.impacts[i] = slot
     end
     return self
 end
@@ -40,21 +54,108 @@ function Effects:zone(z, active)
         end
     end
 end
-function Effects:shot(origin, endpoints, kind)
-    for _, endpoint in ipairs(endpoints) do
-        if self.tracers >= 72 then break end
-        local distance = (origin - endpoint).Magnitude
-        if distance > 0.01 then
-            self.tracers = self.tracers + 1
-            local p = Instance.new("Part")
-            p.Name, p.Anchored, p.CanCollide, p.CanTouch, p.CanQuery = "Tracer", true, false, false, false
-            p.Material, p.Color = Enum.Material.Neon, kind == "Shotgun" and Color3.fromRGB(255, 180, 70) or Color3.fromRGB(255, 240, 150)
-            p.Size, p.CFrame = Vector3.new(0.08, 0.08, distance), CFrame.lookAt((origin + endpoint) / 2, endpoint)
-            p.Parent = self.folder
-            TweenService:Create(p, TweenInfo.new(0.1), {Transparency = 1}):Play()
-            Debris:AddItem(p, 0.12)
-            task.delay(0.12, function() self.tracers = self.tracers - 1 end)
+-- Reuse oldest slots within separate local/remote partitions. No shot-time Instances,
+-- Tweens, Debris jobs, delayed callbacks or unbounded pending effects.
+function Effects:acquire(pool, localShot, localLimit, key)
+    local first, last = localShot and 1 or localLimit+1, localShot and localLimit or #pool
+    key = key .. (localShot and "Local" or "Remote")
+    local index = first + (self.cursors[key] or 0) % (last-first+1)
+    self.cursors[key] = index-first+1
+    return pool[index]
+end
+local function line(p, a, b, width)
+    local length = (b-a).Magnitude
+    if length < .001 then p.Transparency = 1; return end
+    p.Size = Vector3.new(width, width, length)
+    p.CFrame = CFrame.lookAt((a+b)/2, b)
+end
+function Effects:impact(position, normal, color, localShot, now)
+    normal = normal or Vector3.new(0,1,0)
+    local slot = self:acquire(self.impacts, localShot, Config.LocalImpactPool, "impact")
+    slot.started, slot.expires = now, now+Config.ImpactLife
+    -- Face out of the surface, offset to prevent z-fighting/half-buried sparks.
+    local center = position+normal*.045
+    local up = math.abs(normal.Y) > .95 and Vector3.new(1,0,0) or Vector3.new(0,1,0)
+    local frame = CFrame.lookAt(center, center+normal, up)
+    local flash = slot.parts[1]
+    flash.Size, flash.CFrame = Vector3.new(.55,.55,.04), frame
+    for j=2,4 do
+        local angle = (j-2)*math.pi*2/3
+        local a = frame:PointToWorldSpace(Vector3.new(math.cos(angle)*.16,math.sin(angle)*.16,-.03))
+        local b = frame:PointToWorldSpace(Vector3.new(math.cos(angle)*.9,math.sin(angle)*.9,-.18))
+        line(slot.parts[j],a,b,.09)
+    end
+    local mark = slot.parts[5]
+    mark.Size, mark.CFrame, mark.Color = Vector3.new(.3,.3,.025), frame, Color3.fromRGB(40,32,24)
+    for j,p in ipairs(slot.parts) do
+        if j < 5 then p.Color = color end
+        p.Transparency = 0
+    end
+end
+function Effects:shot(origin, endpoints, kind, localShot, impacts, now)
+    now = now or os.clock()
+    local color = kind == "Shotgun" and Color3.fromRGB(255,180,70) or Color3.fromRGB(255,240,170)
+    local limit = kind == "Shotgun" and Config.ShotgunVisualPellets or 1
+    for i,endpoint in ipairs(endpoints) do
+        if i > limit then break end
+        local distance = (endpoint-origin).Magnitude
+        if distance > .01 then
+            local slot = self:acquire(self.tracers, localShot, Config.LocalTracerPool, "tracer")
+            slot.origin, slot.endpoint, slot.distance = origin, endpoint, distance
+            slot.life = localShot and Config.TracerLife or Config.RemoteTracerLife
+            slot.started, slot.expires = now, now+slot.life
+            slot.width = localShot and Config.TracerWidth or .075
+            slot.trail.Color, slot.streak.Color = color, color
+            line(slot.trail, origin, endpoint, slot.width*.65)
+            slot.trail.Transparency = .35
+            self:streak(slot, 0)
         end
     end
+    for i,hit in ipairs(impacts or {}) do
+        if i > limit then break end
+        self:impact(hit.position, hit.normal, color, localShot, now)
+    end
+end
+function Effects:streak(slot, alpha)
+    -- Travel is cosmetic only. Never overshoot a nearby wall or lookAt identical points.
+    local direction = (slot.endpoint-slot.origin)/slot.distance
+    local length = math.min(slot.distance, 3.5)
+    local head = length+(slot.distance-length)*math.min(1,alpha/.7)
+    line(slot.streak, slot.origin+direction*(head-length), slot.origin+direction*head, slot.width)
+    slot.streak.Transparency = math.max(0,(alpha-.65)/.35)
+end
+function Effects:step(now)
+    for _,slot in ipairs(self.tracers) do
+        if slot.expires > 0 then
+            if now >= slot.expires then
+                slot.trail.Transparency, slot.streak.Transparency, slot.expires = 1,1,0
+            else
+                local alpha = (now-slot.started)/slot.life
+                slot.trail.Transparency = .35+.65*math.clamp((alpha-.2)/.8,0,1)
+                self:streak(slot,alpha)
+            end
+        end
+    end
+    for _,slot in ipairs(self.impacts) do
+        if slot.expires > 0 then
+            local alpha = math.clamp((now-slot.started-Config.ImpactHold)/(Config.ImpactLife-Config.ImpactHold),0,1)
+            for j,p in ipairs(slot.parts) do p.Transparency = j == 5 and alpha or math.min(1,alpha*1.5) end
+            if now >= slot.expires then slot.expires=0 end
+        end
+    end
+end
+function Effects:clear()
+    self.cursors = {}
+    for _,slot in ipairs(self.tracers) do
+        slot.trail.Transparency, slot.streak.Transparency, slot.expires = 1,1,0
+    end
+    for _,slot in ipairs(self.impacts) do
+        slot.expires = 0
+        for _,p in ipairs(slot.parts) do p.Transparency = 1 end
+    end
+end
+function Effects:destroy()
+    self:clear()
+    self.folder:Destroy()
 end
 return Effects

@@ -126,7 +126,7 @@ function Presentation:shot(origin, kind, shooterId, targets)
     self.audio:play(kind.."Fire", origin)
     local character
     for _, target in ipairs(targets or {}) do if target.id == shooterId then character = target.model; break end end
-    if shooterId == self.player.UserId then character = self.character end
+    if shooterId == self.player.UserId then character = self.character or self.player.Character end
     local held = character and character:FindFirstChild("HeldWeapon")
     local barrel = held and (held:FindFirstChild("Muzzle") or held:FindFirstChild("TwinBarrel") or held:FindFirstChild("Barrel"))
     self.cursor = self.cursor % #self.flashes + 1
@@ -134,11 +134,13 @@ function Presentation:shot(origin, kind, shooterId, targets)
     flash.part.Size = Vector3.new(spec.Flash,spec.Flash,spec.Flash*1.5)
     flash.part.CFrame = barrel and barrel.CFrame*CFrame.new(0,0,-barrel.Size.Z/2) or CFrame.new(origin)
     flash.part.Transparency, flash.untilTime = .08, os.clock()+spec.Duration
-    if shooterId ~= self.player.UserId or not self.me then return end
+    local visualOrigin = flash.part.CFrame.Position
+    if shooterId ~= self.player.UserId or not self.me then return visualOrigin end
     self.vertical = math.min(Config.MaxRecoil, self.vertical+spec.Vertical)
     self.horizontal = math.clamp(self.horizontal+(math.random()*2-1)*spec.Horizontal,-Config.MaxHorizontal,Config.MaxHorizontal)
     self.kick, self.recovery = spec.Kick, spec.Recovery
     self.animations:shot(kind)
+    return visualOrigin
 end
 function Presentation:damage(records)
     local hp, shield, eliminated = false,false,false

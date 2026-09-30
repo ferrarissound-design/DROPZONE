@@ -492,3 +492,20 @@ local beforeReloadShot=#messages
 shotCombat:fire(shooter,Vector3.new(1,0,0))
 check(#messages==beforeReloadShot,"reload rejects shot before presentation event is emitted")
 print("PASS: "..count.." total gameplay assertions including presentation event guards")
+
+-- World collisions must be distinguishable from range endpoints, with surface normals.
+shooter.reloading=false;shooter.nextShot=0;messages={}
+local worldPosition,worldNormal=Vector3.new(20,4,0),Vector3.new(-1,0,0)
+workspace.Raycast=function() return {Instance={Parent={}},Distance=20,Position=worldPosition,Normal=worldNormal} end
+shotCombat:fire(shooter,Vector3.new(1,0,0))
+local worldShot
+for _,event in ipairs(messages) do
+    check(event.kind~="Damage","world hits cannot emit enemy confirmation")
+    if event.kind=="Shot" then worldShot=event end
+end
+check(worldShot and worldShot.args[5]==77 and #worldShot.args[6]==7,"Shot argument order preserves roundId and bounded pellet impacts")
+check(worldShot.args[6][1].position==worldPosition and worldShot.args[6][1].normal==worldNormal,
+    "server sends exact world hit position and normal")
+check(worldShot.args[2][1]==worldPosition,"world tracer endpoint equals authoritative ray result")
+check(shotEvent and #shotEvent.args[6]==0,"range-only miss has no world impact")
+print("PASS: "..count.." gameplay assertions including world impact provenance")

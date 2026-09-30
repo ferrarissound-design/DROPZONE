@@ -130,6 +130,10 @@ function Hud.new()
     self.crosshair.BackgroundTransparency = 1
     -- Keep the aim anchor unchanged, but never draw the reticle over card text.
     self.crosshair.ZIndex = 10
+    self.hitMarker = label(canvas, "HitMarker", UDim2.fromOffset(420, 210), UDim2.fromOffset(60, 60), "×", 42)
+    self.hitMarker.BackgroundTransparency, self.hitMarker.Visible, self.hitMarker.ZIndex = 1, false, 11
+    self.hitMarker.TextColor3 = Theme.Orange
+    self.hitMarker.TextStrokeTransparency = .15
     self.result = label(canvas, "Result", UDim2.fromOffset(265, 150), UDim2.fromOffset(370, 205), "", 22)
     self.result.Visible, self.result.RichText = false, true
     self.resultStroke = stroke(self.result, Theme.Gold, 3)
@@ -198,7 +202,7 @@ function Hud:update(s, onEvolutionPick)
     if self.roundId ~= s.roundId then
         self.roundId = s.roundId
         self.submittedDraftId, self.submittedChoice, self.previousMe = nil, nil, nil
-        self.guideUntil, self.eliminationUntil = nil, nil
+        self.guideUntil, self.eliminationUntil, self.reserveGainUntil = nil, nil, nil
         if self.eliminationTween then self.eliminationTween:Cancel(); self.eliminationTween = nil end
         self.notice.BackgroundColor3 = Theme.Gold
         if self.pickTween then self.pickTween:Cancel(); self.pickTween = nil end
@@ -221,6 +225,13 @@ function Hud:update(s, onEvolutionPick)
         if me.kills > previous.kills and os.clock() >= (self.eliminationUntil or 0) then self:eliminated()
         elseif me.evolutions > previous.evolutions then self:toast("EVOLVED  ·  EVOLUTION " .. me.evolutions) end
     end
+    if not playing or not previous or me.weapon ~= previous.weapon or me.slot ~= previous.slot then
+        self.reserveGainUntil = nil
+    end
+    if playing and previous and me.weapon == previous.weapon and me.slot == previous.slot
+        and me.reserve > previous.reserve then
+        self.reserveGain, self.reserveGainUntil = me.reserve-previous.reserve, os.clock()+1.5
+    end
     self.previousMe = me
     local names = {Waiting = "参加待ち", Intermission = "次の試合まで", Starting = "降下準備中", Active = "生存者", FinalZone = "FINAL ZONE", Results = "RESULTS", Resetting = "リセット中"}
     self.top.Text = (names[s.phase] or s.phase) .. (active and ("  " .. s.alive .. "人   KILL " .. (me and me.kills or 0)) or ("  " .. s.remaining .. "秒"))
@@ -238,12 +249,15 @@ function Hud:update(s, onEvolutionPick)
     -- One prominent ability on the compact HUD; the result retains the three-item build.
     self.evo.Text = me and string.format('<font size="17"><b>EVOLUTION %d</b></font>\n%s', me.evolutions, build[1] or "撃破で能力獲得") or "EVOLUTION 0"
     self.energy.Text = "BUILD ENERGY " .. (me and me.energy or 0)
-    self.ammo.Text = me and me.weapon and string.format('<font size="12">%s</font>  <font size="25"><b>%d</b></font><font size="14"> / %d%s</font>',
-        string.upper(me.weapon) .. " · " .. (me.rarity or "Common"), me.ammo, me.reserve, me.reloading and " 装填中" or "") or "光る武器に近づいて拾おう"
+    local equippedStats = me and me.weapon and WeaponStats.get(me.weapon, me.rarity or "Common") or nil
+    local reserveGain = os.clock() < (self.reserveGainUntil or 0) and (" (+" .. self.reserveGain .. ")") or ""
+    self.ammo.Text = equippedStats and string.format('<font size="12">%s%s</font>\n<font size="20"><b>%d / %d</b></font>  <font size="14">予備 %d%s</font>',
+        string.upper(me.weapon) .. " · " .. (me.rarity or "Common"), me.reloading and " 装填中" or "",
+        me.ammo, equippedStats.magazine, me.reserve, reserveGain) or "光る武器に近づいて拾おう"
     self.ammo.TextColor3 = me and me.weapon and WeaponStats.rarities[me.rarity or "Common"].color or white
     self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
     self.hint.Text = playing and os.clock() < (self.guideUntil or 0)
-        and "武器を拾え → 撃破して進化 → 最後の1人へ" or "安全地帯に残れ · 撃破で3択Evolution"
+        and "1 / 2 / 3で武器切替 · 下のSlotをクリック / タップ" or "1 / 2 / 3で武器切替 · 右クリック長押しでAim"
     if playing and z.shrinking then self.hint.Text = "ZONE SHRINKING · 安全地帯へ移動" end
     local draft = Rules.shouldShowEvolutionDraft(s) and me.evolutionDraft or nil
     self.draft.Visible = draft ~= nil
@@ -280,8 +294,16 @@ function Hud:update(s, onEvolutionPick)
         if b then
             local rarity = me and me.slotRarities and me.slotRarities[i]
             local tier = WeaponStats.rarities[rarity or "Common"]
-            b.TextColor3 = me and me.slot == i and Theme.Paper or tier.color
-            b.Text = tostring(i) .. " " .. (me and me.slots[i] or "—") .. (rarity and (" [" .. tier.short .. "]") or ""); b.BackgroundColor3 = me and me.slot == i and Theme.Blue or Theme.Ink end
+            local owned = me and me.slots[i]
+            local selected = owned and me.slot == i
+            b.TextColor3 = selected and Theme.Paper or owned and tier.color or Theme.Slate
+            b.TextSize = 14
+            b.Active, b.AutoButtonColor = not not (playing and owned), not not (playing and owned)
+            local outline = b:FindFirstChild("UIStroke")
+            if outline then outline.Thickness, outline.Color = selected and 3 or 1, selected and Theme.Gold or owned and tier.color or Theme.Slate end
+            b.Text = (selected and "▶ " or "") .. tostring(i) .. " " .. (owned and string.upper(owned) or "空") .. (rarity and (" [" .. tier.short .. "]") or "")
+            b.BackgroundColor3 = selected and Theme.Blue or Theme.Ink
+        end
     end
     self.result.Visible = s.phase == "Results" or (active and me ~= nil and not me.alive)
     if self.result.Visible then

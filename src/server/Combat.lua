@@ -81,7 +81,7 @@ function Combat:fire(a, direction)
     params.FilterDescendantsInstances = {a.model}
     local basis = CFrame.lookAt(Vector3.zero, direction.Unit)
     local spread = math.rad(spec.spread * math.max(0.76, 1 - Evolution.total(a, "HunterEyes")))
-    local endpoints, hitEnemy, damageByVictim = {}, false, {}
+    local endpoints, impacts, hitEnemy, damageByVictim = {}, {}, false, {}
     for _ = 1, spec.pellets do
         local shot = (basis * CFrame.Angles(self.rng:NextNumber(-spread, spread), self.rng:NextNumber(-spread, spread), 0)).LookVector
         local result = workspace:Raycast(origin, shot * spec.range, params)
@@ -97,19 +97,22 @@ function Combat:fire(a, direction)
                 if victim.alive then victimDiag.deathReason = previousReason end
                 if hp + shield > 0 then
                     diag.weaponDamage[item.kind] = (diag.weaponDamage[item.kind] or 0) + hp + shield
-                    local damage = damageByVictim[victim] or {position=victim.root.Position, hp=0, shield=0}
+                    local damage = damageByVictim[victim] or {position=result.Position, normal=result.Normal, hp=0, shield=0}
                     damage.hp, damage.shield = damage.hp + hp, damage.shield + shield
                     damage.eliminated = not victim.alive
                     damageByVictim[victim] = damage
                     hitEnemy = true
                 end
-            elseif self.builds then self.builds:damage(result.Instance, spec.damage) end
+            else
+                if not victim then table.insert(impacts, {position=result.Position, normal=result.Normal}) end
+                if self.builds then self.builds:damage(result.Instance, spec.damage) end
+            end
         end
     end
     -- Capped shot rate, recipients and endpoints; no client-supplied hit or damage data.
     for player, viewer in pairs(self.actors.byPlayer) do
         if player.Parent and viewer.root.Parent and (viewer.root.Position - origin).Magnitude < 330 then
-            self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id, a.roundId)
+            self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id, a.roundId, impacts)
         end
     end
     if hitEnemy then diag.hits[item.kind] = (diag.hits[item.kind] or 0) + 1 end

@@ -18,10 +18,20 @@ local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall
 local submittedEvolutionDraft
 local touchFire = nil
 local nextJumpRequest = 0
-local function playing()
+local playing, send, aim
+local function tryShoot()
+    if not playing or not playing() or os.clock() < nextShot then return end
+    local spec = state and state.me and Weapons[state.me.weapon]
+    if not spec then return end
+    nextShot = os.clock() + spec.interval
+    if state.me.ammo == 0 and not state.me.reloading then presentation.audio:play("Empty") end
+    local direction = aim and aim()
+    if direction then send("Fire", direction) end
+end
+playing = function()
     return state and (state.phase == "Active" or state.phase == "FinalZone") and state.me and state.me.alive
 end
-local function send(command, argument)
+send = function(command, argument)
     if playing() then action:FireServer(state.roundId, command, argument) end
 end
 local function cancelAim()
@@ -39,7 +49,11 @@ fire.InputBegan:Connect(function(input)
         touchFire, shooting = input, true
         presentation:setCombatAim(true)
         if state and state.me and state.me.sprinting then send("Sprint", false) end
-    elseif input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true end
+        tryShoot()
+    elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+        shooting = true
+        tryShoot()
+    end
 end)
 hud:button("Reload", "装填 R", 680, 275, 88, 56, function() send("Reload") end)
 hud:button("Build", "建築 Q", 680, 205, 88, 60, build)
@@ -82,7 +96,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if not playing() or ((input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.MouseButton2) and mouseOnEvolutionPanel(input)) then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = true
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        shooting = true
+        tryShoot()
     elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
         presentation:setAimHeld(true)
         if state.me.sprinting then send("Sprint", false) end
@@ -121,7 +137,7 @@ UserInputService.JumpRequest:Connect(function()
         send("Jump")
     end
 end)
-local function aim()
+aim = function()
     local camera, character = workspace.CurrentCamera, player.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
     if not camera or not root then return nil end
@@ -165,7 +181,9 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         nextJumpRequest = 0
         cancelAim()
         damageFeedback:clear()
-        hud.shotUntil, hud.hitUntil = 0, 0
+        effects:clear()
+        hud.shotUntil, hud.hitUntil, hud.hitMarkerUntil = 0, 0, 0
+        hud.hitMarker.Visible = false
         hud.notice.Visible, hud.noticeUntil = false, nil
         buildType = "Wall"
         for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == "Wall" and Theme.Blue or Theme.Ink end
@@ -176,7 +194,12 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         shooting, touchFire = false, nil
         cancelAim()
     end
-    if s.phase ~= "Active" and s.phase ~= "FinalZone" then damageFeedback:clear() end
+    if s.phase ~= "Active" and s.phase ~= "FinalZone" then
+        damageFeedback:clear()
+        effects:clear()
+        hud.shotUntil, hud.hitUntil, hud.hitMarkerUntil = 0,0,0
+        hud.hitMarker.Visible = false
+    end
     local draft = s.me and s.me.evolutionDraft
     if not draft or draft.id ~= submittedEvolutionDraft then submittedEvolutionDraft = nil end
     hud:update(s, function(draftId, index)
@@ -203,7 +226,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         end
     end
 end)
-remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId, roundId)
+remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId, roundId, impacts)
     if kind == "Notice" and state and a == state.roundId then hud:toast(b)
     elseif kind == "Pickup" and playing() and a == state.roundId then
         presentation.audio:play(b == "Epic" and "EpicPickup" or b == "Rare" and "RarePickup" or "Pickup")
@@ -212,15 +235,32 @@ remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, sh
     elseif kind == "ZoneDamage" and playing() and a == state.roundId then
         presentation.audio:play("ZoneDamage")
     elseif kind == "Shot" and state and roundId == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
-        presentation:shot(a, c, shooterId, state.targets)
-        effects:shot(a, b, c)
-        if shooterId == player.UserId then hud.shotUntil = os.clock() + .1 end
+        local localShot = shooterId == player.UserId
+        -- Server origin remains the damage ray origin; the barrel tip is display-only.
+        local visualOrigin = presentation:shot(a, c, shooterId, state.targets) or a
+        effects:shot(visualOrigin, b, c, localShot, impacts)
+        if localShot then hud.shotUntil = os.clock() + .14 end
     elseif kind == "Damage" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
         -- Only the server can send confirmed damage; never predict a hit locally.
-        damageFeedback:show(b, os.clock())
+        local now = os.clock()
+        damageFeedback:show(b, now)
         presentation:damage(b)
-        hud.hitUntil = os.clock() + .18
-        for _, damage in ipairs(b) do if damage.eliminated then hud:eliminated(); break end end
+        local hp, shield, eliminated = 0,0,false
+        for _, damage in ipairs(b) do
+            if damage.hp + damage.shield > 0 then
+                hp, shield = hp+damage.hp, shield+damage.shield
+                eliminated = eliminated or damage.eliminated
+                local color = damage.eliminated and Theme.Gold or damage.shield > 0 and Theme.Cyan or Theme.Orange
+                effects:impact(damage.position, damage.normal, color, true, now)
+            end
+        end
+        if hp + shield > 0 then
+            hud.hitUntil, hud.hitMarkerUntil = now+.18, now+(eliminated and .36 or .24)
+            hud.hitMarker.TextColor3 = eliminated and Theme.Gold or shield > 0 and Theme.Cyan or Theme.Orange
+            hud.hitMarker.TextSize = eliminated and 52 or 42
+            hud.hitMarker.Visible = true
+            if eliminated then hud:eliminated() end
+        end
     end
 end)
 -- Camera transforms are bracketed around Roblox's camera update, never accumulated.
@@ -230,10 +270,14 @@ script.Destroying:Connect(function()
     RunService:UnbindFromRenderStep("DropzonePresentationBefore")
     RunService:UnbindFromRenderStep("DropzonePresentationAfter")
     presentation:destroy()
+    damageFeedback:clear()
+    effects:destroy()
 end)
 local feedbackClock = 0
 RunService.RenderStepped:Connect(function()
     local now = os.clock()
+    effects:step(now)
+    hud.hitMarker.Visible = playing() and now < (hud.hitMarkerUntil or 0)
     if now >= feedbackClock then
         feedbackClock = now + .1
         damageFeedback:step(now)
@@ -242,16 +286,8 @@ RunService.RenderStepped:Connect(function()
         hud.crosshair.TextSize = now < (hud.shotUntil or 0) and (aiming and 26 or 32) or (aiming and 22 or 28)
     end
     local draftOpen = playing() and state.me.evolutionDraft ~= nil
-    if playing() and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
+    if playing() and presentation.aimHeld and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     else UserInputService.MouseBehavior = Enum.MouseBehavior.Default end
-    if shooting and playing() and os.clock() >= nextShot then
-        local spec = Weapons[state.me.weapon]
-        if spec then
-            nextShot = os.clock() + spec.interval
-            local direction = aim()
-            if state.me.ammo == 0 and not state.me.reloading then presentation.audio:play("Empty") end
-            if direction then send("Fire", direction) end
-        end
-    end
+    if shooting and playing() then tryShoot() end
 end)

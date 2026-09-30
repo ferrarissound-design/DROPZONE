@@ -390,3 +390,68 @@ tracks:play("RifleFire");tracks:play("RifleFire")
 check(loads==2 and tracks.failed.RifleFire,"failed asset is not loaded repeatedly")
 modules.AnimationConfig.RifleFire.R15=""
 print("PASS: "..assertions.." total visual/audio/animation/presentation assertions")
+
+-- Ammo and equipment use the actual HUD update, preserving rarity and mobile rectangles.
+local equipHud=Hud.new()
+for i=1,3 do equipHud:button("Slot"..i,"",279+(i-1)*116,418,110,48) end
+local uiMe={alive=true,hp=100,maxHp=100,shield=0,energy=60,maxEnergy=100,kills=0,evolutions=0,
+    weapon="Rifle",rarity="Epic",ammo=23,reserve=198,slots={"Rifle","Pistol"},slotRarities={"Epic","Common"},slot=1}
+local uiState={roundId=90,phase="Active",alive=12,remaining=300,me=uiMe,zone={phase=1,radius=250,nextRadius=140,remaining=30,center=Vector3.new(0,0,0),nextCenter=Vector3.new(0,0,0)}}
+equipHud:update(uiState)
+check(equipHud.ammo.Text:find("23 / 28",1,true) and equipHud.ammo.Text:find("予備 198",1,true),"Rifle displays current / capacity and separate reserve")
+check(equipHud.hint.Text:find("1 / 2 / 3",1,true),"first guide teaches weapon switch")
+check(equipHud.buttons.Slot1.Text:find("▶",1,true) and equipHud.buttons.Slot1.UIStroke.Thickness==3,"selected slot has arrow and thick outline")
+check(equipHud.buttons.Slot3.Text:find("空",1,true) and not equipHud.buttons.Slot3.Active,"empty slot visibly differs and is inactive")
+local newer={};for k,v in pairs(uiMe) do newer[k]=v end
+newer.reserve=220;uiState.me=newer;equipHud:update(uiState)
+check(equipHud.ammo.Text:find("23 / 28",1,true) and equipHud.ammo.Text:find("予備 220 (+22)",1,true),"ammo pickup emphasizes only the reserve increase")
+for _,kind in ipairs({"Pistol","Shotgun"}) do
+    newer.weapon=kind;newer.ammo=2;newer.reserve=24;equipHud:update(uiState)
+    check(equipHud.ammo.Text:find("2 / "..modules.Weapons[kind].magazine,1,true),"capacity follows equipped weapon")
+end
+-- Real vector math for the effect geometry; engine drawing still needs Studio.
+vec.__index=function(v,k)
+    if k=="Magnitude" then return math.sqrt(v.X*v.X+v.Y*v.Y+v.Z*v.Z) end
+    if k=="Unit" then return v/v.Magnitude end
+    return vec[k]
+end
+vec.__div=function(a,b) return Vector3.new(a.X/b,a.Y/b,a.Z/b) end
+local function cross(a,b) return Vector3.new(a.Y*b.Z-a.Z*b.Y,a.Z*b.X-a.X*b.Z,a.X*b.Y-a.Y*b.X) end
+CFrame.lookAt=function(position,target,up)
+    local direction=(target-position).Unit
+    local right=cross(direction,up or Vector3.new(0,1,0)).Unit
+    local top=cross(right,direction)
+    return {Position=position,LookVector=direction,PointToWorldSpace=function(_,v) return position+right*v.X+top*v.Y-direction*v.Z end}
+end
+local Effects=load("Effects","client/Effects.lua")
+local fx=Effects.new()
+local budget=#fx.folder:GetDescendants()
+check(budget==96+24*2+16*5,"fixed effects budget: 96 zone parts plus 128 shooting parts")
+local origin,endpoint=Vector3.new(2,4,0),Vector3.new(2,4,-40)
+local endpoints={endpoint,endpoint,endpoint,endpoint,endpoint,endpoint,endpoint}
+fx:shot(origin,endpoints,"Shotgun",true,{{position=endpoint,normal=Vector3.new(0,0,1)}},10)
+local shown=0;for _,slot in ipairs(fx.tracers) do if slot.expires>0 then shown=shown+1 end end
+check(shown==3,"shotgun draws only three representative pellet paths")
+check(fx.tracers[1].trail.CFrame.Position.Z==-20 and fx.tracers[1].trail.Size.Z==40,"tracer centered and long axis oriented between endpoints")
+check(fx.tracers[1].trail.CFrame.LookVector.Z==-1 and fx.tracers[1].origin==origin,"trace begins at supplied display muzzle")
+check(fx.tracers[1].streak.Size.Z<=40,"moving streak cannot overshoot short shots")
+check(fx.impacts[1].parts[1].CFrame.Position.Z>endpoint.Z,"wall flash offset is outside surface")
+fx:step(10.1)
+check(fx.tracers[1].streak.Transparency<1 and fx.impacts[1].parts[1].Transparency<.01,"feedback remains readable after first 100ms")
+for i=1,500 do fx:shot(origin,endpoints,"Shotgun",false,{{position=endpoint,normal=Vector3.new(0,1,0)}},10.1) end
+check(#fx.folder:GetDescendants()==budget,"sustained bot fire allocates no additional instances")
+check(fx.tracers[1].started==10 and fx.impacts[1].started==10,"remote fire cannot evict local feedback")
+for _,p in ipairs(fx.folder:GetDescendants()) do
+    check(p.CanCollide==false and p.CanTouch==false and p.CanQuery==false,"all effects excluded from physics/touch/raycast")
+end
+fx:clear()
+for _,slot in ipairs(fx.tracers) do check(slot.trail.Transparency==1 and slot.streak.Transparency==1 and slot.expires==0,"round clears tracers") end
+for _,slot in ipairs(fx.impacts) do for _,p in ipairs(slot.parts) do check(p.Transparency==1,"round clears impact parts") end end
+fx:shot(origin,{origin},"Pistol",true,{},11)
+check(fx.tracers[1].expires==0,"zero-length trace safely skips lookAt")
+fx:shot(origin,{origin+Vector3.new(0,0,-.1)},"Pistol",true,{},11)
+check(fx.tracers[1].streak.Size.Z<=.10001,"near-wall trace is clamped to its endpoint")
+fx:step(12)
+check(fx.tracers[1].expires==0 and fx.tracers[1].streak.Transparency==1,"expired trace hidden")
+fx:destroy();check(fx.folder.Parent==nil,"effect teardown removes fixed pool")
+print("PASS: "..assertions.." total visual assertions including bounded shot effects and ammo HUD")

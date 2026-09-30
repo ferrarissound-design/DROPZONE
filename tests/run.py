@@ -1,5 +1,5 @@
 """Offline Lua 5.4 syntax + logic checks. Roblox engine validation is separate.
-Uses the system liblua without downloading or executing third-party packages.
+Uses system liblua or an explicitly installed Lua 5.4 Lupa runtime; never downloads dependencies.
 """
 import ctypes
 import ctypes.util
@@ -9,59 +9,72 @@ import sys
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-lib = ctypes.CDLL(ctypes.util.find_library('lua5.4'))
-lib.luaL_newstate.restype = ctypes.c_void_p
-lib.luaL_openlibs.argtypes = [ctypes.c_void_p]
-lib.luaL_loadbufferx.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p]
-lib.lua_pcallk.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_longlong, ctypes.c_void_p]
-lib.lua_tolstring.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
-lib.lua_tolstring.restype = ctypes.c_char_p
-lib.lua_close.argtypes = [ctypes.c_void_p]
+library = ctypes.util.find_library('lua5.4')
+if not library:
+    # Optional Windows fallback: pip install lupa (Lua 5.4, not LuaJIT).
+    # No automatic download; the normal system liblua path stays unchanged.
+    from lupa.lua54 import LuaRuntime
 
-def run(source, name, execute=False):
-    state = lib.luaL_newstate()
-    lib.luaL_openlibs(state)
-    code = source.encode()
-    status = lib.luaL_loadbufferx(state, code, len(code), name.encode(), None)
-    if not status and execute:
-        status = lib.lua_pcallk(state, 0, 0, 0, 0, None)
-    if status:
-        error = lib.lua_tolstring(state, -1, None).decode()
+    def run(source, name, execute=False):
+        lua = LuaRuntime()
+        chunk = lua.eval('function(s, n) return assert(load(s, n)) end')(source, name)
+        if execute:
+            chunk()
+else:
+    lib = ctypes.CDLL(library)
+    lib.luaL_newstate.restype = ctypes.c_void_p
+    lib.luaL_openlibs.argtypes = [ctypes.c_void_p]
+    lib.luaL_loadbufferx.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p, ctypes.c_char_p]
+    lib.lua_pcallk.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_longlong, ctypes.c_void_p]
+    lib.lua_tolstring.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
+    lib.lua_tolstring.restype = ctypes.c_char_p
+    lib.lua_close.argtypes = [ctypes.c_void_p]
+
+    def run(source, name, execute=False):
+        state = lib.luaL_newstate()
+        lib.luaL_openlibs(state)
+        code = source.encode()
+        status = lib.luaL_loadbufferx(state, code, len(code), name.encode(), None)
+        if not status and execute:
+            status = lib.lua_pcallk(state, 0, 0, 0, 0, None)
+        if status:
+            error = lib.lua_tolstring(state, -1, None).decode()
+            lib.lua_close(state)
+            raise RuntimeError(error)
         lib.lua_close(state)
-        raise RuntimeError(error)
-    lib.lua_close(state)
 
 for path in sorted((ROOT / 'src').rglob('*.lua')):
-    run(path.read_text(), str(path.relative_to(ROOT)))
+    run(path.read_text(encoding='utf-8'), str(path.relative_to(ROOT)))
 print('PASS: syntax of all Lua modules (Lua 5.4 compatible subset)')
-source = (ROOT / 'tests' / 'regression.lua').read_text()
-source = 'ROOT = ' + repr(str(ROOT)) + '\n' + source
+source = (ROOT / 'tests' / 'regression.lua').read_text(encoding='utf-8')
+source = 'ROOT = ' + repr(ROOT.as_posix()) + '\n' + source
 run(source, 'regression.lua', True)
-visual_source = 'ROOT = ' + repr(str(ROOT)) + '\n' + (ROOT / 'tests' / 'visuals.lua').read_text()
+visual_source = 'ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests' / 'visuals.lua').read_text(encoding='utf-8')
 run(visual_source, 'visuals.lua', True)
+run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/client.lua').read_text(encoding='utf-8'), 'client.lua', True)
 
-hud = (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+hud = (ROOT / 'src' / 'client' / 'Hud.lua').read_text(encoding='utf-8')
 assert not re.search(r'EVOLUTION\s+[^\n]*\s*/\s*7', hud, re.I)
 print('PASS: HUD has no obsolete seven-Evolution cap')
 assert 'self.draft.ZIndex, self.draft.Active, self.draft.Selectable = 20, false, false' in hud
 assert 'self.draftTitle.ZIndex = 21' in hud and 'card.ZIndex, card.AutoButtonColor = 22, true' in hud
 print('PASS: draft overlay, title, and cards use explicit ZIndex without an active full-screen frame')
 
-docs = '\n'.join(path.read_text() for path in [ROOT / 'README.md', *(ROOT / 'docs').glob('*.md')])
+docs = '\n'.join(path.read_text(encoding='utf-8') for path in [ROOT / 'README.md', *(ROOT / 'docs').glob('*.md')])
 assert not re.search(r'(?:EVOLUTION|Evolution).{0,40}(?:/\s*7|max(?:imum)?\s+seven|最大\s*7)', docs, re.I)
 print('PASS: README and docs have no obsolete seven-Evolution cap')
 
-client = (ROOT / 'src' / 'client' / 'Main.client.lua').read_text()
+client = (ROOT / 'src' / 'client' / 'Main.client.lua').read_text(encoding='utf-8')
 round_reset = re.search(r'if not state or state\.roundId ~= s\.roundId then(?P<body>.*?)\n    end\n    state = s', client, re.S)
 assert round_reset and 'submittedEvolutionDraft = nil' in round_reset.group('body')
 print('PASS: a new round clears the submitted Evolution draft token')
 
 
-actors_source = (ROOT / 'src' / 'server' / 'Actors.lua').read_text()
+actors_source = (ROOT / 'src' / 'server' / 'Actors.lua').read_text(encoding='utf-8')
 assert 'descendant.CanQuery = false' in actors_source and 'descendant.CanTouch = false' in actors_source
 print('PASS: eliminated actors are removed from raycast and touch queries')
 
-world_source = (ROOT / 'src' / 'server' / 'World.lua').read_text()
+world_source = (ROOT / 'src' / 'server' / 'World.lua').read_text(encoding='utf-8')
 assert 'groundSurfaces = {}' in world_source
 assert 'params.FilterDescendantsInstances = surfaces' in world_source
 assert 'if not surfaces or #surfaces == 0 then return Vector3.new(position.X, 0, position.Z) end' in world_source
@@ -69,7 +82,7 @@ for required in ['island', 'roadX', 'roadZ', 'hill', 'centralPad']:
     assert f'table.insert(self.groundSurfaces, {required})' in world_source
 print('PASS: ground raycasts use only designated walkable surfaces')
 
-server_source = (ROOT / 'src' / 'server' / 'Main.server.lua').read_text()
+server_source = (ROOT / 'src' / 'server' / 'Main.server.lua').read_text(encoding='utf-8')
 assert 'ReplicatedStorage:GetChildren()' in server_source and 'child.Name == "DropzoneRemotes"' in server_source
 assert 'remotes:GetChildren()' in server_source and 'child:IsA("RemoteEvent")' in server_source
 print('PASS: Studio/Rojo startup deduplicates the remote folder and events')
@@ -85,16 +98,16 @@ assert 'or input.UserInputType == Enum.UserInputType.MouseButton2) and mouseOnEv
 assert 'if playing() then action:FireServer(state.roundId, command, argument) end' in client
 assert 'shooting and playing()' in client
 assert 'button.Active = button.Visible and draft == nil' not in hud
-assert 'me.evolutionDraft == nil' not in (ROOT / 'src' / 'client' / 'Presentation.lua').read_text()
+assert 'me.evolutionDraft == nil' not in (ROOT / 'src' / 'client' / 'Presentation.lua').read_text(encoding='utf-8')
 assert client.index('if input.KeyCode == Enum.KeyCode.Tab then') < client.index('if processed then return end')
 assert 'and (state.phase == "Active" or state.phase == "FinalZone") then' in client
 assert 'presentation.camera == camera and presentation.applied' in client
 print('PASS: draft panel alone blocks pointer input; gameplay and spectator Tab remain available')
 
-loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text()
-assert '"Notice", self.id, "敗退' in (ROOT / 'src' / 'server' / 'Round.lua').read_text()
+loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text(encoding='utf-8')
+assert '"Notice", self.id, "敗退' in (ROOT / 'src' / 'server' / 'Round.lua').read_text(encoding='utf-8')
 assert '"Notice", a.roundId, "取得:' in loot_source
-assert '"Notice", round.id, "EVOLUTION:' in (ROOT / 'src' / 'server' / 'Main.server.lua').read_text()
+assert '"Notice", round.id, "EVOLUTION:' in (ROOT / 'src' / 'server' / 'Main.server.lua').read_text(encoding='utf-8')
 assert 'kind == "Notice" and state and a == state.roundId' in client
 print('PASS: delayed notices carry a server round ID and cannot appear in a later round')
 assert 'a.roundId ~= round.id' in server_source
@@ -102,16 +115,16 @@ assert 'a.humanoid.Health <= 0' in server_source
 print('PASS: action ingress rejects stale actors and the death-before-Died window')
 
 
-building_source = (ROOT / 'src' / 'server' / 'Building.lua').read_text()
+building_source = (ROOT / 'src' / 'server' / 'Building.lua').read_text(encoding='utf-8')
 assert 'params.FilterDescendantsInstances = self.world.groundSurfaces or {}' in building_source
 print('PASS: build overlap ignores every designated ground surface, including Hill')
 
-bots_source = (ROOT / 'src' / 'server' / 'Bots.lua').read_text()
+bots_source = (ROOT / 'src' / 'server' / 'Bots.lua').read_text(encoding='utf-8')
 assert re.search(r'function Bots:clear\(\).*?self\.jobs = 0', bots_source, re.S)
 assert 'if currentGeneration then self.jobs = math.max(0, self.jobs - 1) end' in bots_source
 print('PASS: bot path worker accounting is generation-safe across resets')
 
-round_source = (ROOT / 'src' / 'server' / 'Round.lua').read_text()
+round_source = (ROOT / 'src' / 'server' / 'Round.lua').read_text(encoding='utf-8')
 assert 'a.roundId = -1' in round_source
 print('PASS: Results invalidates stale deferred Evolution work')
 
@@ -119,7 +132,7 @@ assert 'descendant.CanCollide = false' in actors_source and 'a.root.Anchored = t
 print('PASS: eliminated actors are physically non-blocking and remain stable')
 
 
-movement_source = (ROOT / 'src' / 'server' / 'Movement.lua').read_text()
+movement_source = (ROOT / 'src' / 'server' / 'Movement.lua').read_text(encoding='utf-8')
 assert 'function Movement.toggleCrouch(a)' in movement_source and 'function Movement.slide(a)' in movement_source
 assert 'Config.SlideCooldown' in movement_source and 'Config.SlideMinSpeed' in movement_source
 assert 'a.root.AssemblyLinearVelocity' in movement_source
@@ -159,7 +172,7 @@ assert '#a.inventory == 0 and not Weapons[kind]' not in loot_source
 print('PASS: auto pickup preserves loot that gives no weapon/ammo benefit and allows useful consumables')
 
 # Event provenance and camera bracketing are integration checks, not engine simulation.
-presentation = (ROOT / 'src/client/Presentation.lua').read_text()
+presentation = (ROOT / 'src/client/Presentation.lua').read_text(encoding='utf-8')
 assert client.count('presentation:damage(b)') == 1
 confirmed_handler = client[client.index('elseif kind == "Damage"'):client.index('local feedbackClock')]
 assert 'a == state.roundId' in confirmed_handler and 'presentation:damage(b)' in confirmed_handler
@@ -174,18 +187,18 @@ assert 'hud:button("Aim"' not in client
 assert 'AimShoulderX' in presentation and 'AimFov' in presentation
 assert 'task.delay' not in presentation and 'TweenService' not in presentation
 # Animation defaults remain empty; audio may use reviewed Creator Store numeric IDs.
-animation_config = (ROOT / 'src/shared/AnimationConfig.lua').read_text()
+animation_config = (ROOT / 'src/shared/AnimationConfig.lua').read_text(encoding='utf-8')
 assert not re.search(r'rbxassetid://[1-9][0-9]+', animation_config)
-audio_config = (ROOT / 'src/shared/AudioConfig.lua').read_text()
+audio_config = (ROOT / 'src/shared/AudioConfig.lua').read_text(encoding='utf-8')
 for required_id in ('9114727096','5656322299','9119136387','8145744063','9119074309','9119060148','9120705982','9119802009','9119902088'):
     assert required_id in audio_config
 assert 'Audio.Footstep = cue("",' in audio_config and 'Audio.SlideLoop = cue("",' in audio_config
 print('PASS: confirmed hit/round provenance, recoil-free aim, camera cleanup and reviewed audio defaults')
 
 # Playtest instrumentation must remain bounded and non-authoritative.
-config_source = (ROOT / 'src' / 'shared' / 'Config.lua').read_text()
-combat_source = (ROOT / 'src' / 'server' / 'Combat.lua').read_text()
-round_source_text = (ROOT / 'src' / 'server' / 'Round.lua').read_text()
+config_source = (ROOT / 'src' / 'shared' / 'Config.lua').read_text(encoding='utf-8')
+combat_source = (ROOT / 'src' / 'server' / 'Combat.lua').read_text(encoding='utf-8')
+round_source_text = (ROOT / 'src' / 'server' / 'Round.lua').read_text(encoding='utf-8')
 assert 'PlaytestDiagnostics = true' in config_source
 assert 'diag.shots[item.kind]' in combat_source and 'diag.weaponDamage[item.kind]' in combat_source
 assert 'if hitEnemy then diag.hits[item.kind]' in combat_source
