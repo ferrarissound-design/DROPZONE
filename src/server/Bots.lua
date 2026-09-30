@@ -1,6 +1,8 @@
 local PathfindingService = game:GetService("PathfindingService")
 local World = require(script.Parent.World)
-local Rules = require(game.ReplicatedStorage.DropzoneShared.Rules)
+local Shared = game.ReplicatedStorage.DropzoneShared
+local Rules = require(Shared.Rules)
+local Config = require(Shared.Config)
 local Bots = {}
 Bots.__index = Bots
 function Bots.new(actors, combat, loot, zone, world)
@@ -42,13 +44,18 @@ function Bots:step()
             local params = RaycastParams.new()
             params.FilterType = Enum.RaycastFilterType.Exclude
             params.FilterDescendantsInstances = {a.model}
-            local target, distance = Rules.closestLiveTarget(a, alive, 145)
+            local opening = now - (a.startTime or now) < Config.BotOpeningSeconds
+            local retaliating = (a.lastDamage or 0) > (a.startTime or math.huge)
+            local target, distance
+            if not opening or retaliating then
+                target, distance = Rules.closestLiveTarget(a, alive, Config.BotAggroRange)
+            end
             -- Inventory decisions are cheap and independent of navigation/zone urgency.
             local bestSlot, bestScore = nil, -1
             for slot, item in ipairs(a.inventory) do
                 if item.ammo + item.reserve > 0 then
                     local score = item.kind == "Rifle" and 2 or 1
-                    if item.kind == "Shotgun" then score = target and distance < 38 and 3 or 0 end
+                    if item.kind == "Shotgun" then score = target and distance < Config.BotShotgunRange and 3 or 0 end
                     if score > bestScore then bestSlot, bestScore = slot, score end
                 end
             end
@@ -67,7 +74,8 @@ function Bots:step()
                         break
                     end
                 end
-                local pickup = self.loot:nearest(a, not armed and 150 or 28)
+                local lootRange = opening and not retaliating and Config.BotOpeningLootRange or (not armed and 150 or 28)
+                local pickup = self.loot:nearest(a, lootRange)
                 if pickup then goal, groundedGoal = pickup.Position, true end
                 if not goal and target then
                     local delta = pos - target.root.Position
