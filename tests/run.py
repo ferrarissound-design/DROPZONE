@@ -231,4 +231,14 @@ assert 'Shotgun = {Vertical = 1.00' in presentation_config_source
 assert 'Pistol = {Vertical = .38' in presentation_config_source
 print('PASS: local-player shots have stronger presentation-only tracer, muzzle flash and recoil feedback')
 
+hud_source = (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+assert 'self.hitMarker = label(canvas, "HitMarker"' in hud_source
+assert 'function Effects:impact(position, enemy)' in effects_source
+assert '"BulletStreak"' in effects_source
+assert 'effects:shot(a, b, c, localShot, impacts)' in client
+assert 'effects:impact(damage.position, true)' in client
+assert 'hud.hitMarker.Visible = playing() and now < (hud.hitMarkerUntil or 0)' in client
+assert 'self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id, a.roundId, impacts)' in combat_source
+print('PASS: firing has visible travel, world impact sparks and explicit confirmed-hit feedback')
+
 subprocess.run([sys.executable, str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)
