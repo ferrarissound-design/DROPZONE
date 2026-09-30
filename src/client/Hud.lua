@@ -249,7 +249,7 @@ function Hud:update(s, onEvolutionPick)
     self.ammo.TextColor3 = me and me.weapon and WeaponStats.rarities[me.rarity or "Common"].color or white
     self.crosshair.Visible, self.hint.Visible = not not playing, not not playing
     self.hint.Text = playing and os.clock() < (self.guideUntil or 0)
-        and "武器を拾え → 撃破して進化 → 最後の1人へ" or "安全地帯に残れ · 撃破で3択Evolution"
+        and "武器を拾え · 1/2/3で武器切替 · 撃破して進化" or "安全地帯に残れ · 1/2/3で武器切替 · 撃破で3択Evolution"
     if playing and z.shrinking then self.hint.Text = "ZONE SHRINKING · 安全地帯へ移動" end
     local draft = Rules.shouldShowEvolutionDraft(s) and me.evolutionDraft or nil
     self.draft.Visible = draft ~= nil
@@ -286,8 +286,11 @@ function Hud:update(s, onEvolutionPick)
         if b then
             local rarity = me and me.slotRarities and me.slotRarities[i]
             local tier = WeaponStats.rarities[rarity or "Common"]
-            b.TextColor3 = me and me.slot == i and Theme.Paper or tier.color
-            b.Text = tostring(i) .. " " .. (me and me.slots[i] or "—") .. (rarity and (" [" .. tier.short .. "]") or ""); b.BackgroundColor3 = me and me.slot == i and Theme.Blue or Theme.Ink end
+            local selected = me and me.slot == i
+            b.TextColor3 = selected and Theme.Paper or tier.color
+            b.Text = (selected and "▶ " or "") .. tostring(i) .. " " .. (me and me.slots[i] or "—") .. (rarity and (" [" .. tier.short .. "]") or "")
+            b.BackgroundColor3 = selected and Theme.Blue or Theme.Ink
+        end
     end
     self.result.Visible = s.phase == "Results" or (active and me ~= nil and not me.alive)
     if self.result.Visible then
