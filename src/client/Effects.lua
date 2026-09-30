@@ -40,7 +40,7 @@ function Effects:zone(z, active)
         end
     end
 end
-function Effects:shot(origin, endpoints, kind)
+function Effects:shot(origin, endpoints, kind, localShot)
     for _, endpoint in ipairs(endpoints) do
         if self.tracers >= 72 then break end
         local distance = (origin - endpoint).Magnitude
@@ -49,11 +49,14 @@ function Effects:shot(origin, endpoints, kind)
             local p = Instance.new("Part")
             p.Name, p.Anchored, p.CanCollide, p.CanTouch, p.CanQuery = "Tracer", true, false, false, false
             p.Material, p.Color = Enum.Material.Neon, kind == "Shotgun" and Color3.fromRGB(255, 180, 70) or Color3.fromRGB(255, 240, 150)
-            p.Size, p.CFrame = Vector3.new(0.08, 0.08, distance), CFrame.lookAt((origin + endpoint) / 2, endpoint)
+            local width = localShot and (kind == "Shotgun" and 0.20 or 0.16) or 0.08
+            local life = localShot and 0.18 or 0.10
+            p.Size, p.CFrame = Vector3.new(width, width, distance), CFrame.lookAt((origin + endpoint) / 2, endpoint)
+            p.Transparency = localShot and 0 or 0.12
             p.Parent = self.folder
-            TweenService:Create(p, TweenInfo.new(0.1), {Transparency = 1}):Play()
-            Debris:AddItem(p, 0.12)
-            task.delay(0.12, function() self.tracers = self.tracers - 1 end)
+            TweenService:Create(p, TweenInfo.new(life), {Transparency = 1}):Play()
+            Debris:AddItem(p, life + 0.03)
+            task.delay(life + 0.03, function() self.tracers = self.tracers - 1 end)
         end
     end
 end
