@@ -50,14 +50,27 @@ end
 function Effects:impact(position, enemy)
     if self.impacts >= 18 then return end
     self.impacts = self.impacts + 1
-    local size = enemy and .75 or .42
-    local color = enemy and Color3.fromRGB(255, 164, 70) or Color3.fromRGB(255, 238, 160)
+    local color = enemy and Color3.fromRGB(255, 132, 64) or Color3.fromRGB(255, 244, 120)
+    local life = enemy and .32 or .28
+    local size = enemy and 1.15 or .85
     local p = transientPart(self.folder, enemy and "EnemyHit" or "Impact", Vector3.new(size,size,size), CFrame.new(position), color)
     p.Shape = Enum.PartType.Ball
-    p.Transparency = enemy and 0 or .12
-    TweenService:Create(p, TweenInfo.new(enemy and .16 or .12), {Transparency = 1, Size = p.Size * 1.8}):Play()
-    Debris:AddItem(p, enemy and .19 or .15)
-    task.delay(enemy and .19 or .15, function() self.impacts = math.max(0, self.impacts - 1) end)
+    p.Transparency = 0
+    TweenService:Create(p, TweenInfo.new(life), {Transparency = 1, Size = p.Size * 2.4}):Play()
+
+    for i = 1, 3 do
+        local angle = math.rad((i - 1) * 60)
+        local spark = transientPart(self.folder, "ImpactSpark",
+            Vector3.new(.13,.13, enemy and 2.8 or 2.1),
+            CFrame.new(position) * CFrame.Angles(0, angle, math.rad(45)),
+            color)
+        spark.Transparency = 0
+        TweenService:Create(spark, TweenInfo.new(life * .8), {Transparency = 1, Size = Vector3.new(.04,.04,spark.Size.Z * 1.6)}):Play()
+        Debris:AddItem(spark, life)
+    end
+
+    Debris:AddItem(p, life + .03)
+    task.delay(life + .03, function() self.impacts = math.max(0, self.impacts - 1) end)
 end
 function Effects:shot(origin, endpoints, kind, localShot, impacts)
     for index, endpoint in ipairs(endpoints) do
