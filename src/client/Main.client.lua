@@ -228,9 +228,10 @@ remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, sh
     elseif kind == "ZoneDamage" and playing() and a == state.roundId then
         presentation.audio:play("ZoneDamage")
     elseif kind == "Shot" and state and roundId == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
+        local localShot = shooterId == player.UserId
         presentation:shot(a, c, shooterId, state.targets)
-        effects:shot(a, b, c)
-        if shooterId == player.UserId then hud.shotUntil = os.clock() + .1 end
+        effects:shot(a, b, c, localShot)
+        if localShot then hud.shotUntil = os.clock() + .14 end
     elseif kind == "Damage" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
         -- Only the server can send confirmed damage; never predict a hit locally.
         damageFeedback:show(b, os.clock())
