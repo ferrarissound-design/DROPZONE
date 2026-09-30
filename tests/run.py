@@ -207,4 +207,22 @@ assert round_source_text.count('[DROPZONE DIAG]') == 2
 assert 'print(' not in combat_source
 print('PASS: diagnostics collect silently during play and print only bounded round summaries')
 
+# Opening pacing: hands-on testing showed BOTs attacking immediately at spawn.
+bots_source = (ROOT / 'src' / 'server' / 'Bots.lua').read_text(encoding='utf-8')
+for required in (
+    'BotAggroRange = 110',
+    'BotOpeningSeconds = 10',
+    'BotOpeningLootRange = 90',
+    'BotShotgunRange = 32',
+):
+    assert required in config_source
+assert 'opening = now - (a.startTime or now) < Config.BotOpeningSeconds' in bots_source
+assert 'retaliating = (a.lastDamage or 0) > (a.startTime or math.huge)' in bots_source
+assert 'Rules.closestLiveTarget(a, alive, Config.BotAggroRange)' in bots_source
+assert 'Config.BotOpeningLootRange' in bots_source
+assert 'distance < Config.BotShotgunRange' in bots_source
+assert 'closestLiveTarget(a, alive, 145)' not in bots_source
+assert 'distance < 38' not in bots_source
+print('PASS: BOT opening is loot-first, retaliation remains available, and engagement ranges are bounded')
+
 subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)
