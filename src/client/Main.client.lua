@@ -181,7 +181,8 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         nextJumpRequest = 0
         cancelAim()
         damageFeedback:clear()
-        hud.shotUntil, hud.hitUntil = 0, 0
+        hud.shotUntil, hud.hitUntil, hud.hitMarkerUntil = 0, 0, 0
+        hud.hitMarker.Visible = false
         hud.notice.Visible, hud.noticeUntil = false, nil
         buildType = "Wall"
         for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == "Wall" and Theme.Blue or Theme.Ink end
@@ -219,7 +220,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         end
     end
 end)
-remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId, roundId)
+remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, shooterId, roundId, impacts)
     if kind == "Notice" and state and a == state.roundId then hud:toast(b)
     elseif kind == "Pickup" and playing() and a == state.roundId then
         presentation.audio:play(b == "Epic" and "EpicPickup" or b == "Rare" and "RarePickup" or "Pickup")
@@ -230,14 +231,24 @@ remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, sh
     elseif kind == "Shot" and state and roundId == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
         local localShot = shooterId == player.UserId
         presentation:shot(a, c, shooterId, state.targets)
-        effects:shot(a, b, c, localShot)
+        effects:shot(a, b, c, localShot, impacts)
         if localShot then hud.shotUntil = os.clock() + .14 end
     elseif kind == "Damage" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
         -- Only the server can send confirmed damage; never predict a hit locally.
-        damageFeedback:show(b, os.clock())
+        local now = os.clock()
+        damageFeedback:show(b, now)
         presentation:damage(b)
-        hud.hitUntil = os.clock() + .18
-        for _, damage in ipairs(b) do if damage.eliminated then hud:eliminated(); break end end
+        hud.hitUntil, hud.hitMarkerUntil = now + .18, now + .22
+        hud.hitMarker.TextColor3 = Theme.Orange
+        for _, damage in ipairs(b) do
+            effects:impact(damage.position, true)
+            if damage.eliminated then
+                hud.hitMarker.TextColor3 = Theme.Gold
+                hud.hitMarkerUntil = now + .32
+                hud:eliminated()
+                break
+            end
+        end
     end
 end)
 -- Camera transforms are bracketed around Roblox's camera update, never accumulated.
@@ -251,6 +262,7 @@ end)
 local feedbackClock = 0
 RunService.RenderStepped:Connect(function()
     local now = os.clock()
+    hud.hitMarker.Visible = playing() and now < (hud.hitMarkerUntil or 0)
     if now >= feedbackClock then
         feedbackClock = now + .1
         damageFeedback:step(now)
