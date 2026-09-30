@@ -22,28 +22,6 @@ function MapVisuals.create(world)
             p("Crosswalk", Vector3.new(17,.08,2.4), CFrame.new(0,.25,side*23+i*3), Theme.Paper)
         end
     end
-    -- Seven accents per building, all on existing walls/roof; open entrance stays open.
-    for x=-190,-70,60 do
-        for z=-185,-65,60 do
-            local index = ((x+190)/60 + (z+185)/60*3)%#Theme.Town+1
-            local accent = Theme.Town[index]
-            p("RoofFascia", Vector3.new(32,.7,.3), CFrame.new(x,15,z+15.1), Theme.Paper)
-            p("Awning", Vector3.new(19,.35,3), CFrame.new(x,12,z+14), accent)
-            for _, side in ipairs({-1,1}) do
-                p("EntryFrame", Vector3.new(.6,12,.3), CFrame.new(x+side*13,6,z+14.1), Theme.Paper)
-                p("Window", Vector3.new(.12,4,6), CFrame.new(x+side*15.05,8,z-2), Theme.Ink)
-            end
-            p("RoofBadge", Vector3.new(5,1.3,.25), CFrame.new(x,16.3,z+14), Theme.Gold)
-        end
-    end
-    for x=70,190,40 do
-        for z=-180,-60,40 do
-            p("ContainerBand", Vector3.new(20,.5,.15), CFrame.new(x,7.7,z+6.08), Theme.Paper)
-            for _, side in ipairs({-1,1}) do
-                p("DoorLatch", Vector3.new(.25,7,.18), CFrame.new(x+side*3,4.5,z+6.12), Theme.Ink)
-            end
-        end
-    end
     -- Loading stripes sit on the ground; no new choke point in container lanes.
     for i=1,6 do
         p("LoadingStripe", Vector3.new(9,.06,1.5), CFrame.new(130+i*9,.06,-38)*CFrame.Angles(0,math.rad(35),0), Theme.Gold)

@@ -67,6 +67,8 @@ Audio and full airborne insertion are deferred; there are no external assets to 
 
 `MapVisuals` owns the static `DropzoneWorld/Scenery` folder. It is a sibling of `Map` and is never included by `World.ground`. Existing map colliders, spawns and bot logic remain authoritative. Do not add cover-shaped noncolliding decoration in combat lanes.
 
+`Town` owns the bounded building catalog. Structural shells live under `Map/Buildings`; their broad walls and roofs are the only weapon/path/build-overlap geometry. Presentation trim lives under `Scenery/TownVisuals` with collision, touch and query disabled. Optional `ServerStorage/TownTemplates` models are cloned while detached, recursively stripped, capped, and rejected unless they declare a small `Collision` set or `TownCollision` attributes.
+
 The HUD consumes server `maxEnergy` for its display bar. Category colors, RichText and selection-border Tweens do not grant abilities or send new remotes. Draft button rectangles remain unchanged; the reticle renders behind cards without moving its aiming anchor. No visual code runs a per-frame object-generation loop.
 
 ## Movement / rarity / confirmed feedback

@@ -82,6 +82,24 @@ for required in ['island', 'roadX', 'roadZ', 'hill', 'centralPad']:
     assert f'table.insert(self.groundSurfaces, {required})' in world_source
 print('PASS: ground raycasts use only designated walkable surfaces')
 
+town_source = (ROOT / 'src' / 'server' / 'Town.lua').read_text(encoding='utf-8')
+for unsafe_class in ('Script=true', 'LocalScript=true', 'ModuleScript=true', 'RemoteEvent=true',
+                     'ParticleEmitter=true', 'PointLight=true', 'Sound=true',
+                     'ClickDetector=true', 'ProximityPrompt=true'):
+    assert unsafe_class in town_source
+assert 'descendant.CanQuery = collision' in town_source
+assert 'descendant.CanTouch = false' in town_source
+assert 'descendant.Anchored = true' in town_source
+assert 'CollisionフォルダまたはTownCollision属性が必要です' in town_source
+assert 'Town.TemplateLimits = {parts = 96, meshParts = 32, collisionParts = 20}' in town_source
+assert 'descendant:IsA("Constraint")' in town_source and 'descendant:IsA("JointInstance")' in town_source
+assert 'Town.FallbackBudget = {buildings = 13, collisionParts = 91, visualParts = 106}' in town_source
+for silhouette in ('GableRoof', 'ButterflyRoof', 'MonoPitchRoof'):
+    assert silhouette in town_source
+project = (ROOT / 'default.project.json').read_text(encoding='utf-8')
+assert '"TownTemplates"' in project and '"$ignoreUnknownInstances": true' in project
+print('PASS: Toolbox town templates are stripped, bounded and explicit about collision/query ownership')
+
 server_source = (ROOT / 'src' / 'server' / 'Main.server.lua').read_text(encoding='utf-8')
 assert 'ReplicatedStorage:GetChildren()' in server_source and 'child.Name == "DropzoneRemotes"' in server_source
 assert 'remotes:GetChildren()' in server_source and 'child:IsA("RemoteEvent")' in server_source

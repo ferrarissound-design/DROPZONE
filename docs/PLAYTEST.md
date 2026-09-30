@@ -104,6 +104,10 @@ Offlineでは `python3 tests/run.py` を実行。表示されるassertion件数�
 - [ ] 武器/Drone装甲/Mutation/建築Frame越しのRaycastは装飾を無視し、以前と同じ本体Hitboxへ命中する。
 - [ ] 白いDroneとプレイヤーを区別でき、進化後も顔・武器・胴体が読める。
 - [ ] Coreリングは上空にありFinal Battleの移動や視界を妨げない。Townの入口・Loot・Warehouseの通路は従来通り使える。
+- [ ] Townの全9棟で正面入口、裏口、左右の通路をBOTとスマホ操作で通過できる。入口にジャンプが不要で、屋根へPathが吸われない。
+- [ ] 住宅・店舗・Office・Warehouseを100 studs以上から輪郭と色で判別でき、濃色窓や看板を入口と誤認しない。
+- [ ] `ServerStorage/TownTemplates`を使う場合、Outputのrejected/removed警告を確認し、Collision以外の装飾が射撃Raycast・建築Overlap・BOT LOSを遮らない。
+- [ ] Town全Lootが壁・屋根・看板に埋まらず、正面またはWarehouse外周の広い通路から取得できる。
 - [ ] Hillは従来の斜面を登れる。Sceneryの色面や低い装飾岩が床/遮蔽物と誤認されない。
 - [ ] 全Loot種類を形で区別でき、取得/Resetでモデル全体が消える。武器Pickupが地面に埋まらない。
 - [ ] Wall/Floor/RampのFrameが本体に沿い、破壊/寿命/Reset時に一緒に消える。
@@ -113,7 +117,7 @@ Offlineでは `python3 tests/run.py` を実行。表示されるassertion件数�
 - [ ] Rojo同期後のLightingが明るく、Neonの白飛び・強いBloom・Fogによる視認性低下がない。
 - [ ] 前版と同条件で低性能スマホのFPS/メモリを比較。BOT11、Build100、最大Loot、Shotgun、Mutation同時表示を測定する。
 
-装飾予算：Map追加193Part、武器4/5/6Part、Drone追加7Part、消耗品Loot3Part、武器Loot4〜6Part、建築追加2Part/個（上限時200Part）。すべてイベント時/初期化時の生成で、毎Frame生成・追加Particle・追加Light・外部Meshなし。描画負荷はゼロではないため、実測で公開可否を決めてください。
+装飾予算：Map共通装飾82Part、Townフォールバック表示106Part、Town/Warehouse単純Collision 91Part、武器4/5/6Part、Drone追加7Part、消耗品Loot3Part、武器Loot4〜6Part、建築追加2Part/個（上限時200Part）。Townは13棟で、毎Frame処理・Particle・Light・外部Meshなし。外部テンプレートは1棟96Part / MeshPart 32以下ですが、描画負荷はゼロではないため実測で公開可否を決めてください。
 
 `tests/visuals.lua` は実コンストラクタをengine doubleで実行し、装飾フラグ、Part数、持替え/破棄、Drone本体寸法、HUDバーとDraft終了、UI再生成を確認します。出力されるassertion件数には各Partの反復検査を含みます。描画・物理・タッチの再現テストではありません。
 

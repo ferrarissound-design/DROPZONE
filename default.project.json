@@ -12,6 +12,12 @@
         "$path": "src/server"
       }
     },
+    "ServerStorage": {
+      "TownTemplates": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true
+      }
+    },
     "StarterPlayer": {
       "$properties": {
         "CameraMinZoomDistance": 6,

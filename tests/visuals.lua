@@ -68,14 +68,15 @@ local playerGui=folder(nil,"PlayerGui")
 local player={WaitForChild=function() return playerGui end}
 local tweens={Create=function(_,_,_,_) return {Play=function() end,Cancel=function() end} end}
 game={ReplicatedStorage={DropzoneShared={VisualTheme="VisualTheme",Rules="Rules",Config="Config",Weapons="Weapons",WeaponStats="WeaponStats"}},GetService=function(_,name)
-    return ({Players={LocalPlayer=player},TweenService=tweens,ReplicatedStorage=replicated})[name]
+    return ({Players={LocalPlayer=player},TweenService=tweens,ReplicatedStorage=replicated,ServerStorage=folder(nil,"ServerStorage")})[name]
 end}
-script={Parent={Cosmetics="Cosmetics",MapVisuals="MapVisuals",Movement="Movement"}}
+script={Parent={Cosmetics="Cosmetics",MapVisuals="MapVisuals",Movement="Movement",Town="Town"}}
 local Theme=load("VisualTheme","shared/VisualTheme.lua")
 load("Config","shared/Config.lua");load("Rules","shared/Rules.lua");load("Weapons","shared/Weapons.lua");load("WeaponStats","shared/WeaponStats.lua")
 for _,key in ipairs(shared:GetChildren()) do modules[key]=modules[key.Name] end
 local Cosmetics=load("Cosmetics","server/Cosmetics.lua")
 local MapVisuals=load("MapVisuals","server/MapVisuals.lua")
+load("Town","server/Town.lua")
 load("Movement","server/Movement.lua")
 local Actors=load("Actors","server/Actors.lua")
 local World=load("World","server/World.lua")
