@@ -240,6 +240,9 @@ assert 'effects:shot(a, b, c, localShot, impacts)' in client
 assert 'effects:impact(damage.position, true)' in client
 assert 'hud.hitMarker.Visible = playing() and now < (hud.hitMarkerUntil or 0)' in client
 assert 'self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id, a.roundId, impacts)' in combat_source
-print('PASS: firing has visible travel, world impact sparks and explicit confirmed-hit feedback')
+assert '"ImpactSpark"' in effects_source and 'local life = enemy and .32 or .28' in effects_source
+assert '1/2/3で武器切替' in (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+assert '▶ ' in (ROOT / 'src' / 'client' / 'Hud.lua').read_text()
+print('PASS: firing has visible travel, strong impact sparks, hit confirmation and clear weapon switching')
 
 subprocess.run([sys.executable, str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)
