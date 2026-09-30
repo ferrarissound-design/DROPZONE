@@ -94,6 +94,8 @@ assert 'CollisionフォルダまたはTownCollision属性が必要です' in tow
 assert 'Town.TemplateLimits = {parts = 96, meshParts = 32, collisionParts = 20}' in town_source
 assert 'descendant:IsA("Constraint")' in town_source and 'descendant:IsA("JointInstance")' in town_source
 assert 'Town.FallbackBudget = {buildings = 13, collisionParts = 91, visualParts = 106}' in town_source
+for silhouette in ('GableRoof', 'ButterflyRoof', 'MonoPitchRoof'):
+    assert silhouette in town_source
 project = (ROOT / 'default.project.json').read_text(encoding='utf-8')
 assert '"TownTemplates"' in project and '"$ignoreUnknownInstances": true' in project
 print('PASS: Toolbox town templates are stripped, bounded and explicit about collision/query ownership')

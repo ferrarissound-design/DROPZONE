@@ -1,6 +1,6 @@
 # Town building templates
 
-Townは、外部Assetがなくても軽量なスタイライズド建物で動作します。Creator Store / Toolboxの候補を採用する場合は、存在しないAsset IDをコードへ直書きせず、Studioで実物を確認して次の場所へ保存してください。
+Townは、外部Assetがなくても切妻・バタフライ・片流れ屋根の住宅、2色の店舗、小型オフィス、倉庫からなる軽量なスタイライズド建物で動作します。Creator Store / Toolboxの候補を採用する場合は、存在しないAsset IDをコードへ直書きせず、Studioで実物を確認して次の場所へ保存してください。
 
 ```text
 ServerStorage

@@ -189,10 +189,22 @@ local function fallbackBuilding(structures, visuals, partFactory, entry)
     -- Large, high-contrast openings and rooflines do the visual work. Every art
     -- part is non-colliding/non-query; the simple shell remains authoritative.
     if entry.role == "House" then
-        visual(art,"RoofSlope",Vector3.new(17,1,30),base*CFrame.new(-7.1,height+4,0)*CFrame.Angles(0,0,math.rad(-26)),Theme.Slate)
-        visual(art,"RoofSlope",Vector3.new(17,1,30),base*CFrame.new(7.1,height+4,0)*CFrame.Angles(0,0,math.rad(26)),Theme.Slate)
-        visual(art,"PorchAwning",Vector3.new(14,.6,4),base*CFrame.new(0,10,15),Theme.Paper)
-        visual(art,"DoorHeader",Vector3.new(11,1,.35),base*CFrame.new(0,12.2,14.15),Theme.Paper)
+        if entry.name == "House01" then
+            visual(art,"GableRoof",Vector3.new(17,1,30),base*CFrame.new(-7.1,height+4,0)*CFrame.Angles(0,0,math.rad(-26)),Theme.Slate)
+            visual(art,"GableRoof",Vector3.new(17,1,30),base*CFrame.new(7.1,height+4,0)*CFrame.Angles(0,0,math.rad(26)),Theme.Slate)
+            visual(art,"PorchAwning",Vector3.new(14,.6,4),base*CFrame.new(0,10,15),Theme.Paper)
+            visual(art,"DoorHeader",Vector3.new(11,1,.35),base*CFrame.new(0,12.2,14.15),Theme.Paper)
+        elseif entry.name == "House02" then
+            visual(art,"ButterflyRoof",Vector3.new(17,1,30),base*CFrame.new(-7.2,height+2.8,0)*CFrame.Angles(0,0,math.rad(18)),Theme.Ink)
+            visual(art,"ButterflyRoof",Vector3.new(17,1,30),base*CFrame.new(7.2,height+2.8,0)*CFrame.Angles(0,0,math.rad(-18)),Theme.Ink)
+            visual(art,"WideEave",Vector3.new(20,.6,3.5),base*CFrame.new(0,10.5,14.8),Theme.Paper)
+            visual(art,"EntryStripe",Vector3.new(11,.8,.35),base*CFrame.new(0,12.2,14.15),Theme.Cyan)
+        else
+            visual(art,"MonoPitchRoof",Vector3.new(33,1,30),base*CFrame.new(0,height+3.6,0)*CFrame.Angles(0,0,math.rad(-12)),Theme.Slate)
+            visual(art,"HighRoofEdge",Vector3.new(.8,3,30),base*CFrame.new(-15.5,height+6.8,0),Theme.Paper)
+            visual(art,"GarageEave",Vector3.new(18,.7,4),base*CFrame.new(-3,10.2,15),Theme.Paper)
+            visual(art,"EntryStripe",Vector3.new(11,.8,.35),base*CFrame.new(0,12.2,14.15),Theme.Orange)
+        end
     elseif entry.role == "Shop" then
         visual(art,"Awning",Vector3.new(18,.7,4),base*CFrame.new(0,10.5,15),Theme.Orange)
         visual(art,"ShopSign",Vector3.new(16,3,.45),base*CFrame.new(0,14.2,14.4),entry.name=="Shop02" and Theme.Blue or Theme.Gold)
