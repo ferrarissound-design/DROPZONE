@@ -1,10 +1,11 @@
 local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
 local MapVisuals = require(script.Parent.MapVisuals)
+local Town = require(script.Parent.Town)
 local World = {}
 
 -- Loot lies just beyond the open +Z entrance and roof footprint.
-function World.townLootPosition(x, z)
-    return Vector3.new(x, 2, z + 22)
+function World.townLootPosition(x, z, rotation)
+    return Town.lootPosition({x=x, z=z, rotation=rotation or 0})
 end
 local function part(parent, name, size, cf, color, material)
     local p = Instance.new("Part")
@@ -42,23 +43,8 @@ function World.create()
             mark.CanCollide, mark.CanTouch, mark.CanQuery = false, false, false
         end
     end
-    -- Open courtyards and wide routes keep the first map navigable for bots.
-    for x = -190, -70, 60 do
-        for z = -185, -65, 60 do
-            local c = Theme.Town[((x+190)/60 + (z+185)/60*3)%#Theme.Town+1]
-            part(map, "TownBack", Vector3.new(30, 14, 2), CFrame.new(x, 7, z - 13), c)
-            part(map, "TownSide", Vector3.new(2, 14, 28), CFrame.new(x - 14, 7, z), c)
-            part(map, "TownSide", Vector3.new(2, 14, 28), CFrame.new(x + 14, 7, z), c)
-            part(map, "TownRoof", Vector3.new(32, 2, 30), CFrame.new(x, 15, z), Theme.Slate)
-            table.insert(self.loot, World.townLootPosition(x, z))
-        end
-    end
-    for x = 70, 190, 40 do
-        for z = -180, -60, 40 do
-            part(map, "WarehouseContainer", Vector3.new(20, 10, 12), CFrame.new(x, 5, z), ({Theme.Blue, Theme.Orange, Theme.Gold, Theme.Town[3]})[((x-70)/40+(z+180)/40)%4+1], Enum.Material.Metal)
-            table.insert(self.loot, Vector3.new(x, 2, z + 13))
-        end
-    end
+    self.scenery = MapVisuals.create(self)
+    Town.create(self, part)
     local rng = Random.new(721)
     for _ = 1, 27 do
         local x, z = rng:NextNumber(-220, -55), rng:NextNumber(55, 220)
@@ -102,7 +88,6 @@ function World.create()
         label.TextStrokeTransparency = .35
         label.Font, label.Parent = Enum.Font.GothamBold, ui
     end
-    MapVisuals.create(self)
     return self
 end
 function World.ground(self, position)

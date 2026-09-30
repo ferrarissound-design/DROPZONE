@@ -118,6 +118,7 @@ src/server/Loot.lua         Loot配置と取得
 src/server/Building.lua     設置・衝突・破壊・寿命
 src/server/Evolution.lua    能力と見た目
 src/server/World.lua        固定マップ、ロビー、配置地点
+src/server/Town.lua         Town建物、外部テンプレート検査、軽量フォールバック
 src/client/Main.client.lua 入力、照準、カメラ、観戦
 src/client/Hud.lua         HUD、リザルト、ミニマップ
 src/client/Effects.lua     ローカル境界線、弾道
@@ -168,11 +169,11 @@ Luau型検査、Roblox物理、ネットワーク、Pathfinding、実機性能�
 - Combat Droneは白いHelmet、シアンVisor、オレンジChest Core、青いShoulder。既存R6のHitboxは維持。
 - Evolutionカードは能力名を最大の文字にし、Mobility=Cyan、Attack=Orange、Survival=Green、Utility=Purple。選択時は0.3秒の枠フラッシュで送信中を示します。取得確定はサーバーSnapshot後です。
 - HP/Shield/Energyバー、大きい装弾数、Gold Victory。通常HUDは主要能力1つ、Resultは最大3つを表示し、小画面での文字過密を抑えます。
-- Townの外壁色・窓・ひさし、Warehouseの色分け、丸い樹冠、道路境界/横断帯、草地の色面、Hill裾の低い岩、上空のEvolution Core。
+- Townは住宅3系統、店舗2系統、小型オフィス、倉庫を役割別シルエット・色・看板・大きな入口で区別。正面/裏口と広い側面通路を持つ軽量フォールバックを同梱します。
 - Lootは武器モデル／Ammo box／Medical case／Shield canister／Energy cell。建築は既存本体に白いFrameを2Part追加。
 - 明るい昼、弱いBloom。戦闘を隠すFogや大量Light/Particleを追加していません。
 
-主な表示専用ファイル：`src/shared/VisualTheme.lua`、`src/server/Cosmetics.lua`、`src/server/MapVisuals.lua`。
+主な表示専用ファイル：`src/shared/VisualTheme.lua`、`src/server/Cosmetics.lua`、`src/server/MapVisuals.lua`。外部建物の選定・安全な保存方法は [Town building templates](docs/TOWN_BUILDINGS.md) を参照してください。
 新規装飾は非衝突・非接触・非Raycast・Massless。Map装飾は地面探索対象のMapフォルダから分離しています。Spawn、地形の当たり判定、移動、武器/能力/建築/Lootの性能は変更していません。EnergyバーのためSnapshotにサーバー算出のmaxEnergyを追加しています。
 
 **見た目の最終承認はStudio/スマホ実機で行ってください。** Offlineのモデル構築・破棄・UI状態テストは、Robloxの描画品質や実測FPSを保証するものではありません。

@@ -42,7 +42,7 @@ local delayed = {}
 task = {delay = function(_, f) table.insert(delayed,f) end, defer = function(f) f() end}
 local players = {GetPlayers = function() return {} end}
 game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons", VisualTheme="VisualTheme", WeaponStats="WeaponStats"}}, GetService=function(_, name) if name=="Players" then return players end end}
-script = {Parent = {World="World", Actors="Actors", Evolution="Evolution", Movement="Movement", Cosmetics="Cosmetics", MapVisuals="MapVisuals"}}
+script = {Parent = {World="World", Actors="Actors", Evolution="Evolution", Movement="Movement", Cosmetics="Cosmetics", MapVisuals="MapVisuals", Town="Town"}}
 local Config = load("Config", "shared/Config.lua")
 local Rules = load("Rules", "shared/Rules.lua")
 load("Weapons", "shared/Weapons.lua")
@@ -50,6 +50,7 @@ load("VisualTheme", "shared/VisualTheme.lua")
 local WeaponStats = load("WeaponStats", "shared/WeaponStats.lua")
 load("Cosmetics", "server/Cosmetics.lua")
 load("MapVisuals", "server/MapVisuals.lua")
+local Town = load("Town", "server/Town.lua")
 local Movement = load("Movement", "server/Movement.lua")
 local World = load("World", "server/World.lua")
 local Actors = load("Actors", "server/Actors.lua")
@@ -59,6 +60,36 @@ local Round = load("Round", "server/Round.lua")
 local Combat = load("Combat", "server/Combat.lua")
 check(Rules.totalDuration(Config.ZonePhases)==375, "zone schedule is 375 seconds")
 check(World.townLootPosition(-130,-130).Z == -108, "town loot is outside the +Z roof footprint")
+check(#Town.Layout==9 and #Town.WarehouseLayout==4, "bounded town and warehouse building counts")
+check(Town.FallbackBudget.collisionParts==91 and Town.FallbackBudget.visualParts==106,
+    "fallback town has an explicit static part budget")
+local roles={}
+for _,entry in ipairs(Town.Layout) do roles[entry.role]=(roles[entry.role] or 0)+1 end
+check(roles.House==5 and roles.Shop==3 and roles.Office==1,
+    "town silhouettes reuse a small readable role catalog")
+check(Town.lootPosition({x=-70,z=-185,rotation=math.pi/2}).X==-48,
+    "rotated building loot remains outside its entrance")
+for i,entry in ipairs(Town.Layout) do
+    local halfX = math.abs(math.sin(entry.rotation)) > .5 and 14 or 15
+    local halfZ = math.abs(math.sin(entry.rotation)) > .5 and 15 or 14
+    check(entry.x + halfX < -12 and entry.z + halfZ < -12,
+        "town footprint stays clear of both main roads")
+    for j=i+1,#Town.Layout do
+        local other=Town.Layout[j]
+        local otherHalfX = math.abs(math.sin(other.rotation)) > .5 and 14 or 15
+        local otherHalfZ = math.abs(math.sin(other.rotation)) > .5 and 15 or 14
+        check(math.abs(entry.x-other.x) > halfX+otherHalfX+8
+            or math.abs(entry.z-other.z) > halfZ+otherHalfZ+8,
+            "town buildings retain a wide route between footprints")
+    end
+end
+for i,entry in ipairs(Town.WarehouseLayout) do
+    for j=i+1,#Town.WarehouseLayout do
+        local other=Town.WarehouseLayout[j]
+        check(math.abs(entry.x-other.x)>54 or math.abs(entry.z-other.z)>42,
+            "warehouse footprints retain bot/mobile circulation lanes")
+    end
+end
 check(not Rules.shouldShowEvolutionDraft({phase="Active",me={alive=true}}),
     "snapshot without an Evolution draft hides the draft UI")
 check(not Rules.shouldShowEvolutionDraft({phase="Active",me={alive=false,evolutionDraft={id=1}}}),
