@@ -81,6 +81,13 @@ assert 'if not surfaces or #surfaces == 0 then return Vector3.new(position.X, 0,
 for required in ['island', 'roadX', 'roadZ', 'hill', 'centralPad']:
     assert f'table.insert(self.groundSurfaces, {required})' in world_source
 print('PASS: ground raycasts use only designated walkable surfaces')
+assert 'function World.spawnClear(self, ground)' in world_source
+assert 'insideBuildingFootprint(self, ground)' in world_source
+assert 'building:GetBoundingBox()' in world_source and 'box:PointToObjectSpace(position)' in world_source
+assert 'workspace:GetPartBoundsInBox' in world_source
+assert 'function World.resolveSpawn(self, preferred, existing)' in world_source
+assert 'Never silently fall back to the blocked point.' in world_source
+print('PASS: round-start spawn generation rejects building footprints and collidable blockers')
 
 town_source = (ROOT / 'src' / 'server' / 'Town.lua').read_text(encoding='utf-8')
 for unsafe_class in ('Script=true', 'LocalScript=true', 'ModuleScript=true', 'RemoteEvent=true',
