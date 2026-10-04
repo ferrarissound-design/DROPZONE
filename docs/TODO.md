@@ -12,6 +12,10 @@
 
 ## NOW: 新HUDを含む現行ゲームの回帰・初回体験確認
 
+- [ ] N0 — 開始スポーンの建物めり込み修正をStudioで回帰確認。
+  - 対象: server/World.lua、QAのSpectate / ラウンド / Multiplayer。
+  - 修正: 建物モデルのXZ footprintと実衝突物を避け、塞がれた外周スポーンは近傍→道路→外周再探索で安全位置へ補正する。
+  - 完了条件: Soloを含む複数試合で開始直後に建物/壁/Tree/Coverへめり込まず移動でき、BOTも同じ安全スポーン群から開始する。Studio未確認のためチェックは残す。
 - [ ] N1 — PC HUD / Draft / Spectateの回帰確認。
   - 対象: client/Hud.lua、Main.client.lua、Presentation.lua、HUD_PLAYTEST。
   - 手順: 既存オフライン2コマンド、QAのUI/Evolution/Spectate/ラウンド。PCの小窓・通常・ultrawideを確認する。
