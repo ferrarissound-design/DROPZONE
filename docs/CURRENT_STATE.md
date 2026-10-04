@@ -1,8 +1,8 @@
 # 現在の実装状態
 
-- 調査日: 2026-10-01
+- 調査日: 2026-10-04
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `38f77cb4309ec9bcff72bd515c021f1ebde67764`（PR #19: PC HUD整理）
+- 基準コミット: `11f7ceb37e75c2b20b3ed9d399acff89238024df`（PR #20: AI開発ガイド整備）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
 
@@ -58,3 +58,10 @@ default.project.jsonの全`$path`を調査: `src/shared`、`src/server`、`src/c
 - python3 tests/preplay_analysis.py: PASS。
 - 既存/新規Markdownの相対リンクとRojo $path範囲外を静的検証: PASS。
 - Studio/Rojo実接続・スマートフォン・複数人実プレイ: 今回未実施。
+
+## 開始スポーンめり込み修正（2026-10-04）
+
+- ユーザー実プレイで「ラウンド開始時に建物内部へめり込み、移動不能」を確認。
+- 原因: 24個の開始候補が半径245の固定円周で、Townの配置とStudio保存TownTemplatesの最大50x34x50 footprintが交差し得る一方、開始前に建物占有を検査していなかった。
+- 修正: Worldが建物モデル全体のXZ footprint（余白4 studs）と実際の衝突物を検査し、塞がれた候補は外周近傍、空いた道路、外周再探索の順に安全位置へ補正する。スポーン間隔28 studsも維持する。
+- tests/run.pyに実装契約のソースガードを追加。Studio/Rojo接続・実機/複数試合の物理確認はこの環境では未実施で、TODO N0とQA_CHECKLISTに確認項目を追加した。
