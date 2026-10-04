@@ -3,6 +3,13 @@ local MapVisuals = require(script.Parent.MapVisuals)
 local Town = require(script.Parent.Town)
 local World = {}
 
+local SPAWN_CLEARANCE = Vector3.new(7, 9, 7)
+local SPAWN_FOOTPRINT_MARGIN = 4
+local SPAWN_MIN_SEPARATION = 28
+local SPAWN_LIMIT = 248
+local SPAWN_RADIAL_OFFSETS = {0, -18, -36, 18, -54}
+local SPAWN_TANGENT_OFFSETS = {0, 16, -16, 32, -32, 48, -48}
+
 -- Loot lies just beyond the open +Z entrance and roof footprint.
 function World.townLootPosition(x, z, rotation)
     return Town.lootPosition({x=x, z=z, rotation=rotation or 0})
@@ -18,6 +25,100 @@ local function part(parent, name, size, cf, color, material)
     return p
 end
 World.part = part
+
+local function isGroundSurface(self, candidate)
+    for _, surface in ipairs(self.groundSurfaces or {}) do
+        if candidate == surface then return true end
+    end
+    return false
+end
+
+local function insideBuildingFootprint(self, position)
+    local buildings = self.map and self.map:FindFirstChild("Buildings")
+    if not buildings then return false end
+    for _, building in ipairs(buildings:GetChildren()) do
+        if building:IsA("Model") then
+            local box, size = building:GetBoundingBox()
+            local localPosition = box:PointToObjectSpace(position)
+            if math.abs(localPosition.X) <= size.X / 2 + SPAWN_FOOTPRINT_MARGIN
+                and math.abs(localPosition.Z) <= size.Z / 2 + SPAWN_FOOTPRINT_MARGIN then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function World.spawnClear(self, ground)
+    -- Reject the whole building footprint, not only walls. A hollow imported
+    -- template can otherwise surround a perfectly empty overlap box and trap a
+    -- player inside the building at round start.
+    if insideBuildingFootprint(self, ground) then return false end
+
+    local params = OverlapParams.new()
+    params.FilterType = Enum.RaycastFilterType.Include
+    params.FilterDescendantsInstances = {self.map}
+    params.MaxParts = 32
+    local center = ground + Vector3.new(0, 4, 0)
+    for _, hit in ipairs(workspace:GetPartBoundsInBox(CFrame.new(center), SPAWN_CLEARANCE, params)) do
+        if hit.CanCollide and not isGroundSurface(self, hit) then return false end
+    end
+    return true
+end
+
+local function separated(existing, candidate)
+    for _, position in ipairs(existing) do
+        local dx, dz = candidate.X - position.X, candidate.Z - position.Z
+        if math.sqrt(dx * dx + dz * dz) < SPAWN_MIN_SEPARATION then return false end
+    end
+    return true
+end
+
+local function trySpawn(self, candidate, existing)
+    if math.abs(candidate.X) > SPAWN_LIMIT or math.abs(candidate.Z) > SPAWN_LIMIT then return nil end
+    local ground = World.ground(self, candidate)
+    if World.spawnClear(self, ground) and separated(existing, ground) then
+        return ground + Vector3.new(0, 4, 0)
+    end
+    return nil
+end
+
+function World.resolveSpawn(self, preferred, existing)
+    existing = existing or {}
+    local flat = Vector3.new(preferred.X, 0, preferred.Z)
+    local magnitude = flat.Magnitude
+    local radial = magnitude > 0 and flat / magnitude or Vector3.new(1, 0, 0)
+    local tangent = Vector3.new(-radial.Z, 0, radial.X)
+
+    -- Keep the original perimeter distribution whenever possible, then nudge
+    -- blocked points inward or sideways. This protects the opening pacing while
+    -- allowing larger Studio-saved TownTemplates.
+    for _, radialOffset in ipairs(SPAWN_RADIAL_OFFSETS) do
+        for _, tangentOffset in ipairs(SPAWN_TANGENT_OFFSETS) do
+            local resolved = trySpawn(self, flat + radial * radialOffset + tangent * tangentOffset, existing)
+            if resolved then return resolved end
+        end
+    end
+
+    -- Main roads are intentionally kept clear by the Town layout, so they are a
+    -- deterministic escape hatch if a custom template occupies much of the rim.
+    for distance = -225, 225, 30 do
+        local resolved = trySpawn(self, Vector3.new(distance, 0, 0), existing)
+            or trySpawn(self, Vector3.new(0, 0, distance), existing)
+        if resolved then return resolved end
+    end
+
+    -- Last-resort bounded scan. Never silently fall back to the blocked point.
+    for radius = 220, 245, 5 do
+        for step = 0, 71 do
+            local angle = step * math.pi * 2 / 72
+            local resolved = trySpawn(self, Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius), existing)
+            if resolved then return resolved end
+        end
+    end
+    return nil
+end
+
 function World.create()
     local old = workspace:FindFirstChild("DropzoneWorld")
     if old then old:Destroy() end
@@ -70,9 +171,17 @@ function World.create()
     table.insert(self.groundSurfaces, centralPad)
     for i = 1, 24 do
         local a = (i - 1) * math.pi * 2 / 24
-        local position = Vector3.new(math.cos(a) * 245, 4, math.sin(a) * 245)
-        table.insert(self.spawns, position)
-        table.insert(self.loot, position + Vector3.new(-math.sin(a) * 7, -2, math.cos(a) * 7))
+        local preferred = Vector3.new(math.cos(a) * 245, 4, math.sin(a) * 245)
+        local position = World.resolveSpawn(self, preferred, self.spawns)
+        if position then
+            table.insert(self.spawns, position)
+            table.insert(self.loot, position + Vector3.new(-math.sin(a) * 7, -2, math.cos(a) * 7))
+        else
+            warn(string.format("[DROPZONE] no safe start spawn found for slot %d", i))
+        end
+    end
+    if #self.spawns < 20 then
+        warn(string.format("[DROPZONE] only %d safe start spawns were generated; expected at least 20", #self.spawns))
     end
     part(root, "Lobby", Vector3.new(65, 3, 65), CFrame.new(0, 99, 360), Color3.fromRGB(39, 52, 75), Enum.Material.Metal)
     self.lobby = CFrame.new(0, 104, 360)
