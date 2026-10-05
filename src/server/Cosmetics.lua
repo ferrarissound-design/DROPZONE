@@ -1,4 +1,6 @@
 local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
+local PresentationConfig = require(game.ReplicatedStorage.DropzoneShared.PresentationConfig)
+local ServerStorage = game:GetService("ServerStorage")
 local Cosmetics = {}
 
 -- All visual additions pass through this boundary. Never participate in gameplay
@@ -25,11 +27,65 @@ local function folder(parent, name)
     return f
 end
 
+local unsafeWeaponClasses = {
+    Script=true, LocalScript=true, ModuleScript=true, Tool=true,
+    RemoteEvent=true, RemoteFunction=true, BindableEvent=true, BindableFunction=true,
+    Humanoid=true, AnimationController=true,
+    ParticleEmitter=true, Trail=true, Beam=true,
+    PointLight=true, SpotLight=true, SurfaceLight=true, Sound=true,
+    ClickDetector=true, ProximityPrompt=true,
+    Explosion=true, Fire=true, Smoke=true, Sparkles=true,
+    VectorForce=true, LinearVelocity=true, AngularVelocity=true,
+    AlignPosition=true, AlignOrientation=true, Torque=true,
+    BodyForce=true, BodyGyro=true, BodyPosition=true, BodyVelocity=true,
+    BodyAngularVelocity=true, RocketPropulsion=true,
+}
+
+local function templateWeapon(parent, kind, cf, anchor)
+    local models = ServerStorage:FindFirstChild("WeaponModels")
+    local template = models and models:FindFirstChild(kind)
+    local templateRoot = template and template:FindFirstChild("Root")
+    if not template or not template:IsA("Model") or not templateRoot or not templateRoot:IsA("BasePart") then return nil end
+
+    local model = template:Clone()
+    model.Name = "WeaponModel"
+    for _, item in ipairs(model:GetDescendants()) do
+        if unsafeWeaponClasses[item.ClassName]
+            or (item:IsA("Constraint") and not item:IsA("WeldConstraint"))
+            or item:IsA("JointInstance") then
+            item:Destroy()
+        end
+    end
+    local root = model:FindFirstChild("Root")
+    if not root or not root:IsA("BasePart") then model:Destroy(); return nil end
+    model.PrimaryPart = root
+    model:PivotTo(cf * (template:GetAttribute("RootOffset") or CFrame.new()))
+    model.Parent = parent
+    for _, part in ipairs(model:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide, part.CanTouch, part.CanQuery, part.Massless = false, false, false, true
+            part.Anchored = anchor == nil
+        end
+    end
+    if anchor then
+        root.Anchored = false
+        local joint = Instance.new("Motor6D")
+        joint.Name, joint.Part0, joint.Part1 = "PresentationJoint", anchor, root
+        joint.C0, joint.Parent = anchor.CFrame:ToObjectSpace(root.CFrame), parent
+    end
+    return parent
+end
+
 -- Shared silhouettes for the held weapon and the grounded pickup. Forward is -Z.
 -- At most 6 parts per weapon; one optional presentation joint, no emitters/lights.
 function Cosmetics.weapon(parent, kind, cf, anchor)
     local f = folder(parent, "HeldWeapon")
     local accent = Theme.Weapon[kind] or Theme.Gold
+    local presentation = PresentationConfig.Weapons[kind]
+    if anchor and presentation and presentation.HipOffset then cf = cf * presentation.HipOffset end
+    -- Keep pickups on the bounded procedural silhouettes. Studio templates are
+    -- only for held weapons so large custom models are never cloned across loot.
+    if anchor and templateWeapon(f, kind, cf, anchor) then return f end
     local weaponRoot
     local function piece(name, x,y,z, px,py,pz, color)
         local part = Cosmetics.part(f, name, Vector3.new(x,y,z), cf*CFrame.new(px,py,pz), color, weaponRoot)

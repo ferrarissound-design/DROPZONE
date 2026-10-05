@@ -16,6 +16,10 @@
       "TownTemplates": {
         "$className": "Folder",
         "$ignoreUnknownInstances": true
+      },
+      "WeaponModels": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true
       }
     },
     "StarterPlayer": {

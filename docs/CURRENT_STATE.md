@@ -1,8 +1,8 @@
 # 現在の実装状態
 
-- 調査日: 2026-10-04
+- 調査日: 2026-10-05
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `11f7ceb37e75c2b20b3ed9d399acff89238024df`（PR #20: AI開発ガイド整備）
+- 基準コミット: `43c87c6`（2026-10-05時点のorigin/main）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
 
@@ -31,7 +31,7 @@
 | モバイル入力/安全領域/負荷 | ソースとテストの模擬環境だけでは実機の描画・入力・FPSを保証できない | 実機で複数同時操作・連続試合・最大建築負荷を確認 |
 | カスタムAnimation | AnimationConfigのR6/R15 IDがすべて空。コントローラーはあるが専用Trackは設定されていない | NEXTで許可済みAssetを選び、未設定fallbackを維持 |
 | 足音/SlideLoop | AudioConfigのFootstep・SprintFootstep・SlideLoopは空。他の効果音には外部IDあり | 適切な単発/Loop素材とロード確認 |
-| BOT・武器の見た目 | 手続き生成の簡易Rig/Partベース。見た目品質と挙動の自然さはプレイ評価が必要 | 判定・性能を保って段階的に改善 |
+| BOT・武器の見た目 | 武器は任意のStudio保存WeaponModelsを利用でき、欠落時は手続き生成へfallback。BOT本体は簡易Rig | BOT外観と各端末での武器姿勢を段階的に改善 |
 | TownTemplates実物 | 対応コードあり。ただしStudio保存モデルは本リポジトリに含まれず、採用済みとは断言できない | Studio側で存在・Collision・経路を確認 |
 | バランス/初動 | PREPLAY_ANALYSISは理論値。武器感触、Zone死比率、初回進化までの時間は実測なし | 診断ログと実プレイで判断 |
 | 移動の不正検知 | 通常のRoblox character network ownership。完全な速度/teleport/aimbot検知なし | LATER。サーバー射撃検証は保持 |
@@ -49,8 +49,7 @@
 ## Rojo同期の確認
 
 default.project.jsonの全`$path`を調査: `src/shared`、`src/server`、`src/client`のみ。ルートAGENTS.mdとdocs/*.mdは全て対象外。
-今回の追加に設定変更は不要。TownTemplatesは`$ignoreUnknownInstances: true`でStudio側の未知の子を保持する。
-これは設定とパスに基づく静的確認。今回Studioへの実接続やRojo buildは行っていない。ゲームコード・同期設定は変更しない。
+TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances: true`とし、Studio保存モデルをRojo同期から保護する。ServerStorage全体には設定しない。
 
 ## 今回の確認結果（2026-10-01）
 
@@ -65,3 +64,10 @@ default.project.jsonの全`$path`を調査: `src/shared`、`src/server`、`src/c
 - 原因: 24個の開始候補が半径245の固定円周で、Townの配置とStudio保存TownTemplatesの最大50x34x50 footprintが交差し得る一方、開始前に建物占有を検査していなかった。
 - 修正: Worldが建物モデル全体のXZ footprint（余白4 studs）と実際の衝突物を検査し、塞がれた候補は外周近傍、空いた道路、外周再探索の順に安全位置へ補正する。スポーン間隔28 studsも維持する。
 - tests/run.pyに実装契約のソースガードを追加。Studio/Rojo接続・実機/複数試合の物理確認はこの環境では未実施で、TODO N0とQA_CHECKLISTに確認項目を追加した。
+
+## 肩越しAimと武器外観テンプレート（2026-10-05）
+
+- R15 Aimはカメラ水平向きへのRoot回転、Aim中のAutoRotate停止、左右IK、上半身補正、武器別Presentation offsetを使用する。Aim解除、Sprint/Slide、武器切替、死亡、ラウンド終了で復元する。R6はIKを作らず既存表示へfallbackする。
+- `ServerStorage/WeaponModels/{Pistol,Rifle,Shotgun}`が存在すれば、安全化した外観だけをHeldWeaponへ複製する。Script/Tool/Remote/Humanoid等は複製後にも除去し、全BasePartを非Collide/Touch/Query・Masslessにする。テンプレート欠落時は従来のPart生成を維持する。
+- Studio保存モデル: Classic pistol w slide（13916503156）、Assault Rifle (Rivals)（110214445805991）、rigged shotgun（10806289779）。3モデルとも銃床/グリップが肩側、Muzzleが前方になるよう外観方向を確認・反転済み。モデル実体はPlace側にありGitには含まれない。
+- Studio Soloで3武器の取得・切替・Aim開始/解除・各1発・Reload・死亡/respawnを確認。各武器でWeaponModel/PresentationJointが1個、Aim中は左右IK=1かつAutoRotate=false、解除後はIK=0かつAutoRotate=true、respawn後は旧HeldWeapon/IKなし。スマートフォン実機と複数人は未確認。
