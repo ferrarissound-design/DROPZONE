@@ -69,5 +69,5 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 
 - R15 Aimはカメラ水平向きへのRoot回転、Aim中のAutoRotate停止、左右IK、上半身補正、武器別Presentation offsetを使用する。Aim解除、Sprint/Slide、武器切替、死亡、ラウンド終了で復元する。R6はIKを作らず既存表示へfallbackする。
 - `ServerStorage/WeaponModels/{Pistol,Rifle,Shotgun}`が存在すれば、安全化した外観だけをHeldWeaponへ複製する。Script/Tool/Remote/Humanoid等は複製後にも除去し、全BasePartを非Collide/Touch/Query・Masslessにする。テンプレート欠落時は従来のPart生成を維持する。
-- Studio保存モデル: Classic pistol w slide（13916503156）、Assault Rifle (Rivals)（110214445805991）、rigged shotgun（10806289779）。Rifleは銃床が肩側、Muzzleが前方になるよう外観を反転済み。モデル実体はPlace側にありGitには含まれない。
+- Studio保存モデル: Classic pistol w slide（13916503156）、Assault Rifle (Rivals)（110214445805991）、rigged shotgun（10806289779）。3モデルとも銃床/グリップが肩側、Muzzleが前方になるよう外観方向を確認・反転済み。モデル実体はPlace側にありGitには含まれない。
 - Studio Soloで3武器の取得・切替・Aim開始/解除・各1発・Reload・死亡/respawnを確認。各武器でWeaponModel/PresentationJointが1個、Aim中は左右IK=1かつAutoRotate=false、解除後はIK=0かつAutoRotate=true、respawn後は旧HeldWeapon/IKなし。スマートフォン実機と複数人は未確認。
