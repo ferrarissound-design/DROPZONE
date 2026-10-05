@@ -31,12 +31,19 @@ local requests={}
 local action={FireServer=function(_,...) requests[#requests+1]={...} end}
 local snapshot,effectEvent=signal(),signal()
 local remotes={WaitForChild=function(_,name) return ({Action=action,Snapshot={OnClientEvent=snapshot},Effects={OnClientEvent=effectEvent}})[name] end}
-local input={InputBegan=signal(),InputEnded=signal(),WindowFocusReleased=signal(),JumpRequest=signal(),GetFocusedTextBox=function() return nil end,TouchEnabled=false}
-local run={RenderStepped=signal(),BindToRenderStep=function() end,UnbindFromRenderStep=function() end}
+local input={InputChanged=signal(),InputBegan=signal(),InputEnded=signal(),WindowFocusReleased=signal(),JumpRequest=signal(),GetFocusedTextBox=function() return nil end,TouchEnabled=false}
+local bindings={}
+local run={RenderStepped=signal(),BindToRenderStep=function(_,name,priority,fn) bindings[name]={priority=priority,fn=fn} end,UnbindFromRenderStep=function(_,name) bindings[name]=nil end}
+local renderEmit = run.RenderStepped.emit
+function run.RenderStepped:emit()
+    if bindings.DropzonePresentationBefore then bindings.DropzonePresentationBefore.fn() end
+    if bindings.DropzonePresentationAfter then bindings.DropzonePresentationAfter.fn(.016) end
+    renderEmit(self)
+end
 local root={Position=Vector3.new(0,0,0)}
 local humanoid={}
 local character={FindFirstChild=function() return root end,FindFirstChildOfClass=function() return humanoid end}
-local player={UserId=7,Character=character}
+local player={UserId=7,Character=character,CharacterRemoving=signal(),CharacterAdded=signal()}
 local theme={Orange={},Ink={},Blue={},Gold={},Cyan={},Paper={}}
 local hud={buttons={},draft={Visible=false},crosshair={AbsolutePosition=Vector2.new(435,225),AbsoluteSize=Vector2.new(30,30)},hitMarker={},notice={}}
 function hud:button(name,_,x,y,w,h,callback)
@@ -63,17 +70,22 @@ function numbers:show(records) if #records>0 then self.calls=self.calls+1 end en
 local muzzle=Vector3.new(2,3,-2)
 local presentation={audio={play=function() end},snapshot=function() end,step=function() end,undoCamera=function() end,destroy=function() end,damage=function() end}
 function presentation:shot() return muzzle end
-function presentation:cancelAim() self.aimHeld=false end
+function presentation:cancelAim() self.aimHeld=false; self.combatAimHeld=false end
 function presentation:setAimHeld(value) self.aimHeld=value end
-function presentation:setCombatAim() end
+function presentation:setCombatAim(value) self.combatAimHeld=value end
 function presentation:isAiming() return self.aimHeld end
 local weapons=assert(loadfile(ROOT.."/src/shared/Weapons.lua"))()
 local modules={Weapons=weapons,VisualTheme=theme,Hud={new=function() return hud end},Effects={new=function() return effects end},DamageFeedback={new=function() return numbers end},Presentation={new=function() return presentation end}}
+CFrame=assert(loadfile(ROOT.."/tests/aim_math.lua"))()(Vector3)
+math.clamp=function(x,a,b) return math.max(a,math.min(b,x)) end
+math.atan2=function(y,x) return math.atan(y,x) end
+modules.FireDrag=assert(loadfile(ROOT.."/src/client/FireDrag.lua"))()
+modules.PresentationConfig=assert(loadfile(ROOT.."/src/shared/PresentationConfig.lua"))()
 require=function(name) return assert(modules[name],name) end
 local shared={WaitForChild=function(_,name) return name end}
 local replicated={WaitForChild=function(_,name) return name=="DropzoneShared" and shared or remotes end}
 game={GetService=function(_,name) return ({Players={LocalPlayer=player},UserInputService=input,RunService=run,ReplicatedStorage=replicated})[name] end}
-script={Parent={Hud="Hud",Effects="Effects",DamageFeedback="DamageFeedback",Presentation="Presentation"},Destroying=signal()}
+script={Parent={Hud="Hud",Effects="Effects",DamageFeedback="DamageFeedback",Presentation="Presentation",FireDrag="FireDrag"},Destroying=signal()}
 local aimFilter
 workspace={CurrentCamera={CFrame={},ScreenPointToRay=function() return {Origin=Vector3.new(0,5,10),Direction=Vector3.new(0,0,-1)} end},Raycast=function(_,_,_,params) aimFilter=params.FilterDescendantsInstances end}
 assert(loadfile(ROOT.."/src/client/Main.client.lua"))()
@@ -301,3 +313,140 @@ for _,value in ipairs(invalid) do combat:fire(shooter,value) end
 check(shooter.ammo==28 and #events==0,"invalid aim payloads consume no ammo and cause no damage")
 print("PASS: "..count.." client/server assertions including numeric aim, recoil, cover, spread and tracer provenance")
 
+
+-- Execute the actual Fire GUI handlers + FireDrag math, with ordered render
+-- callbacks. These doubles cannot prove Roblox's touch sinking or occlusion.
+input.TouchEnabled=true
+state={roundId=9,phase="Active",me={alive=true,weapon="Rifle",ammo=28,reloading=false},zone={},targets={}}
+snapshot:emit(state)
+width,height,inset=900,480,0
+root.Position=Vector3.zero
+hud.crosshair.AbsolutePosition=Vector2.new(435,225)
+camera.CameraType="Custom"
+camera.Focus=CFrame.new(0,1.4,0)
+camera.CFrame=CFrame.lookAt(Vector3.new(0,1.4,10),camera.Focus.Position)
+workspace.Raycast=function() return nil end
+local function touch(x,y) return {UserInputType="Touch",UserInputState="Begin",Position=Vector3.new(x,y,0)} end
+local function move(t,x,y)
+    t.Position=Vector3.new(x,y,0);t.UserInputState="Change"
+    input.InputChanged:emit(t,true)
+end
+local function begin(t)
+    now=now+1;hud.buttons.Fire.InputBegan:emit(t)
+end
+local function frame()
+    now=now+weapons.Rifle.interval;run.RenderStepped:emit()
+end
+local t=touch(820,220)
+local n=#requests
+begin(t)
+check(#requests==n+1 and requests[#requests][2]=="Fire" and presentation.combatAimHeld,"Fire touch begins shooting and combat aim")
+check(hud.buttons.Fire.Active,"Fire GUI explicitly sinks its touch for standard CameraInput")
+local second=touch(820,220)
+hud.buttons.Fire.InputBegan:emit(second)
+move(second,500,500);input.InputEnded:emit(second)
+local original=camera.CFrame
+frame()
+check(camera.CFrame==original and #requests==n+2,"second touch cannot move camera, steal ownership or end firing")
+move(t,920,170)
+frame()
+local look=camera.CFrame.LookVector
+check(look.X>0 and look.Y>0,"right/up drag rotates camera right/up even outside Fire button")
+check(math.abs(math.asin(look.Y)-math.rad(9))<1e-6,"vertical sensitivity is degrees per pixel")
+check(math.abs((camera.CFrame.Position-camera.Focus.Position).Magnitude-10)<1e-6,"orbit preserves focus distance")
+check(#requests==n+3 and requests[#requests][3]:Dot(look)>.999,"drag continues Rifle firing using the new camera ray")
+local displayed=camera.CFrame
+frame();check(camera.CFrame==displayed,"input displacement is consumed once, with no idle drift")
+move(t,920,10000);frame()
+check(math.abs(camera.CFrame.LookVector.Y+math.sin(math.rad(80)))<1e-6,"extreme downward drag clamps pitch")
+move(t,920,9990);frame()
+check(camera.CFrame.LookVector.Y>-math.sin(math.rad(80)),"pitch clamp releases immediately on reverse drag")
+move(t,950,9990);input.InputEnded:emit(t)
+n=#requests;displayed=camera.CFrame;frame()
+check(#requests==n and camera.CFrame==displayed and not presentation.combatAimHeld,"release ends firing and discards queued rotation")
+move(t,1000,9990);frame();check(camera.CFrame==displayed,"released finger cannot revive drag")
+local screen=touch(500,200);input.InputBegan:emit(screen,false);move(screen,600,300);frame()
+check(#requests==n and camera.CFrame==displayed,"ordinary screen touch is left entirely to standard camera")
+for _,name in ipairs({"Reload","Sprint","Crouch","Build","Slot1"}) do
+    local other=touch(100,100)
+    hud.buttons[name].InputBegan:emit(other);move(other,200,200);frame()
+    check(#requests==n and camera.CFrame==displayed,name.." touch never starts FireDrag")
+end
+hud.draft.Visible=true;hud.draft.AbsolutePosition=Vector2.new(100,100);hud.draft.AbsoluteSize=Vector2.new(200,150)
+local draftTouch=touch(150,150)
+hud.buttons.Fire.InputBegan:emit(draftTouch);move(draftTouch,500,500);frame()
+check(#requests==n and camera.CFrame==displayed,"Draft-origin touch cannot pass through to Fire even if GUI event is delivered")
+t=touch(820,220);begin(t);move(t,800,210);frame()
+check(presentation.combatAimHeld and #requests==n+2,"open Draft does not interrupt a distinct Fire-origin touch")
+input.InputEnded:emit(t);hud.draft.Visible=false
+for _,event in ipairs({"focus","cancel","cancelWithoutMove","respawn","round","death","results"}) do
+    state.me.alive=true;state.phase="Active";snapshot:emit(state)
+    t=touch(820,220);begin(t);move(t,850,220)
+    if event=="focus" then input.WindowFocusReleased:emit()
+    elseif event=="cancel" then t.UserInputState="Cancel";input.InputChanged:emit(t,true)
+    elseif event=="cancelWithoutMove" then t.UserInputState="Cancel";bindings.DropzonePresentationBefore.fn()
+    elseif event=="respawn" then player.CharacterRemoving:emit(character);player.CharacterAdded:emit(character)
+    elseif event=="round" then state={roundId=state.roundId+1,phase="Active",me=state.me,zone={},targets={}};snapshot:emit(state)
+    elseif event=="death" then state.me.alive=false;snapshot:emit(state)
+    else state.phase="Results";snapshot:emit(state) end
+    n=#requests;displayed=camera.CFrame;move(t,900,200);frame()
+    check(#requests==n and camera.CFrame==displayed and not presentation.combatAimHeld,event.." clears held shooting and pending drag")
+    state.me.alive=true;state.phase="Active";snapshot:emit(state)
+    local fresh=touch(820,220);begin(fresh);move(fresh,830,220);frame()
+    check(#requests==n+2 and camera.CFrame~=displayed,event.." permits a fresh touch without stale ownership")
+    input.InputEnded:emit(fresh)
+end
+
+-- Verify render bracketing with real numeric recoil transforms (Presentation
+-- lifecycle/recovery remains covered by the existing visuals suite).
+camera.CFrame=CFrame.lookAt(Vector3.new(0,1.4,10),camera.Focus.Position)
+local recoil=CFrame.Angles(math.rad(3),math.rad(2),0)
+camera.CFrame=camera.CFrame*recoil
+presentation.applied=recoil
+local oldUndo,oldStep=presentation.undoCamera,presentation.step
+function presentation:undoCamera()
+    if self.applied then camera.CFrame=camera.CFrame*self.applied:Inverse();self.applied=nil end
+end
+function presentation:step() self.applied=recoil;camera.CFrame=camera.CFrame*recoil end
+t=touch(820,220);begin(t);move(t,920,220);frame()
+local expected=CFrame.lookAt(camera.Focus.Position-Vector3.new(math.sin(math.rad(18)),0,-math.cos(math.rad(18)))*10,
+    camera.Focus.Position)*recoil
+check(near(camera.CFrame.LookVector,expected.LookVector),"old recoil is undone before drag; recoil is applied once afterwards")
+displayed=camera.CFrame;frame()
+check(near(camera.CFrame.LookVector,displayed.LookVector),"repeated frames do not accumulate recoil into drag")
+input.InputEnded:emit(t);presentation:undoCamera()
+presentation.undoCamera,presentation.step=oldUndo,oldStep
+check(bindings.DropzonePresentationBefore.priority<100 and bindings.DropzonePresentationAfter.priority>100,"drag and recoil bracket standard camera priority")
+
+-- Existing aim assistance follows the rotated ray; visible candidates within the
+-- cone are assisted, occluded/out-of-cone/out-of-range candidates are not.
+camera.CFrame=CFrame.lookAt(Vector3.new(0,1.4,10),camera.Focus.Position)
+t=touch(820,220);begin(t);move(t,920,220);frame()
+input.InputEnded:emit(t)
+local ray=camera:ScreenPointToRay(450,240)
+local assisted=ray.Origin+ray.Direction*80+camera.CFrame.RightVector*3
+local model={FindFirstChild=function() return {Position=assisted-Vector3.new(0,.8,0)} end}
+state.targets={{model=model}}
+local block={IsDescendantOf=function() return false end}
+workspace.Raycast=function() return nil end
+local assistedDirection=clientFire()
+check(near(assistedDirection,(assisted-root.Position-Vector3.new(0,1.4,0)).Unit),"existing 5-degree Aim Assist works with dragged camera")
+workspace.Raycast=function(_,origin,delta)
+    -- Aim trace length 300; candidate LOS length approximately 80.
+    if delta.Magnitude<180 then return {Instance=block,Position=origin+delta*.5} end
+end
+local blockedDirection=clientFire()
+check(not near(blockedDirection,assistedDirection) and near(blockedDirection,ray.Direction),"wall occludes Aim Assist after FireDrag")
+workspace.Raycast=function() return nil end
+for _,position in ipairs({ray.Origin+ray.Direction*80+camera.CFrame.RightVector*20,ray.Origin+ray.Direction*200+camera.CFrame.RightVector*3}) do
+    model.FindFirstChild=function() return {Position=position-Vector3.new(0,.8,0)} end
+    check(near(clientFire(),ray.Direction),"existing assist cone and max distance remain enforced")
+end
+state.targets={};input.TouchEnabled=false
+camera.CameraType="Scriptable";t=touch(820,220);begin(t);move(t,920,220)
+displayed=camera.CFrame;frame();check(camera.CFrame==displayed,"FireDrag does not rotate a Scriptable camera")
+input.InputEnded:emit(t)
+camera.CameraType="Custom"
+script.Destroying:emit()
+check(next(bindings)==nil and not presentation.combatAimHeld,"script cleanup unbinds both camera callbacks and clears Fire touch")
+print("PASS: "..count.." client/server assertions including FireDrag ownership, camera math, lifecycle, UI and Aim Assist")

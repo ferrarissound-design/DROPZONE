@@ -8,6 +8,8 @@ local Hud = require(script.Parent.Hud)
 local Effects = require(script.Parent.Effects)
 local DamageFeedback = require(script.Parent.DamageFeedback)
 local Presentation = require(script.Parent.Presentation)
+local FireDrag = require(script.Parent.FireDrag)
+local fireDrag = FireDrag.new(require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("PresentationConfig")))
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("DropzoneRemotes")
 local action = remotes:WaitForChild("Action")
@@ -16,7 +18,6 @@ local damageFeedback = DamageFeedback.new(effects.folder)
 local presentation = Presentation.new(effects.folder, player)
 local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall", 1
 local submittedEvolutionDraft
-local touchFire = nil
 local nextJumpRequest = 0
 local playing, send, aim
 local function tryShoot()
@@ -38,16 +39,36 @@ end
 local function cancelAim()
     presentation:cancelAim()
 end
+local function stopFireTouch()
+    if fireDrag.input then
+        shooting = false
+        fireDrag:clear()
+        presentation:setCombatAim(false)
+    end
+end
+player.CharacterRemoving:Connect(function() stopFireTouch(); cancelAim() end)
+player.CharacterAdded:Connect(function() stopFireTouch(); cancelAim() end)
 local function build()
     cancelAim()
     send("Build", buildType)
 end
+local function mouseOnEvolutionPanel(input)
+    if not hud.draft.Visible then return false end
+    local position = input.Position
+    local origin, size = hud.draft.AbsolutePosition, hud.draft.AbsoluteSize
+    return position.X >= origin.X and position.X <= origin.X + size.X
+        and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
+end
 local fire = hud:button("Fire", "射撃", 784, 190, 82, 82)
 fire.BackgroundColor3, fire.TextColor3 = Theme.Orange, Theme.Ink
+-- Active sinks this touch for Roblox CameraInput, including after it leaves the
+-- button. Otherwise the standard camera and FireDrag could both rotate it.
+fire.Active = true
 fire.InputBegan:Connect(function(input)
-    if not playing() then return end
+    if not playing() or mouseOnEvolutionPanel(input) then return end
     if input.UserInputType == Enum.UserInputType.Touch then
-        touchFire, shooting = input, true
+        if not fireDrag:begin(input) then return end
+        shooting = true
         presentation:setCombatAim(true)
         if state and state.me and state.me.sprinting then send("Sprint", false) end
         tryShoot()
@@ -55,6 +76,13 @@ fire.InputBegan:Connect(function(input)
         shooting = true
         tryShoot()
     end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input ~= fireDrag.input then return end
+    if input.UserInputState == Enum.UserInputState.Cancel then stopFireTouch(); return end
+    if not playing() then stopFireTouch(); return end
+    -- Intentionally accept processed input: our captured Fire GUI touch is sunk.
+    fireDrag:move(input)
 end)
 hud:button("Reload", "装填 R", 680, 275, 88, 56, function() send("Reload") end)
 hud:button("Build", "建築 Q", 680, 205, 88, 60, build)
@@ -78,13 +106,6 @@ for i = 1, 3 do hud:button("Slot" .. i, tostring(i), 279 + (i - 1) * 116, 418, 1
 hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, function() spectateIndex = spectateIndex + 1 end)
 for name, button in pairs(hud.buttons) do
     if name ~= "Fire" then button.Activated:Connect(function() presentation.audio:play("Button") end) end
-end
-local function mouseOnEvolutionPanel(input)
-    if not hud.draft.Visible then return false end
-    local position = input.Position
-    local origin, size = hud.draft.AbsolutePosition, hud.draft.AbsoluteSize
-    return position.X >= origin.X and position.X <= origin.X + size.X
-        and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
 end
 UserInputService.InputBegan:Connect(function(input, processed)
     if input.KeyCode == Enum.KeyCode.Tab then
@@ -120,15 +141,13 @@ UserInputService.InputBegan:Connect(function(input, processed)
 end)
 UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then send("Sprint", false) end
-    if input == touchFire then
-        shooting, touchFire = false, nil
-        presentation:setCombatAim(false)
-    end
+    if input == fireDrag.input then stopFireTouch() end
     if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = false end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then presentation:setAimHeld(false) end
 end)
 UserInputService.WindowFocusReleased:Connect(function()
-    shooting, touchFire = false, nil
+    stopFireTouch()
+    shooting = false
     cancelAim()
     send("Sprint", false)
 end)
@@ -181,7 +200,8 @@ aim = function()
 end
 remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     if not state or state.roundId ~= s.roundId then
-        shooting, touchFire, nextShot, spectateIndex = false, nil, 0, 1
+        stopFireTouch()
+        shooting, nextShot, spectateIndex = false, 0, 1
         submittedEvolutionDraft = nil
         nextJumpRequest = 0
         cancelAim()
@@ -196,7 +216,8 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     state = s
     presentation:snapshot(s)
     if not playing() then
-        shooting, touchFire = false, nil
+        stopFireTouch()
+        shooting = false
         cancelAim()
     end
     if s.phase ~= "Active" and s.phase ~= "FinalZone" then
@@ -270,9 +291,17 @@ remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, sh
     end
 end)
 -- Camera transforms are bracketed around Roblox's camera update, never accumulated.
-RunService:BindToRenderStep("DropzonePresentationBefore", Enum.RenderPriority.Camera.Value-1, function() presentation:undoCamera() end)
-RunService:BindToRenderStep("DropzonePresentationAfter", Enum.RenderPriority.Camera.Value+1, function(dt) presentation:step(math.min(dt,.1)) end)
+RunService:BindToRenderStep("DropzonePresentationBefore", Enum.RenderPriority.Camera.Value-1, function()
+    presentation:undoCamera()
+    if fireDrag.input and fireDrag.input.UserInputState == Enum.UserInputState.Cancel then stopFireTouch() end
+    if playing() then fireDrag:apply(workspace.CurrentCamera) else stopFireTouch() end
+end)
+RunService:BindToRenderStep("DropzonePresentationAfter", Enum.RenderPriority.Camera.Value+1, function(dt)
+    presentation:step(math.min(dt,.1))
+    if shooting and playing() then tryShoot() end
+end)
 script.Destroying:Connect(function()
+    stopFireTouch()
     RunService:UnbindFromRenderStep("DropzonePresentationBefore")
     RunService:UnbindFromRenderStep("DropzonePresentationAfter")
     presentation:destroy()
@@ -296,6 +325,4 @@ RunService.RenderStepped:Connect(function()
     if playing() and presentation.aimHeld and not draftOpen and not UserInputService.TouchEnabled and not UserInputService:GetFocusedTextBox() then
         UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
     else UserInputService.MouseBehavior = Enum.MouseBehavior.Default end
-    if shooting and playing() then tryShoot() end
 end)
-

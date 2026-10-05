@@ -24,6 +24,9 @@ return function(Vector3)
             a:VectorToWorldSpace(b.UpVector),a:VectorToWorldSpace(b.BackVector))
     end
     local CFrame={}
+    function CFrame.new(x,y,z)
+        return make(Vector3.new(x or 0,y or 0,z or 0),Vector3.new(1,0,0),Vector3.new(0,1,0),Vector3.new(0,0,1))
+    end
     function CFrame.lookAt(p,target)
         local back=(p-target).Unit
         local up=math.abs(back.Y)>.9999 and Vector3.new(0,0,1) or Vector3.new(0,1,0)

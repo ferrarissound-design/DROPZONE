@@ -46,6 +46,11 @@ else:
 for path in sorted((ROOT / 'src').rglob('*.lua')):
     run(path.read_text(encoding='utf-8'), str(path.relative_to(ROOT)))
 print('PASS: syntax of all Lua modules (Lua 5.4 compatible subset)')
+# Targeted client regressions can run independently of unrelated engine doubles.
+if "--client-only" in sys.argv:
+    run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/client.lua').read_text(encoding='utf-8'), 'client.lua', True)
+    print('PASS: targeted client regressions (Roblox engine validation remains separate)')
+    sys.exit(0)
 source = (ROOT / 'tests' / 'regression.lua').read_text(encoding='utf-8')
 source = 'ROOT = ' + repr(ROOT.as_posix()) + '\n' + source
 run(source, 'regression.lua', True)
