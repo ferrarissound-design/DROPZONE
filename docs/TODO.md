@@ -14,14 +14,15 @@
 
 - [ ] N4 — Fireボタンドラッグ照準のStudio/スマートフォン回帰確認。
   - 対象: Main.client.lua、FireDrag.lua、PresentationConfig、[MOBILE_FIRE_DRAG_QA](MOBILE_FIRE_DRAG_QA.md)。
-  - 実装: improve-mobile-fire-drag-aimingブランチのPR差分参照。client-onlyは249 assertions PASS、preplay PASS。全体tests/run.pyは基準main由来の未登録PresentationConfigでFAIL。
+  - 実装: PR #23参照。client-onlyは249 assertions PASS、preplay PASS。PR #23時点の全体tests/run.pyは基準main由来の模擬環境不足でFAILだったが、fix/connect-round-safe-spawnsでテスト環境を補完し全体PASSを確認。
   - 完了条件: 実機でFire開始→ドラッグ→連射→離して停止、二重回転なし、移動+Jump/UIとの同時操作、反動/肩寄せ/Aim Assist/遮蔽、死亡/respawn/連続3試合とPC回帰。機種・感度・結果を記録。実機未確認のためチェックは残す。
 
 
 - [ ] N0 — 開始スポーンの建物めり込み修正をStudioで回帰確認。
-  - 対象: server/World.lua、QAのSpectate / ラウンド / Multiplayer。
-  - 修正: 建物モデルのXZ footprintと実衝突物を避け、塞がれた外周スポーンは近傍→道路→外周再探索で安全位置へ補正する。
-  - 完了条件: Soloを含む複数試合で開始直後に建物/壁/Tree/Coverへめり込まず移動でき、BOTも同じ安全スポーン群から開始する。Studio未確認のためチェックは残す。
+  - 対象: server/Round.lua、World.lua、tests/spawns.lua、QAのSpectate / ラウンド / Multiplayer。
+  - 修正: fix/connect-round-safe-spawnsブランチで人間/BOTの配置直前にresolverを接続、共通28 studs予約、島内探索、BOT補充削減/人間次戦待ち、遅延読込除外。PR #21は生成時のみresolver使用で、開始時の再検査が欠けていた。
+  - オフライン: tests/run.py・preplay_analysis PASS。人間/BOTの呼び出しを個別に外すmutationでテストが失敗することも確認。詳細と基準SHAはCURRENT_STATE。
+  - 完了条件: Solo/複数人で連続3試合、TownTemplates/Warehouse/Collision/Tree/Coverへのめり込みなし・即移動可能・全組合せ28 studs間隔・候補不足/塞がれた候補/読込遅延/結果→次戦の復旧を確認。Studio未確認のためチェックは残す。
 - [ ] N1 — PC HUD / Draft / Spectateの回帰確認。
   - 対象: client/Hud.lua、Main.client.lua、Presentation.lua、HUD_PLAYTEST。
   - 手順: 既存オフライン2コマンド、QAのUI/Evolution/Spectate/ラウンド。PCの小窓・通常・ultrawideを確認する。

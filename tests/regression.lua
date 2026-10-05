@@ -29,7 +29,7 @@ Random = {new = function() return {NextNumber = function(_,a,b) return (a+b)/2 e
 Color3 = {fromRGB = function(...) return {...} end, fromHSV = function(...) return {...} end}
 local fakeCF
 fakeCF = setmetatable({}, {__mul=function() return fakeCF end})
-CFrame = {new=function() return fakeCF end}
+CFrame = {new=function() return fakeCF end, Angles=function() return fakeCF end}
 Enum = {Material={Neon="Neon",Air="Air"}}
 Instance = {new=function(kind)
     local value = {ClassName=kind, children={}}
@@ -41,13 +41,14 @@ end}
 local delayed = {}
 task = {delay = function(_, f) table.insert(delayed,f) end, defer = function(f) f() end}
 local players = {GetPlayers = function() return {} end}
-game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons", VisualTheme="VisualTheme", WeaponStats="WeaponStats"}}, GetService=function(_, name) if name=="Players" then return players end end}
+game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons", VisualTheme="VisualTheme", WeaponStats="WeaponStats", PresentationConfig="PresentationConfig"}}, GetService=function(_, name) if name=="Players" then return players end; if name=="ServerStorage" then return {FindFirstChild=function() return nil end} end end}
 script = {Parent = {World="World", Actors="Actors", Evolution="Evolution", Movement="Movement", Cosmetics="Cosmetics", MapVisuals="MapVisuals", Town="Town"}}
 local Config = load("Config", "shared/Config.lua")
 local Rules = load("Rules", "shared/Rules.lua")
 load("Weapons", "shared/Weapons.lua")
 load("VisualTheme", "shared/VisualTheme.lua")
 local WeaponStats = load("WeaponStats", "shared/WeaponStats.lua")
+load("PresentationConfig", "shared/PresentationConfig.lua")
 load("Cosmetics", "server/Cosmetics.lua")
 load("MapVisuals", "server/MapVisuals.lua")
 local Town = load("Town", "server/Town.lua")

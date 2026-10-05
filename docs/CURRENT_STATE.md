@@ -2,7 +2,7 @@
 
 - 調査日: 2026-10-05
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `4ca51bba259e444f22b3a43b3c1f504ebcd17f7e`（2026-10-05に調査したorigin/main、PR #22反映済み）
+- 基準コミット: `6da98121c5f0d09afaa373f7b9529b738bda9031`（2026-10-05に調査したorigin/main、PR #23反映済み）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
 
@@ -81,3 +81,15 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - `python3 tests/run.py --client-only`: PASS、全src Lua構文検査と249 client/server assertions（47追加）。`python3 tests/preplay_analysis.py`: PASS。
 - `python3 tests/run.py`: FAIL。未変更の基準mainでも同じ`regression.lua:15 nativeRequire(nil)`を再現。Cosmeticsが参照するPresentationConfigが既存regression doubleに登録されていない。今回の変更による失敗ではないが、全体テスト成功とは扱わない。関連clientを独立実行するオプションを追加した。
 - 詳細な操作、懸念、未実施項目: [MOBILE_FIRE_DRAG_QA](MOBILE_FIRE_DRAG_QA.md)。Studio/スマートフォン/複数人実プレイは未実施。
+
+## Round開始処理への安全スポーン接続（2026-10-05）
+
+- 履歴確認: PR #21の実装コミット`9e717b1`はWorld.luaのみ変更し、マージ`43c87c6`から基準mainまでRound.lua/World.luaへの後続変更はない。Round:startは人間/BOTともWorld.groundで配置し、BOTは位置不足時に未検査のself.world.spawns[i]へ戻っていた。
+- ただしPR #21はWorld.createでresolveSpawnを実際に呼び、候補群を生成時に安全補正していた。「resolverが完全に未使用だった」は不正確。固定マップならその補正は有効だが、配置直前の再検査、候補不足、BOT fallbackには穴が残っていた。今回の実プレイ再発がこの穴だけによるかは、Studio実物と物理の確認が必要。
+- Round:startが人間/BOTともresolveSpawnを配置直前に呼ぶ。シャッフルした候補を優先し、非yieldの共通予約で全組合せのXZ間隔28 studsを維持。返された配置座標をそのままPivotToへ渡し、速度をクリアする。
+- Worldの既存近傍→道路→外周探索の後に有界の島内グリッドを追加。実際の地面Raycast命中が必要で、重なり検査はCanCollide基準・件数打切りなし。建物footprint/衝突/間隔チェックをfallbackにも適用する。
+- 候補がゼロ/不足でも安全探索を継続。BOT用安全位置不足は補充を減らして開始。人間用位置がない場合はActor登録せずLobbyで次戦待ち。全員失敗ならstartはfalseで終わり、既存runのreset→次戦へ進む。アバター読込期限後のcallbackはBOT予約を消費せず、新しいroundへ登録しない。
+- ServerStorage/WeaponModels・TownTemplates・default.project.json・建物生成/モデル/Studio保存Assetは変更しない。
+- `python3 tests/run.py`: PASS（spawn 9710、gameplay 938、visual 810、client/server 249 assertionsと既存source guards）。`python3 tests/preplay_analysis.py`: PASS。人間/BOTのresolver呼び出しを個別にgroundへ置換するmutation確認は両方FAILを検出（元に復元済み）。`git diff --check`: PASS。
+- 既存全体ランナーの基準main由来の模擬環境不足も補完: PresentationConfig、ServerStorage、PreSimulation、CFrame/Vectorの必要プロパティ。ゲーム側のPresentation/Cosmeticsは変更なし。
+- Studio/Rojo/スマートフォン/複数人/連続3試合の物理検証は未実施。TODO N0とQA_CHECKLISTのスポーン確認項目は未完了のまま。

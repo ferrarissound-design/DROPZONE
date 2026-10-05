@@ -4,16 +4,26 @@ local function check(value,message) assert(value,message); assertions=assertions
 local modules={}
 require=function(key) assert(modules[key],"unloaded module "..tostring(key)); return modules[key] end
 local function load(name,path) modules[name]=assert(loadfile(ROOT.."/src/"..path))(); return modules[name] end
-local vec={}; vec.__index=vec
+local vec={}; vec.__index=function(v,k)
+    if k=="Magnitude" then return math.sqrt(v.X*v.X+v.Y*v.Y+v.Z*v.Z) end
+    if k=="Unit" then return v/v.Magnitude end
+    return vec[k]
+end
 function vec:Lerp(other,t) return self+(other-self)*t end
 vec.__add=function(a,b) return Vector3.new(a.X+b.X,a.Y+b.Y,a.Z+b.Z) end
 vec.__sub=function(a,b) return Vector3.new(a.X-b.X,a.Y-b.Y,a.Z-b.Z) end
 vec.__mul=function(a,b) return Vector3.new(a.X*b,a.Y*b,a.Z*b) end
+vec.__div=function(a,b) return Vector3.new(a.X/b,a.Y/b,a.Z/b) end
 Vector3={new=function(x,y,z) return setmetatable({X=x,Y=y,Z=z},vec) end}
 local cf={}; cf.__index=cf
 cf.__mul=function(a) return a end
 function cf:ToObjectSpace() return self end
-CFrame={new=function() return setmetatable({},cf) end,Angles=function() return setmetatable({},cf) end}
+function cf:Lerp() return self end
+CFrame={new=function(x,y,z)
+    local position=type(x)=="table" and x or Vector3.new(x or 0,y or 0,z or 0)
+    return setmetatable({Position=position,LookVector=Vector3.new(0,0,-1)},cf)
+end,Angles=function() return CFrame.new() end}
+CFrame.lookAt=function() return CFrame.new() end
 Color3={fromRGB=function(r,g,b) return {r=r,g=g,b=b,Color3=true} end,new=function(r,g,b) return {r=r,g=g,b=b,Color3=true} end}
 Enum=setmetatable({}, {__index=function(t,k)
     local values=setmetatable({}, {__index=function(_,v) return v end});rawset(t,k,values);return values
@@ -50,7 +60,7 @@ function methods:Destroy() self:ClearAllChildren();self.Parent=nil;self._destroy
 function methods:ClearAllChildren() for _,child in ipairs(self:GetChildren()) do child:Destroy() end end
 local propertiesOf={}
 Instance={new=function(kind)
-    local properties={ClassName=kind,Name=kind,Size=Vector3.new(1,1,1),CFrame=CFrame.new(),AbsoluteSize=Vector2.new(900,480),Activated=signal(),InputBegan=signal()}
+    local properties={ClassName=kind,Name=kind,Size=Vector3.new(1,1,1),Position=Vector3.new(0,0,0),CFrame=CFrame.new(),AbsoluteSize=Vector2.new(900,480),Activated=signal(),InputBegan=signal()}
     local obj={_children={}}
     propertiesOf[obj]=properties
     return setmetatable(obj,{
@@ -75,12 +85,13 @@ end
 local playerGui=folder(nil,"PlayerGui")
 local player={WaitForChild=function() return playerGui end}
 local tweens={Create=function(_,_,_,_) return {Play=function() end,Cancel=function() end} end}
-game={ReplicatedStorage={DropzoneShared={VisualTheme="VisualTheme",Rules="Rules",Config="Config",Weapons="Weapons",WeaponStats="WeaponStats"}},GetService=function(_,name)
-    return ({Players={LocalPlayer=player},TweenService=tweens,ReplicatedStorage=replicated,ServerStorage=folder(nil,"ServerStorage")})[name]
+game={ReplicatedStorage={DropzoneShared={VisualTheme="VisualTheme",Rules="Rules",Config="Config",Weapons="Weapons",WeaponStats="WeaponStats",PresentationConfig="PresentationConfig"}},GetService=function(_,name)
+    return ({Players={LocalPlayer=player},TweenService=tweens,ReplicatedStorage=replicated,ServerStorage=folder(nil,"ServerStorage"),RunService={PreSimulation=signal()}})[name]
 end}
 script={Parent={Cosmetics="Cosmetics",MapVisuals="MapVisuals",Movement="Movement",Town="Town"}}
 local Theme=load("VisualTheme","shared/VisualTheme.lua")
 load("Config","shared/Config.lua");load("Rules","shared/Rules.lua");load("Weapons","shared/Weapons.lua");load("WeaponStats","shared/WeaponStats.lua")
+load("PresentationConfig","shared/PresentationConfig.lua")
 for _,key in ipairs(shared:GetChildren()) do modules[key]=modules[key.Name] end
 local Cosmetics=load("Cosmetics","server/Cosmetics.lua")
 local MapVisuals=load("MapVisuals","server/MapVisuals.lua")
@@ -201,7 +212,6 @@ end
 script.Parent.World="World";script.Parent.Evolution="Evolution"
 modules.Evolution={maxEnergy=function() return 150 end,total=function() return 0 end}
 local Loot=load("Loot","server/Loot.lua")
-vec.__index=function(a,k) if k=="Magnitude" then return math.sqrt(a.X*a.X+a.Y*a.Y+a.Z*a.Z) end;return vec[k] end
 local lootWorld={dynamic=folder(workspace,"LootRound"),groundSurfaces={},loot={},spawns={}}
 local rewards=0
 local loot=Loot.new(lootWorld,{give=function(_,a,kind,rarity) rewards=rewards+1;a.received=rarity;return true end},{FireClient=function() end})

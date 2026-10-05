@@ -92,6 +92,17 @@ function Round:start()
     local spawnIndices = {}
     for i = 1, #self.world.spawns do spawnIndices[i] = i end
     for i = #spawnIndices, 2, -1 do local j = math.random(i); spawnIndices[i], spawnIndices[j] = spawnIndices[j], spawnIndices[i] end
+    -- Share reservations across asynchronous avatar loads AND BOT placement.
+    -- Resolve -> register -> reserve -> PivotTo below never yields.
+    local occupied, acceptingLoads = {}, true
+    local function preferredSpawn(slot)
+        if #spawnIndices > 0 then
+            return self.world.spawns[spawnIndices[(slot - 1) % #spawnIndices + 1]]
+        end
+        -- Even an empty generated pool can recover via the resolver's scans.
+        local angle = (slot - 1) * math.pi * 2 / 24
+        return Vector3.new(math.cos(angle) * 245, 4, math.sin(angle) * 245)
+    end
     local pending = 0
     for i, player in ipairs(roster) do
         if i <= Config.MaxPlayers then
@@ -105,13 +116,22 @@ function Round:start()
                 local ok = pcall(function() player:LoadCharacterAsync() end)
                 self.loading[player] = nil
                 if ok and player.Parent and player.Character then
-                    if self.id == id and self.phase == "Starting" then
-                        local a = self.actors:add(player.Character, player, player.UserId)
+                    if acceptingLoads and self.id == id and self.phase == "Starting" then
+                        local position = World.resolveSpawn(self.world, preferredSpawn(i), occupied)
+                        local a = position and self.actors:add(player.Character, player, player.UserId)
                         if a then
                             a.roundId = id
-                            local ground = World.ground(self.world, self.world.spawns[spawnIndices[i]])
-                            a.model:PivotTo(CFrame.new(ground + Vector3.new(0, 4, 0)))
+                            table.insert(occupied, position)
                             a.root.Anchored = true
+                            a.model:PivotTo(CFrame.new(position))
+                            a.root.AssemblyLinearVelocity, a.root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
+                        else
+                            -- Never register a combatant at an unchecked/blocked point.
+                            player.Character:PivotTo(self.world.lobby)
+                            local root = player.Character:FindFirstChild("HumanoidRootPart")
+                            if root then root.Anchored = false end
+                            warn(string.format("[DROPZONE] safe spawn unavailable for %s; waiting for next round", player.Name))
+                            self.effects:FireClient(player, "Notice", id, "安全な開始位置がないため、次の試合を待ちます")
                         end
                     elseif not self.actors.byPlayer[player] then player.Character:PivotTo(self.world.lobby) end
                 end
@@ -121,23 +141,26 @@ function Round:start()
     end
     local deadline = os.clock() + 15
     while pending > 0 and os.clock() < deadline do task.wait(0.1) end
+    acceptingLoads = false -- late loads cannot consume BOT reservations after the deadline
+    if self.id ~= id or self.phase ~= "Starting" then return false end
     local humans = #self.actors:alive()
+    -- run() resets/retries if no human can safely enroll; Starting never hangs.
     if humans == 0 then return false end
-    local occupied = {}
-    for _, a in ipairs(self.actors.list) do table.insert(occupied, a.root.Position) end
     for i = 1, Rules.botCount(humans, Config.TargetCombatants) do
-        local choice
-        for _, index in ipairs(spawnIndices) do
-            local candidate, valid = self.world.spawns[index], true
-            for _, p in ipairs(occupied) do if (candidate - p).Magnitude < 25 then valid = false; break end end
-            if valid then choice = candidate; break end
+        local position = World.resolveSpawn(self.world, preferredSpawn(#roster + i), occupied)
+        if not position then
+            warn("[DROPZONE] safe spawn pool exhausted; starting with fewer BOTs")
+            break -- keep the human round playable; never force a blocked BOT spawn
         end
-        choice = choice or self.world.spawns[i]
-        table.insert(occupied, choice)
         local model = Actors.botModel(self.world.dynamic, i)
-        model:PivotTo(CFrame.new(World.ground(self.world, choice) + Vector3.new(0, 4, 0)))
+        model:PivotTo(CFrame.new(position))
         local a = self.actors:add(model, nil, -i)
-        if a then a.roundId = id; self.combat:give(a, "Pistol") end
+        if a then
+            table.insert(occupied, position)
+            a.roundId, a.root.Anchored = id, true
+            a.root.AssemblyLinearVelocity, a.root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
+            self.combat:give(a, "Pistol")
+        else model:Destroy() end
     end
     self.phase, self.started = "Active", os.clock()
     for _, a in ipairs(self.actors.list) do a.startTime, a.root.Anchored = self.started, false end

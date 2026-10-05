@@ -9,6 +9,8 @@
 | 基準SHA/PR | 日付 | 環境/機種/解像度 | 人数/試合数 | 項目 | PASS/FAIL/未確認 | 再現手順/ログ |
 | --- | --- | --- | --- | --- | --- | --- |
 | 記入 | 記入 | 記入 | 記入 | 記入 | 未確認 | 記入 |
+| main 6da9812 / fix/connect-round-safe-spawns | 2026-10-05 | Linux / Lua 5.4 engine doubles | 模擬Solo/BOT11/20人/遅延 | run.py・preplay・人間/BOT bypass mutation | PASS | spawn 9710、gameplay 938、visual 810、client 249 assertions。呼出しを外すと失敗 |
+| main 6da9812 / fix/connect-round-safe-spawns | 2026-10-05 | Studio / スマートフォン | 連続3試合 / 2人以上 | 保存モデルでの物理と結果→次戦 | 未確認 | 以下の安全スポーン確認手順を実施する |
 
 オフラインPASSとStudio/実機PASSは別に記録する。失敗はTODOへ再現条件付きで追加する。
 
@@ -72,6 +74,9 @@
 - [ ] テキスト入力中Tabは観戦を奪わない。対象死亡/退出で次の対象へ、対象ゼロでもエラーなし。
 - [ ] Waiting→Intermission→Starting→Active→FinalZone→Results→Resetting→次戦を完走。
 - [ ] 開始スポーンを複数試合確認し、Town/Warehouse等の建物内部・壁・Tree/Coverへめり込まず、開始直後に移動できる。
+- [ ] Studio保存TownTemplates/WeaponModelsを保持したままコード同期し、Soloと2人以上で連続3試合。Townの空洞内部・回転建物・Warehouse・Collision Part・Tree/Coverを避け、人間/BOT全組合せのXZ距離が28 studs以上で開始する。
+- [ ] 隔離したテスト用Placeで生成済み候補を一部塞ぎ、開始直前の再探索を確認。候補数をゼロ/人数未満にしても未検査位置へ戻らず、島内探索で開始する。試験用の変更は本番に残さない。
+- [ ] 隔離Placeで安全位置を尽くした場合、BOT不足は減員開始、人間不足はLobby待機、全員不足はreset→次戦へ進む。障害を除いた後に復旧し、読込15秒超の人間がBOT開始位置/次戦Actorへ遅れて登録されない。
 - [ ] アバター読込失敗/遅延、手動Reset、途中退出/参加、全員退出で進行が詰まらない。
 - [ ] 結果の勝者/順位/キル/ダメージ/生存時間/進化構成と診断ログが一致。
 - [ ] 2人以上の同一サーバーで相互命中/建築/同時Loot/撃破/Draft/観戦を確認。

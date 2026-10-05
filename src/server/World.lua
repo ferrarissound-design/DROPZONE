@@ -58,7 +58,9 @@ function World.spawnClear(self, ground)
     local params = OverlapParams.new()
     params.FilterType = Enum.RaycastFilterType.Include
     params.FilterDescendantsInstances = {self.map}
-    params.MaxParts = 32
+    -- Do not truncate before finding a collider among template decorations.
+    params.MaxParts = 0
+    params.RespectCanCollide = true
     local center = ground + Vector3.new(0, 4, 0)
     for _, hit in ipairs(workspace:GetPartBoundsInBox(CFrame.new(center), SPAWN_CLEARANCE, params)) do
         if hit.CanCollide and not isGroundSurface(self, hit) then return false end
@@ -76,8 +78,8 @@ end
 
 local function trySpawn(self, candidate, existing)
     if math.abs(candidate.X) > SPAWN_LIMIT or math.abs(candidate.Z) > SPAWN_LIMIT then return nil end
-    local ground = World.ground(self, candidate)
-    if World.spawnClear(self, ground) and separated(existing, ground) then
+    local ground, supported = World.ground(self, candidate)
+    if supported and separated(existing, ground) and World.spawnClear(self, ground) then
         return ground + Vector3.new(0, 4, 0)
     end
     return nil
@@ -114,6 +116,17 @@ function World.resolveSpawn(self, preferred, existing)
             local angle = step * math.pi * 2 / 72
             local resolved = trySpawn(self, Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius), existing)
             if resolved then return resolved end
+        end
+    end
+    -- A crowded/custom rim need not prevent a round: search the remaining
+    -- walkable island, retaining every collision and separation check.
+    for x = -240, 240, 16 do
+        for z = -240, 240, 16 do
+            local candidate = Vector3.new(x, 0, z)
+            if candidate.Magnitude <= SPAWN_LIMIT then
+                local resolved = trySpawn(self, candidate, existing)
+                if resolved then return resolved end
+            end
         end
     end
     return nil
@@ -200,6 +213,8 @@ function World.create()
     return self
 end
 function World.ground(self, position)
+    -- Existing callers keep the projected/fallback position; the second result
+    -- lets spawn validation require a real supporting surface instead of Y=0.
     local surfaces = self.groundSurfaces
     if not surfaces or #surfaces == 0 then return Vector3.new(position.X, 0, position.Z) end
     local params = RaycastParams.new()
@@ -207,6 +222,6 @@ function World.ground(self, position)
     -- Only true walkable ground participates. Roofs, containers, trees, and cover must not become "ground".
     params.FilterDescendantsInstances = surfaces
     local hit = workspace:Raycast(Vector3.new(position.X, 80, position.Z), Vector3.new(0, -120, 0), params)
-    return hit and hit.Position or Vector3.new(position.X, 0, position.Z)
+    return hit and hit.Position or Vector3.new(position.X, 0, position.Z), hit ~= nil
 end
 return World
