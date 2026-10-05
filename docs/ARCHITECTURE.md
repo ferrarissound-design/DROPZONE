@@ -63,7 +63,7 @@ Audio and full airborne insertion are deferred; there are no external assets to 
 
 ## Visual boundary
 
-`VisualTheme` is the shared palette only. `Cosmetics` builds held weapons, drone shells, pickup silhouettes and build rails with no collision/touch/query and Massless enabled. Welded pieces belong to the character; anchored pickup/build pieces are descendants of the existing pickup/build root, so existing removal/reset destroys them as one unit.
+`VisualTheme` is the shared palette only. `Cosmetics` builds held weapons, drone shells, pickup silhouettes and build rails with no collision/touch/query and Massless enabled. Held weapons first look for Studio-owned `ServerStorage/WeaponModels/{Pistol,Rifle,Shotgun}` templates, strip executable/interactive classes again after cloning, and attach the template Root through the existing PresentationJoint; missing or invalid templates fall back to the procedural Part silhouettes. Welded pieces belong to the character; anchored pickup/build pieces are descendants of the existing pickup/build root, so existing removal/reset destroys them as one unit.
 
 `MapVisuals` owns the static `DropzoneWorld/Scenery` folder. It is a sibling of `Map` and is never included by `World.ground`. Existing map colliders, spawns and bot logic remain authoritative. Do not add cover-shaped noncolliding decoration in combat lanes.
 

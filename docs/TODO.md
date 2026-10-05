@@ -31,7 +31,7 @@
 
 - [ ] X1 — NOWで再現した最重要の不具合/操作障害を小さく修正。完了条件: 再現手順で解消、関連回帰+次戦確認、文書更新。
 - [ ] X2 — 空のAnimation IDと足音/SlideLoopを段階的に補完。対象: AnimationConfig/AudioConfig、Animations/Audio/Presentation。完了条件: 許可済み素材、R6/R15とロード失敗fallback、死亡/リセットの停止、モバイル負荷確認。
-- [ ] X3 — 武器/BOTの見た目を改善。対象: Cosmetics/Actors/Presentation。完了条件: Combat/Actor/Draftの契約を保ち、装飾が衝突/Raycastへ混入しない。外部モデル採用は実物確認後。
+- [ ] X3 — 武器/BOTの見た目を改善。対象: Cosmetics/Actors/Presentation。武器はStudio保存WeaponModels対応とfallback、肩越しAimのStudio確認まで完了。残りはBOT本体外観とスマートフォン/複数人での姿勢確認。完了条件: Combat/Actor/Draftの契約を保ち、装飾が衝突/Raycastへ混入しない。
 - [ ] X4 — StudioのTownTemplates採用状況を確認し、必要なら候補を整備。完了条件: TOWN_BUILDINGSの検査、Rojo後の保持、入口/BOT経路/Loot/射線/スマホ視認性の確認。
 - [ ] X5 — 実ログに基づくBOT圧力・Shotgun・Zone時間・建築Energyの調整。完了条件: 変更前後を比較し、初動/終盤/Evolutionを含む共通ルールと回帰を維持。
 

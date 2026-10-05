@@ -250,4 +250,18 @@ assert 'closestLiveTarget(a, alive, 145)' not in bots_source
 assert 'distance < 38' not in bots_source
 print('PASS: BOT opening is loot-first, retaliation remains available, and engagement ranges are bounded')
 
+# Shoulder aim remains presentation-only, restores state, and keeps the legacy
+# procedural weapon path when Studio-side templates are unavailable.
+presentation_source = (ROOT / 'src' / 'client' / 'Presentation.lua').read_text(encoding='utf-8')
+cosmetics_source = (ROOT / 'src' / 'server' / 'Cosmetics.lua').read_text(encoding='utf-8')
+project_source = (ROOT / 'default.project.json').read_text(encoding='utf-8')
+for required in ('IKControl', 'DropzoneRightAimIK', 'DropzoneLeftAimIK', 'self.humanoid.AutoRotate = false', 'self:restorePose()'):
+    assert required in presentation_source
+for required in ('ServerStorage:FindFirstChild("WeaponModels")', 'if templateWeapon(f, kind, cf, anchor) then return f end', 'unsafeWeaponClasses', 'if kind == "Pistol" then'):
+    assert required in cosmetics_source
+assert project_source.count('"$ignoreUnknownInstances": true') == 2
+assert '"TownTemplates"' in project_source and '"WeaponModels"' in project_source
+assert '"ServerStorage": {\n      "$ignoreUnknownInstances"' not in project_source
+print('PASS: shoulder aim restoration, safe weapon templates, scoped Rojo retention and procedural fallback are present')
+
 subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'tests' / 'preplay_analysis.py')], check=True)
