@@ -12,6 +12,12 @@
 
 ## NOW: 新HUDを含む現行ゲームの回帰・初回体験確認
 
+- [ ] N4 — Fireボタンドラッグ照準のStudio/スマートフォン回帰確認。
+  - 対象: Main.client.lua、FireDrag.lua、PresentationConfig、[MOBILE_FIRE_DRAG_QA](MOBILE_FIRE_DRAG_QA.md)。
+  - 実装: improve-mobile-fire-drag-aimingブランチのPR差分参照。client-onlyは249 assertions PASS、preplay PASS。全体tests/run.pyは基準main由来の未登録PresentationConfigでFAIL。
+  - 完了条件: 実機でFire開始→ドラッグ→連射→離して停止、二重回転なし、移動+Jump/UIとの同時操作、反動/肩寄せ/Aim Assist/遮蔽、死亡/respawn/連続3試合とPC回帰。機種・感度・結果を記録。実機未確認のためチェックは残す。
+
+
 - [ ] N0 — 開始スポーンの建物めり込み修正をStudioで回帰確認。
   - 対象: server/World.lua、QAのSpectate / ラウンド / Multiplayer。
   - 修正: 建物モデルのXZ footprintと実衝突物を避け、塞がれた外周スポーンは近傍→道路→外周再探索で安全位置へ補正する。

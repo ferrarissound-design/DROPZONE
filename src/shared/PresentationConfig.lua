@@ -1,5 +1,9 @@
 -- Presentation only: none of these values enter movement, ammo or damage rules.
 return {
+    -- Fire GUI drag: degrees per screen pixel; pitch limit is degrees.
+    MobileFireDragSensitivity = .18,
+    MobileFireDragVerticalSensitivity = .18,
+    MobileFireDragPitchLimit = 80,
     -- Fixed pools; local shots have reserved capacity so BOT fire cannot evict them.
     TracerPool = 24, LocalTracerPool = 8, ImpactPool = 16, LocalImpactPool = 8,
     TracerLife = .20, RemoteTracerLife = .12, TracerWidth = .13,

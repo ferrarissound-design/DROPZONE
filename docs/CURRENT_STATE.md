@@ -2,7 +2,7 @@
 
 - 調査日: 2026-10-05
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `43c87c6`（2026-10-05時点のorigin/main）
+- 基準コミット: `4ca51bba259e444f22b3a43b3c1f504ebcd17f7e`（2026-10-05に調査したorigin/main、PR #22反映済み）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
 
@@ -71,3 +71,13 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - `ServerStorage/WeaponModels/{Pistol,Rifle,Shotgun}`が存在すれば、安全化した外観だけをHeldWeaponへ複製する。Script/Tool/Remote/Humanoid等は複製後にも除去し、全BasePartを非Collide/Touch/Query・Masslessにする。テンプレート欠落時は従来のPart生成を維持する。
 - Studio保存モデル: Classic pistol w slide（13916503156）、Assault Rifle (Rivals)（110214445805991）、rigged shotgun（10806289779）。3モデルとも銃床/グリップが肩側、Muzzleが前方になるよう外観方向を確認・反転済み。モデル実体はPlace側にありGitには含まれない。
 - Studio Soloで3武器の取得・切替・Aim開始/解除・各1発・Reload・死亡/respawnを確認。各武器でWeaponModel/PresentationJointが1個、Aim中は左右IK=1かつAutoRotate=false、解除後はIK=0かつAutoRotate=true、respawn後は旧HeldWeapon/IKなし。スマートフォン実機と複数人は未確認。
+
+## モバイルFireボタンドラッグ照準（2026-10-05）
+
+- 基準main: `4ca51bba259e444f22b3a43b3c1f504ebcd17f7e`。FireのTouch保持はあったが、移動を照準へ反映する処理はなかった。
+- `FireDrag`がFireから始まったInputObjectだけを保持。ボタン外でも移動量を蓄積し、Camera priority - 1で前回反動を外した後にFocus周りを回転する。標準カメラ更新、既存Presentationの反動/肩寄せ/FOV処理、長押し連射の順。最初の1発は従来どおり即時。
+- Fire GUIのActive=trueと、Roblox CameraInputが開始時のprocessed状態を保持する仕組みを利用して同じ指の二重回転を避ける。標準画面ドラッグ、PlayerModule、CameraTypeは置換しない。実際の入力消費と標準カメラ追従/衝突はStudio実機未確認。
+- 感度/垂直感度/ピッチ上限はPresentationConfigに集約（.18度/pixel、.18度/pixel、±80度）。Aim Assist、Combat.lua、Presentation.lua、武器/姿勢/マップ/Rojo保護設定は変更なし。
+- `python3 tests/run.py --client-only`: PASS、全src Lua構文検査と249 client/server assertions（47追加）。`python3 tests/preplay_analysis.py`: PASS。
+- `python3 tests/run.py`: FAIL。未変更の基準mainでも同じ`regression.lua:15 nativeRequire(nil)`を再現。Cosmeticsが参照するPresentationConfigが既存regression doubleに登録されていない。今回の変更による失敗ではないが、全体テスト成功とは扱わない。関連clientを独立実行するオプションを追加した。
+- 詳細な操作、懸念、未実施項目: [MOBILE_FIRE_DRAG_QA](MOBILE_FIRE_DRAG_QA.md)。Studio/スマートフォン/複数人実プレイは未実施。
