@@ -157,7 +157,7 @@ function Presentation:clear()
     self.audio:clear()
     self.camera, self.baseFov, self.humanoid, self.baseOffset, self.character = nil,nil,nil,nil,nil
     self.vertical,self.horizontal,self.fov,self.offset,self.aimBlend = 0,0,0,0,0
-    self.aimHeld,self.combatAimHeld,self.combatAimUntil,self.aimActive = false,false,0,false
+    self.aimHeld,self.combatAimHeld,self.combatAimUntil,self.aimActive,self.wasAimActive = false,false,0,false,false
     self.me, self.previous, self.roundId, self.readyAt, self.slideSound = nil,nil,nil,nil,nil
     self.pulse.Enabled, self.pulse.Adornee = false,nil
     self.nextStep, self.lastShrink = 0,nil
@@ -259,12 +259,15 @@ function Presentation:step(dt)
     local aimAllowed = not me.sprinting and not me.sliding
     self.aimActive = aimIntent and aimAllowed
     self.aimBlend = self.aimBlend + ((self.aimActive and 1 or 0)-self.aimBlend)*aimAlpha
+    local wasAimActive = self.wasAimActive == true
     if self.aimActive then
-        if self.baseAutoRotate == nil then self.baseAutoRotate = self.humanoid.AutoRotate end
         self.humanoid.AutoRotate = false
-    elseif self.baseAutoRotate ~= nil then
+    elseif wasAimActive and self.baseAutoRotate ~= nil and not me.sliding then
+        -- Restore only when aim actually ends. Sliding owns AutoRotate=false,
+        -- so do not fight the posture controller while a slide is active.
         self.humanoid.AutoRotate = self.baseAutoRotate
     end
+    self.wasAimActive = self.aimActive
     local targetFov = self.aimActive and Config.AimFov or me.sliding and Config.SlideFov or me.sprinting and Config.SprintFov or 0
     self.fov = self.fov + (targetFov-self.fov)*alpha
     self.offset = self.offset + ((me.sliding and Config.SlideOffset or me.crouching and Config.CrouchOffset or 0)-self.offset)*alpha
