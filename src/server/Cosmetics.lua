@@ -31,6 +31,14 @@ local unsafeWeaponClasses = {
     Script=true, LocalScript=true, ModuleScript=true, Tool=true,
     RemoteEvent=true, RemoteFunction=true, BindableEvent=true, BindableFunction=true,
     Humanoid=true, AnimationController=true,
+    ParticleEmitter=true, Trail=true, Beam=true,
+    PointLight=true, SpotLight=true, SurfaceLight=true, Sound=true,
+    ClickDetector=true, ProximityPrompt=true,
+    Explosion=true, Fire=true, Smoke=true, Sparkles=true,
+    VectorForce=true, LinearVelocity=true, AngularVelocity=true,
+    AlignPosition=true, AlignOrientation=true, Torque=true,
+    BodyForce=true, BodyGyro=true, BodyPosition=true, BodyVelocity=true,
+    BodyAngularVelocity=true, RocketPropulsion=true,
 }
 
 local function templateWeapon(parent, kind, cf, anchor)
@@ -42,7 +50,11 @@ local function templateWeapon(parent, kind, cf, anchor)
     local model = template:Clone()
     model.Name = "WeaponModel"
     for _, item in ipairs(model:GetDescendants()) do
-        if unsafeWeaponClasses[item.ClassName] then item:Destroy() end
+        if unsafeWeaponClasses[item.ClassName]
+            or (item:IsA("Constraint") and not item:IsA("WeldConstraint"))
+            or item:IsA("JointInstance") then
+            item:Destroy()
+        end
     end
     local root = model:FindFirstChild("Root")
     if not root or not root:IsA("BasePart") then model:Destroy(); return nil end
@@ -71,7 +83,9 @@ function Cosmetics.weapon(parent, kind, cf, anchor)
     local accent = Theme.Weapon[kind] or Theme.Gold
     local presentation = PresentationConfig.Weapons[kind]
     if anchor and presentation and presentation.HipOffset then cf = cf * presentation.HipOffset end
-    if templateWeapon(f, kind, cf, anchor) then return f end
+    -- Keep pickups on the bounded procedural silhouettes. Studio templates are
+    -- only for held weapons so large custom models are never cloned across loot.
+    if anchor and templateWeapon(f, kind, cf, anchor) then return f end
     local weaponRoot
     local function piece(name, x,y,z, px,py,pz, color)
         local part = Cosmetics.part(f, name, Vector3.new(x,y,z), cf*CFrame.new(px,py,pz), color, weaponRoot)
