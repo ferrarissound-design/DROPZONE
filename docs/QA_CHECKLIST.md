@@ -9,6 +9,8 @@
 | 基準SHA/PR | 日付 | 環境/機種/解像度 | 人数/試合数 | 項目 | PASS/FAIL/未確認 | 再現手順/ログ |
 | --- | --- | --- | --- | --- | --- | --- |
 | 記入 | 記入 | 記入 | 記入 | 記入 | 未確認 | 記入 |
+| main d79466b / fix/fire-jitter-spectator-feedback | 2026-10-07 | Linux / Lua 5.4 engine doubles | 模擬ジッター/遠方観戦/途中参加 | 連射・待機取消・観戦配信・全体回帰 | PASS | run.py: gameplay 973、spawn 9710、visual 810、client 249。preplay PASS |
+| main d79466b / fix/fire-jitter-spectator-feedback | 2026-10-07 | Studio / PC / スマートフォン | 2人以上 / 連続3試合 | 実通信の連射・観戦切替・結果→次戦 | 未確認 | TODO N5を実施する |
 | main 6da9812 / fix/connect-round-safe-spawns | 2026-10-05 | Linux / Lua 5.4 engine doubles | 模擬Solo/BOT11/20人/遅延 | run.py・preplay・人間/BOT bypass mutation | PASS | spawn 9710、gameplay 938、visual 810、client 249 assertions。呼出しを外すと失敗 |
 | main 6da9812 / fix/connect-round-safe-spawns | 2026-10-05 | Studio / スマートフォン | 連続3試合 / 2人以上 | 保存モデルでの物理と結果→次戦 | 未確認 | 以下の安全スポーン確認手順を実施する |
 

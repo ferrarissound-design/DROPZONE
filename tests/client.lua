@@ -170,8 +170,15 @@ script.Parent.Evolution,script.Parent.Cosmetics="Evolution","Cosmetics"
 modules.Rules=assert(loadfile(ROOT.."/src/shared/Rules.lua"))()
 modules.WeaponStats=assert(loadfile(ROOT.."/src/shared/WeaponStats.lua"))()
 modules.Evolution={total=function() return 0 end};modules.Cosmetics={}
+local shooter={root=root,model=character,humanoid={Health=100},player={Parent=true},id=7,roundId=6,alive=true,slot=1,nextShot=0}
+character.Parent=true
+local clientGetService=game.GetService
+local combatPlayers={GetPlayers=function() return {shooter.player} end}
+game.GetService=function(self,name)
+    if name=="Players" then return combatPlayers end
+    return clientGetService(self,name)
+end
 local Combat=assert(loadfile(ROOT.."/src/server/Combat.lua"))()
-local shooter={root=root,model=character,player={Parent=true},id=7,roundId=6,alive=true,slot=1,nextShot=0}
 root.Parent=true
 local victim={alive=true,health=100,shield=0}
 local enemyPart,wallPart={},{}

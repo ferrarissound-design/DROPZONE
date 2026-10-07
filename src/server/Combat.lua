@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local Shared = game.ReplicatedStorage.DropzoneShared
 local WeaponStats = require(Shared.WeaponStats)
 local Rules = require(Shared.Rules)
@@ -70,7 +71,27 @@ function Combat:fire(a, direction)
     local item = a.inventory[a.slot]
     local spec = item and WeaponStats.get(item.kind, item.rarity)
     local now = os.clock()
-    if not Rules.canFire(a, spec, now) or not a.root.Parent then return end
+    if not a.alive or not spec or a.reloading or a.ammo <= 0 or not a.root.Parent
+        or not a.model.Parent or a.humanoid.Health <= 0 then return end
+    if now < a.nextShot then
+        -- Keep at most one human request arriving just before the cooldown.
+        -- It fires at the authoritative deadline, never early or as a burst.
+        local waitSeconds = a.nextShot - now
+        if a.player and waitSeconds <= math.min(0.05, spec.interval / 2) and not a.pendingShot then
+            local pending = {item=item, slot=a.slot, token=a.reloadToken, roundId=a.roundId}
+            a.pendingShot = pending
+            task.delay(waitSeconds, function()
+                if a.pendingShot ~= pending then return end
+                a.pendingShot = nil
+                if a.alive and a.roundId == pending.roundId and a.reloadToken == pending.token
+                    and a.slot == pending.slot and a.inventory[a.slot] == pending.item
+                    and a.player.Parent then self:fire(a, direction) end
+            end)
+        end
+        return
+    end
+    if not Rules.canFire(a, spec, now) then return end
+    a.pendingShot = nil -- any newer accepted shot invalidates an old callback
     a.nextShot = now + spec.interval
     item.ammo, a.ammo = item.ammo - 1, item.ammo - 1
     local diag = diagnostics(a)
@@ -110,8 +131,12 @@ function Combat:fire(a, direction)
         end
     end
     -- Capped shot rate, recipients and endpoints; no client-supplied hit or damage data.
-    for player, viewer in pairs(self.actors.byPlayer) do
-        if player.Parent and viewer.root.Parent and (viewer.root.Position - origin).Magnitude < 330 then
+    for _, player in ipairs(Players:GetPlayers()) do
+        local viewer = self.actors.byPlayer[player]
+        -- Spectator cameras can be anywhere in the arena, including late joins
+        -- without an Actor. Corpse/lobby distance cannot bound their view.
+        if player.Parent and (not viewer or not viewer.alive
+            or (viewer.root.Parent and (viewer.root.Position - origin).Magnitude < 330)) then
             self.effects:FireClient(player, "Shot", origin, endpoints, item.kind, a.id, a.roundId, impacts)
         end
     end

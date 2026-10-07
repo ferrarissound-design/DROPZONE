@@ -485,6 +485,7 @@ check(#collector.inventory==0 and collector.ammo==0,"reset discards rarity inven
 actors=Actors.new()
 local shooter,victim=actor(910),actor(911)
 shooter.player={Parent=true};shooter.roundId=77;shooter.slot=1;shooter.nextShot=0
+players.GetPlayers=function() return {shooter.player} end
 shooter.inventory={{kind="Shotgun",rarity="Epic",ammo=6,reserve=24}};shooter.ammo=6
 victim.humanoid.Health,victim.shield=20,30
 actors.byModel[victim.model]=victim;actors.byPlayer[shooter.player]=shooter
@@ -541,3 +542,99 @@ check(worldShot.args[6][1].position==worldPosition and worldShot.args[6][1].norm
 check(worldShot.args[2][1]==worldPosition,"world tracer endpoint equals authoritative ray result")
 check(shotEvent and #shotEvent.args[6]==0,"range-only miss has no world impact")
 print("PASS: "..count.." gameplay assertions including world impact provenance")
+
+
+-- Execute authoritative cooldown buffering with a deterministic task clock.
+local originalClock, originalDelay, originalRoster = os.clock, task.delay, players.GetPlayers
+local clock, scheduled = 100, {}
+os.clock=function() return clock end
+task.delay=function(seconds, callback) scheduled[#scheduled+1]={at=clock+seconds, callback=callback} end
+local function advanceTo(target)
+    while true do
+        local index
+        for i, job in ipairs(scheduled) do
+            if job.at<=target and (not index or job.at<scheduled[index].at) then index=i end
+        end
+        if not index then break end
+        local job=table.remove(scheduled,index); clock=job.at; job.callback()
+    end
+    clock=target
+end
+actors=Actors.new()
+local buffered=actor(920); buffered.player={Parent=true}; buffered.roundId=88
+buffered.slot=1; buffered.nextShot=0; buffered.ammo=28
+buffered.inventory={{kind="Rifle",rarity="Common",ammo=28,reserve=84}}
+actors.byPlayer[buffered.player]=buffered
+players.GetPlayers=function() return {buffered.player} end
+workspace.Raycast=function() return nil end
+local deliveries, acceptedTimes={},{}
+local bufferedCombat=Combat.new(actors,{FireClient=function(_,recipient,kind)
+    deliveries[#deliveries+1]={recipient=recipient,kind=kind}
+    if recipient==buffered.player and kind=="Shot" then acceptedTimes[#acceptedTimes+1]=clock end
+end},nil)
+for i=0,9 do
+    advanceTo(100+i*.15+(i%2==0 and .04 or 0))
+    bufferedCombat:fire(buffered,Vector3.new(1,0,0))
+end
+advanceTo(101.5)
+check(buffered.ammo==18 and #acceptedTimes==10,"jittered legitimate rifle sends retain all ten shots")
+for i=2,#acceptedTimes do
+    check(acceptedTimes[i]-acceptedTimes[i-1]>=.14-1e-9,"buffered fire never exceeds server weapon cadence")
+end
+local function prepareEarly()
+    scheduled={}; buffered.pendingShot=nil; buffered.nextShot=clock+.03
+    buffered.alive=true; buffered.humanoid.Health=100; buffered.reloading=false
+    buffered.ammo=20; buffered.inventory[1].ammo=20; buffered.slot=1; buffered.roundId=88
+    bufferedCombat:fire(buffered,Vector3.new(1,0,0))
+    check(#scheduled==1 and buffered.ammo==20,"early shot reserves one callback without spending ammo")
+end
+prepareEarly()
+for _=1,100 do bufferedCombat:fire(buffered,Vector3.new(1,0,0)) end
+check(#scheduled==1,"request spam cannot create an unbounded shot queue")
+advanceTo(clock+.04)
+check(buffered.ammo==19,"spam-buffered request fires only one shot")
+for _, invalidate in ipairs({
+    function() buffered.alive=false end,
+    function() buffered.humanoid.Health=0 end,
+    function() buffered.reloadToken=buffered.reloadToken+1 end,
+    function() buffered.slot=2 end,
+    function() buffered.roundId=-1 end,
+    function() buffered.roundId=89 end,
+    function() buffered.player.Parent=nil end,
+}) do
+    buffered.player.Parent=true
+    prepareEarly(); invalidate(); advanceTo(clock+.04)
+    check(buffered.ammo==20,"death/reload/equip/results/reset/leave cancels deferred fire")
+end
+buffered.player.Parent=true; prepareEarly()
+local oldItem=buffered.inventory[1]
+buffered.inventory[1]={kind="Rifle",rarity="Common",ammo=20,reserve=84}
+advanceTo(clock+.04)
+check(buffered.ammo==20,"replacing inventory cancels an old weapon's buffered fire")
+buffered.inventory[1]=oldItem
+prepareEarly(); buffered.nextShot=0; bufferedCombat:fire(buffered,Vector3.new(1,0,0)); advanceTo(clock+.04)
+check(buffered.ammo==19,"a newer accepted shot invalidates the old deferred callback")
+scheduled={}; buffered.pendingShot=nil; buffered.nextShot=clock+.1
+bufferedCombat:fire(buffered,Vector3.new(1,0,0))
+check(#scheduled==0,"requests more than 50ms early are rejected")
+buffered.nextShot=clock+.03
+bufferedCombat:fire(buffered,Vector3.new(0/0,0,0))
+check(#scheduled==0,"invalid aim never reserves a deferred shot")
+
+-- Real connected roster includes dead spectators and unregistered late joiners.
+local dead=actor(921); dead.alive=false; dead.root.Position=Vector3.new(-245,0,0)
+dead.player={Parent=true}; actors.byPlayer[dead.player]=dead
+local distant=actor(922); distant.player={Parent=true}; distant.root.Position=Vector3.new(-245,0,0)
+actors.byPlayer[distant.player]=distant
+local late, departed={Parent=true},{Parent=nil}
+players.GetPlayers=function() return {buffered.player,dead.player,distant.player,late,departed} end
+buffered.root.Position=Vector3.new(245,0,0);buffered.nextShot=0
+local recipients={}
+bufferedCombat.effects={FireClient=function(_,recipient,kind) if kind=="Shot" then recipients[recipient]=true end end}
+bufferedCombat:fire(buffered,Vector3.new(1,0,0))
+check(recipients[buffered.player] and recipients[dead.player] and recipients[late],
+    "near shooter, far-dead spectator and late join all receive shot feedback")
+check(not recipients[distant.player] and not recipients[departed],
+    "live distance culling and disconnected-player exclusion remain intact")
+os.clock, task.delay, players.GetPlayers=originalClock,originalDelay,originalRoster
+print("PASS: "..count.." gameplay assertions including jitter buffering and spectator delivery")
