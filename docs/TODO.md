@@ -12,6 +12,12 @@
 
 ## NOW: 新HUDを含む現行ゲームの回帰・初回体験確認
 
+- [ ] N5 — 連射ジッター/観戦Shot配信の実機回帰確認。
+  - 対象: server/Combat.lua、tests/regression.lua。修正ブランチ `fix/fire-jitter-spectator-feedback`。
+  - オフライン: run.py PASS（gameplay 973 assertions）、preplay PASS。10要求のジッター、発射上限、待機1件、死亡/Reload/装備/Results/次戦/退出の取消、遠方観戦/途中参加/生存者距離制限を模擬確認。
+  - 完了条件: PC/スマートフォンの長押し連射、通信遅延を加えた射撃、待機中の死亡/Reload/装備切替、遠方対象の観戦Tab切替、途中参加、結果→次戦を連続3試合確認。実機未確認のため未完了を維持。
+
+
 - [ ] N4 — Fireボタンドラッグ照準のStudio/スマートフォン回帰確認。
   - 対象: Main.client.lua、FireDrag.lua、PresentationConfig、[MOBILE_FIRE_DRAG_QA](MOBILE_FIRE_DRAG_QA.md)。
   - 実装: PR #23参照。client-onlyは249 assertions PASS、preplay PASS。PR #23時点の全体tests/run.pyは基準main由来の模擬環境不足でFAILだったが、fix/connect-round-safe-spawnsでテスト環境を補完し全体PASSを確認。

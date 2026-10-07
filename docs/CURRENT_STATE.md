@@ -1,8 +1,8 @@
 # 現在の実装状態
 
-- 調査日: 2026-10-05
+- 調査日: 2026-10-07
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `6da98121c5f0d09afaa373f7b9529b738bda9031`（2026-10-05に調査したorigin/main、PR #23反映済み）
+- 基準コミット: `d79466ba29051d1dc10d831b62e32e01dbad8551`（2026-10-07に調査したmain、PR #24反映済み）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
 
@@ -93,3 +93,13 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - `python3 tests/run.py`: PASS（spawn 9710、gameplay 938、visual 810、client/server 249 assertionsと既存source guards）。`python3 tests/preplay_analysis.py`: PASS。人間/BOTのresolver呼び出しを個別にgroundへ置換するmutation確認は両方FAILを検出（元に復元済み）。`git diff --check`: PASS。
 - 既存全体ランナーの基準main由来の模擬環境不足も補完: PresentationConfig、ServerStorage、PreSimulation、CFrame/Vectorの必要プロパティ。ゲーム側のPresentation/Cosmeticsは変更なし。
 - Studio/Rojo/スマートフォン/複数人/連続3試合の物理検証は未実施。TODO N0とQA_CHECKLISTのスポーン確認項目は未完了のまま。
+
+## 連射ジッターと観戦Shot配信修正（2026-10-07）
+
+- 修正ブランチ: `fix/fire-jitter-spectator-feedback`。基準mainは`d79466b`。
+- 人間の射撃要求がcooldownより最大50ms（武器間隔の半分以下）早く届いた場合、Actorごとに1件だけ期限まで待機する。期限前には弾薬・Raycast・演出を適用しない。実際の発射から次のcooldownを設定するため、連射上限は変えない。
+- 待機は死亡、HPゼロ、Reload世代、装備スロット/Inventory、roundId、退出で無効化。新しい発射が先に受理された場合も旧callbackを破棄する。BOTの射撃と既存Action ingress制限は維持。
+- Shotは接続中のPlayers全体から送信先を選ぶ。生存者は従来の330 studs範囲、死亡者/Actorのない途中参加者は観戦位置がサーバーにないため全Shotを受信し、既存の位置音声と演出プールを利用する。
+- `python3 tests/run.py`: PASS（spawn 9710、gameplay 973、visual 810、client/server 249 assertionsとsource guards）。`python3 tests/preplay_analysis.py`: PASS。
+- 150ms間隔10要求・交互40ms/0ms追加遅延を模擬し10発を確認。発射間隔140ms以上、100要求spamでも待機1件、死亡/装備/Reload/Results/次戦/退出時の取消、死亡地点から490 studs離れた観戦と途中参加への配信、生存者の距離制限を確認。
+- Studio/スマートフォン/複数人/実ネットワークでの連続3試合は未実施。以下TODO N5で実機検証を残す。
