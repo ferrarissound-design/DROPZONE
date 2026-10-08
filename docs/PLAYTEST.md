@@ -66,15 +66,18 @@
 - 成功Build数 / Pickup数 / Zone被Damage
 - Death reason（Combat / Zone / Fall / Other / Alive）
 - 取得したEvolution履歴
+- `firstWeapon` / `firstShot` / `firstKill` / `firstEvolution`: ラウンド開始から初回イベントまでの秒数（未達成は`-`）。初回体験の滞留箇所と早期離脱を見分ける。
 
 例：
 
 ```text
 [DROPZONE DIAG] round=1 duration=142.5s combatants=12 winner=Player kills=11 damage=980 zoneDeaths=2 Pistol:S40/H15/D260 Rifle:S70/H28/D410 Shotgun:S18/H9/D310
-[DROPZONE DIAG] player=Player rank=1 kills=5 damage=440 survival=142s builds=6 pickups=9 zoneDamage=12 death=Alive evo=SwiftLegs>IronSkin>QuickHands ...
+[DROPZONE DIAG] player=Player rank=1 kills=5 damage=440 survival=142s builds=6 pickups=9 zoneDamage=12 death=Alive evo=SwiftLegs>IronSkin>QuickHands firstWeapon=5.4 firstShot=12.8 firstKill=48.2 firstEvolution=51.1 ...
 ```
 
 このログは観測専用で、Damage / Spread / FireRate / Movement / Loot確率などの判定には使用しません。公開後に不要なら `PlaytestDiagnostics = false` へ変更できます。
+
+Solo/BOT11と2人以上の実プレイで、各試合の4つの秒数を最低3試合記録してください。`firstWeapon` が長い場合はスポーンと取得案内、`firstShot` が長い場合は射撃UI、`firstKill` が長い場合はBOT難度、`firstEvolution` が長い場合は選択UIを優先して検証します。これらは原因の断定ではなく、追加観察の手がかりです。
 
 Offlineの `python3 tests/run.py` は `tests/preplay_analysis.py` も実行し、武器理論TTK、Zone総時間、Build回数、20,000回のrarity抽選、10,000回のfresh Evolution Draft相当を検査します。Roblox物理・実Aim・実機FPSの代替ではありません。
 
