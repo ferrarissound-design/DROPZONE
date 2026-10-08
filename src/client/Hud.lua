@@ -80,7 +80,7 @@ function Hud.new(mobile)
     self.shieldBar = bar(self.stats, "ShieldBar", 10,43,198,8, Theme.Cyan)
     stroke(self.stats, Theme.Green)
     stroke(self.top, Theme.Cyan, 2)
-    self.evo = label(canvas, "Evolution", UDim2.fromOffset(22, 80), UDim2.fromOffset(218, 43), "EVOLUTION 0", 13)
+    self.evo = label(canvas, "Evolution", UDim2.fromOffset(22, 80), UDim2.fromOffset(218, 43), "", 13)
     self.evo.BackgroundColor3, self.evo.TextColor3 = Theme.Paper, Theme.Ink
     self.evo.RichText = true
     self.top.BackgroundColor3, self.top.TextColor3 = Theme.Paper, Theme.Ink
@@ -175,6 +175,9 @@ function Hud:layoutMobile(w,h)
         obj.Position, obj.Size = UDim2.fromOffset(x,y), UDim2.fromOffset(width,height)
     end
     place(self.stats,16,8,218,58)
+    -- Reuse the existing Evolution label for lightweight first-match guidance
+    -- or spectator identity; it never overlaps the Draft or action buttons.
+    place(self.evo,16,70,200,30)
     place(self.top,w/2-100,8,200,26)
     place(self.zone,w/2-100,38,200,24)
     place(self.mini,w-138,8,122,78)
@@ -207,6 +210,14 @@ function Hud:layoutMobile(w,h)
     self.top.BackgroundColor3, self.top.TextColor3 = Theme.Ink, white
     self.mini.BackgroundTransparency = .55
 end
+-- Display only on the nonplaying spectator HUD. All displayed names are plain
+-- data, escaped before entering the reused RichText label.
+function Hud:setSpectateName(name)
+    if not name then return end
+    self.evo.Text = string.format('<b>観戦中</b>  %s', escapeRichText(tostring(name)))
+    self.evo.Visible = true
+end
+
 function Hud:setMobileMode(mode)
     self.mobileMode = mode == "Build" and "Build" or "Combat"
     self:refreshMobileControls()
@@ -376,6 +387,7 @@ function Hud:update(s, onEvolutionPick)
         self.draftExpanded, self.displayedDraftId, self.buildUntil = false, nil, nil
         self.submittedDraftId, self.submittedChoice, self.previousMe = nil, nil, nil
         self.guideUntil, self.eliminationUntil, self.reserveGainUntil = nil, nil, nil
+        self.onboardingStarted, self.onboardingCongratsUntil = nil, nil
         if self.eliminationTween then self.eliminationTween:Cancel(); self.eliminationTween = nil end
         self.notice.BackgroundColor3 = Theme.Gold
         if self.pickTween then self.pickTween:Cancel(); self.pickTween = nil end
@@ -424,9 +436,34 @@ function Hud:update(s, onEvolutionPick)
         if #build < 3 then table.insert(build, ability.name .. " " .. ability.rankText) end
     end
     local buildText = table.concat(build, " · ")
-    -- One prominent ability on the compact HUD; the result retains the three-item build.
-    self.evo.Text = me and string.format('<font size="17"><b>EVOLUTION %d</b></font>\n%s', me.evolutions, build[1] or "撃破で能力獲得") or "EVOLUTION 0"
-    self.evo.Visible = false
+    -- Teach the actual core loop, not a second control list. This reuses the
+    -- dormant Evolution label and needs no remotes, timers or new Instances.
+    -- Completion persists for this client session; a failed first round can retry.
+    local draft = Rules.shouldShowEvolutionDraft(s) and me.evolutionDraft or nil
+    local now = os.clock()
+    if playing and not self.onboardingComplete and (me.evolutions or 0) > 0 then
+        self.onboardingComplete = true
+        self.onboardingCongratsUntil = now + 4
+    end
+    if playing and not self.onboardingComplete and not self.onboardingStarted then
+        self.onboardingStarted = now
+    end
+    local objective
+    if playing and not self.onboardingComplete and now - (self.onboardingStarted or now) < 90 then
+        if not me.weapon then
+            objective = '<b>MISSION 1/3</b>\n武器を拾おう'
+        elseif draft then
+            objective = '<b>MISSION 3/3</b>\n進化を選ぼう'
+        elseif (me.kills or 0) > 0 then
+            objective = '<b>MISSION 3/3</b>\n進化を獲得しよう'
+        else
+            objective = '<b>MISSION 2/3</b>\n敵を倒そう'
+        end
+    elseif playing and self.onboardingComplete and now < (self.onboardingCongratsUntil or 0) then
+        objective = '<b>MISSION COMPLETE</b>\nEVOLUTIONを獲得！'
+    end
+    self.evo.Text = objective or ""
+    self.evo.Visible = objective ~= nil
     self.energy.Visible = playing and (self.mobile or os.clock() < (self.buildUntil or 0)) or false
     self.energy.Text = self.mobile and ("BUILD ENERGY " .. (me and me.energy or 0))
         or (string.upper(self.buildType or "Wall") .. " [Q] · " .. (me and me.energy or 0))
@@ -444,7 +481,6 @@ function Hud:update(s, onEvolutionPick)
     if not self.learned.Build then tips[#tips+1] = "Q 建築 · Z/X/C 壁/床/坂" end
     self.hint.Text = tips[math.min(#tips, 1 + math.floor(math.max(0, 9 - ((self.guideUntil or 0) - os.clock())) / 2.5))] or ""
     self.hint.Visible = playing and not self.mobile and #tips > 0 and os.clock() < (self.guideUntil or 0) or false
-    local draft = Rules.shouldShowEvolutionDraft(s) and me.evolutionDraft or nil
     if draft and draft.id ~= self.displayedDraftId then
         self.displayedDraftId, self.draftExpanded = draft.id, self.mobile
     elseif not draft then self.displayedDraftId, self.draftExpanded = nil, false end
