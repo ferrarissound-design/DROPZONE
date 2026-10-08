@@ -46,6 +46,15 @@ local bots = Bots.new(actors, combat, loot, zone, world)
 local round = Round.new({world = world, actors = actors, zone = zone, builds = builds, combat = combat, loot = loot, bots = bots, effects = effects})
 local limits = {}
 action.OnServerEvent:Connect(function(player, roundId, command, argument)
+    -- A release must not be starved by burst Fire rate-limiting.
+    -- Constant-time cancellation, scoped to the current player's round.
+    if command == "FireStop" then
+        local actor = actors.byPlayer[player]
+        if roundId == round.id and round:isActive() and actor and actor.roundId == round.id then
+            combat:stopFire(actor)
+        end
+        return
+    end
     -- Bounded ingress before any physics, tables, or gameplay work.
     local now = os.clock()
     local limit = limits[player] or {time = now, tokens = 30}

@@ -104,6 +104,9 @@ check(Rules.botCount(1,12)==11, "solo bots")
 check(Rules.botCount(5,12)==7, "five humans")
 check(Rules.botCount(20,12)==0, "no negative bots")
 check(not Rules.finite(0/0) and not Rules.finite(math.huge), "NaN and infinity rejected")
+check(Rules.facingShot(Vector3.new(1,0,0),Vector3.new(0,0,-1)),"lateral fire remains legal")
+check(Rules.facingShot(Vector3.new(0,1,0),Vector3.new(0,0,-1)),"vertical fire remains legal")
+check(not Rules.facingShot(Vector3.new(0,0,1),Vector3.new(0,0,-1)),"backward fire blocked")
 local scout, corpse, living =
     {alive=true, root={Position=Vector3.new(0,0,0)}},
     {alive=false, root={Position=Vector3.new(1,0,0)}},
@@ -149,7 +152,7 @@ local function actor(id)
         reloadToken=0,reloading=false,inventory={},energy=Config.StartEnergy,evolutionCount=0,evolutions={},evolutionStacks={},evolutionHistory={},
         queuedDrafts=0,draftVersion=0,evolutionDraft=nil,roundId=0,lastDamage=0,startTime=os.clock(),
         diagnostics={shots={},hits={},weaponDamage={},builds=0,pickups=0,zoneDamage=0},
-        root={Parent=true,Position=Vector3.zero,Anchored=false,AssemblyLinearVelocity=Vector3.new(10,0,0)},model=model}
+        root={Parent=true,Position=Vector3.zero,CFrame={LookVector=Vector3.new(0,0,-1)},Anchored=false,AssemblyLinearVelocity=Vector3.new(10,0,0)},model=model}
     function a.model:Destroy() self.Parent=false end
     table.insert(actors.list,a)
     return a
@@ -595,6 +598,10 @@ for _=1,100 do bufferedCombat:fire(buffered,Vector3.new(1,0,0)) end
 check(#scheduled==1,"request spam cannot create an unbounded shot queue")
 advanceTo(clock+.04)
 check(buffered.ammo==19,"spam-buffered request fires only one shot")
+prepareEarly()
+bufferedCombat:stopFire(buffered)
+advanceTo(clock+.04)
+check(buffered.ammo==20 and buffered.pendingShot==nil,"FireStop cancels buffered shot")
 for _, invalidate in ipairs({
     function() buffered.alive=false end,
     function() buffered.humanoid.Health=0 end,

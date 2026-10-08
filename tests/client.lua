@@ -27,8 +27,12 @@ Enum=setmetatable({RenderPriority={Camera={Value=100}}},{__index=function(t,k)
     local values=setmetatable({},{__index=function(_,v) return v end});rawset(t,k,values);return values
 end})
 RaycastParams={new=function() return {} end}
-local requests={}
-local action={FireServer=function(_,...) requests[#requests+1]={...} end}
+local requests,stopRequests={},{}
+local action={FireServer=function(_,...)
+    local request={...}
+    if request[2]=="FireStop" then stopRequests[#stopRequests+1]=request
+    else requests[#requests+1]=request end
+end}
 local snapshot,effectEvent=signal(),signal()
 local remotes={WaitForChild=function(_,name) return ({Action=action,Snapshot={OnClientEvent=snapshot},Effects={OnClientEvent=effectEvent}})[name] end}
 local input={InputChanged=signal(),InputBegan=signal(),InputEnded=signal(),WindowFocusReleased=signal(),JumpRequest=signal(),GetFocusedTextBox=function() return nil end,TouchEnabled=false}
@@ -96,6 +100,7 @@ local mouse={UserInputType="MouseButton1",Position=Vector2.new(450,240)}
 input.InputBegan:emit(mouse,false)
 input.InputEnded:emit(mouse)
 check(#requests==1 and requests[1][1]==5 and requests[1][2]=="Fire","quick PC click fires once even before a render frame")
+check(#stopRequests==1 and stopRequests[1][1]==5,"mouse release sends server stop")
 run.RenderStepped:emit()
 check(#requests==1,"release plus render cannot duplicate the click")
 check(aimFilter[1]==character and aimFilter[2]==effects.folder,"client aim excludes character and local effects folder")
@@ -203,7 +208,9 @@ local function clientFire()
     local before=#requests
     input.InputBegan:emit(mouse,false);input.InputEnded:emit(mouse)
     check(#requests==before+1 and requests[#requests][2]=="Fire","client emits exactly one aim payload")
-    return requests[#requests][3]
+    local direction=requests[#requests][3]
+    root.CFrame=CFrame.lookAt(root.Position,root.Position+direction)
+    return direction
 end
 local function prepare(kind)
     local spec=weapons[kind or "Rifle"]
@@ -469,7 +476,9 @@ state.me.alive=true;state.phase="Active";snapshot:emit(state)
 hud.buttons.Aim.Activated:emit()
 t=touch(820,220);begin(t)
 n=#requests
+local stopsBeforeBuild=#stopRequests
 hud.buttons.Build.Activated:emit()
+check(#stopRequests==stopsBeforeBuild+1,"Build cancels the held Fire on server")
 check(hud.mobileMode=="Build" and not presentation.aimHeld and #requests==n,"BUILD changes mode, cancels aim, and never places or fires")
 move(t,850,210);frame()
 check(#requests==n,"entering build cancels held Fire and pending drag")
@@ -490,6 +499,11 @@ t=touch(820,220);begin(t);input.InputEnded:emit(t)
 check(requests[#requests][2]=="Fire","fresh Fire works after Combat return")
 hud.buttons.Build.Activated:emit();hud.buttons.Slot2.Activated:emit()
 check(hud.mobileMode=="Combat" and requests[#requests][2]=="Equip" and requests[#requests][3]==2,"weapon slot returns to combat and equips")
+hud.buttons.Aim.Activated:emit()
+check(presentation.aimHeld,"AIM resumes after building")
+hud.buttons.Slot1.Activated:emit()
+check(presentation.aimHeld and hud.mobileMode=="Combat","combat weapon switch preserves AIM")
+hud.buttons.Aim.Activated:emit()
 for _,event in ipairs({"death","results","round","respawn","focus"}) do
     hud.buttons.Build.Activated:emit()
     if event=="death" then state.me.alive=false;snapshot:emit(state)

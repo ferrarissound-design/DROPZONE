@@ -136,6 +136,16 @@ assert client.index('if input.KeyCode == Enum.KeyCode.Tab then') < client.index(
 assert 'and (state.phase == "Active" or state.phase == "FinalZone") then' in client
 assert 'camera:ScreenPointToRay(center.X, center.Y)' in client
 print('PASS: draft panel alone blocks pointer input; gameplay and spectator Tab remain available')
+combat_src = (ROOT / 'src/server/Combat.lua').read_text(encoding='utf-8')
+server_src = (ROOT / 'src/server/Main.server.lua').read_text(encoding='utf-8')
+building_src = (ROOT / 'src/server/Building.lua').read_text(encoding='utf-8')
+effects_src = (ROOT / 'src/client/Effects.lua').read_text(encoding='utf-8')
+assert 'function Combat:stopFire(a)' in combat_src
+assert 'if command == "FireStop" then' in server_src and server_src.index('if command == "FireStop" then') < server_src.index('local now = os.clock()')
+assert 'local obstruction = workspace:Raycast(sightOrigin, cf.Position-sightOrigin, sightParams)' in building_src
+assert 'Rules.facingShot(direction, a.root.CFrame.LookVector)' in combat_src
+assert 'traceOrigin = serverOrigin' in effects_src
+print('PASS: stop fire, build LOS, shot-facing and visual tracer source guards')
 
 loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text(encoding='utf-8')
 assert '"Notice", self.id, "敗退' in (ROOT / 'src' / 'server' / 'Round.lua').read_text(encoding='utf-8')
