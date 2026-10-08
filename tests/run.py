@@ -261,10 +261,15 @@ print('PASS: BOT opening is loot-first, retaliation remains available, and engag
 # Shoulder aim remains presentation-only, restores state, and keeps the legacy
 # procedural weapon path when Studio-side templates are unavailable.
 presentation_source = (ROOT / 'src' / 'client' / 'Presentation.lua').read_text(encoding='utf-8')
+presentation_config_source = (ROOT / 'src' / 'shared' / 'PresentationConfig.lua').read_text(encoding='utf-8')
 cosmetics_source = (ROOT / 'src' / 'server' / 'Cosmetics.lua').read_text(encoding='utf-8')
 project_source = (ROOT / 'default.project.json').read_text(encoding='utf-8')
 for required in ('IKControl', 'DropzoneRightAimIK', 'DropzoneLeftAimIK', 'self.humanoid.AutoRotate = false', 'self:restorePose()'):
     assert required in presentation_source
+for required in ('RightGripPart', 'WeaponRootOffset', 'usesWeaponRoot', 'joint.Part0 = root', 'self.baseJointPart0'):
+    assert required in presentation_source or required in presentation_config_source
+assert presentation_config_source.count('WeaponRootOffset = CFrame.new') == 2
+assert 'self.humanoid.RigType == Enum.HumanoidRigType.R15' in presentation_source
 for required in ('ServerStorage:FindFirstChild("WeaponModels")', 'if anchor and templateWeapon(f, kind, cf, anchor) then return f end', 'unsafeWeaponClasses', 'if kind == "Pistol" then'):
     assert required in cosmetics_source
 for required in ('VectorForce=true', 'AlignPosition=true', 'BodyVelocity=true', 'item:IsA("Constraint")', 'not item:IsA("WeldConstraint")', 'item:IsA("JointInstance")'):

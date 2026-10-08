@@ -1,6 +1,6 @@
 # 現在の実装状態
 
-- 調査日: 2026-10-07
+- 調査日: 2026-10-08
 - 調査対象: ferrarissound-design/DROPZONE のmain
 - 基準コミット: `d79466ba29051d1dc10d831b62e32e01dbad8551`（2026-10-07に調査したmain、PR #24反映済み）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
@@ -103,3 +103,10 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - `python3 tests/run.py`: PASS（spawn 9710、gameplay 973、visual 810、client/server 249 assertionsとsource guards）。`python3 tests/preplay_analysis.py`: PASS。
 - 150ms間隔10要求・交互40ms/0ms追加遅延を模擬し10発を確認。発射間隔140ms以上、100要求spamでも待機1件、死亡/装備/Reload/Results/次戦/退出時の取消、死亡地点から490 studs離れた観戦と途中参加への配信、生存者の距離制限を確認。
 - Studio/スマートフォン/複数人/実ネットワークでの連続3試合は未実施。以下TODO N5で実機検証を残す。
+
+## Rifle / Shotgunの両手構え（2026-10-08）
+
+- 原因調査で、R15の長物は非Aim時のIKが0のため右手から垂れ下がり、Aim時は手首Transform IKと大きいShoulder補正が競合して銃身が身体を横切ることを確認した。Tool/Gripは使用せず、HeldWeaponのPresentationJointと左右IKで表示している。
+- Rifle / Shotgunだけは正規化済みWeaponModelsのRootをHumanoidRootPart基準へ置き、右手をGrip、左手をBarrel / PumpへPosition IKで追従させる。銃床は右肩付近、Muzzleはキャラクター前方を維持し、通常・移動中も武器別のIK blendを残す。Pistolの既存Aim設定は変更しない。
+- R15限定の長物処理とし、武器切替・死亡・ラウンド終了ではPresentationJointの元Part0/C0とIKを復元する。R6は従来の右手接続へfallbackする。
+- Studio SoloでR15、外観Rootの前方、Stock / Grip / Barrel / Pumpマーカー、通常時の左右IKと武器切替後の復元を確認。Studio Pluginのバージョン不一致により端末シミュレーターは使用できず、スマートフォン実機、複数人、全移動状態の目視回帰は未確認。
