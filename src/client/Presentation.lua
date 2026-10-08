@@ -198,7 +198,13 @@ function Presentation:applyConstraintPose()
         local isShoulder = name == "RightShoulder" or name == "Right Shoulder" or name == "LeftShoulder" or name == "Left Shoulder"
         if record.kind == "AnimationConstraint" and record.joint.Parent and (not isShoulder or not self.rightIK) then
             local pose = CFrame.new():Lerp(targets[name] or CFrame.new(), self.weaponPoseBlend or self.aimBlend or 0)
-            record.joint.Transform = pose * record.joint.Transform
+            -- Animator normally overwrites Transform each frame, but on skipped
+            -- evaluations reusing our own last transform would compound the pose.
+            local current = record.joint.Transform
+            local unposed = record.lastAppliedTransform == current and record.unposedTransform or current
+            local applied = pose * unposed
+            record.unposedTransform, record.lastAppliedTransform = unposed, applied
+            record.joint.Transform = applied
         end
     end
 end

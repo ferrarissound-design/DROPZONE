@@ -143,9 +143,11 @@ effects_src = (ROOT / 'src/client/Effects.lua').read_text(encoding='utf-8')
 assert 'function Combat:stopFire(a)' in combat_src
 assert 'if command == "FireStop" then' in server_src and server_src.index('if command == "FireStop" then') < server_src.index('local now = os.clock()')
 assert 'local obstruction = workspace:Raycast(sightOrigin, cf.Position-sightOrigin, sightParams)' in building_src
-assert 'Rules.facingShot(direction, a.root.CFrame.LookVector)' in combat_src
+assert 'Rules.facingShot' not in combat_src
+assert 'function Bots.faceTarget(a, delta)' in (ROOT / 'src/server/Bots.lua').read_text(encoding='utf-8')
+assert 'DropzoneWeaponWeld' in (ROOT / 'src/server/Cosmetics.lua').read_text(encoding='utf-8')
 assert 'traceOrigin = serverOrigin' in effects_src
-print('PASS: stop fire, build LOS, shot-facing and visual tracer source guards')
+print('PASS: stop fire, build LOS, third-person fire and visual tracer source guards')
 
 loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text(encoding='utf-8')
 assert '"Notice", self.id, "敗退' in (ROOT / 'src' / 'server' / 'Round.lua').read_text(encoding='utf-8')
@@ -153,6 +155,12 @@ assert '"Notice", a.roundId, "取得:' in loot_source
 assert '"Notice", round.id, "EVOLUTION:' in (ROOT / 'src' / 'server' / 'Main.server.lua').read_text(encoding='utf-8')
 assert 'kind == "Notice" and state and a == state.roundId' in client
 print('PASS: delayed notices carry a server round ID and cannot appear in a later round')
+assert 'spectateId = target.id' in client and 'local function cycleSpectate()' in client
+assert 'sprintDesired, sprintRequestTime = enabled, os.clock()' in client
+assert 'record.lastAppliedTransform == current' in (ROOT / 'src/client/Presentation.lua').read_text(encoding='utf-8')
+assert 'loadToken' in (ROOT / 'src/server/Round.lua').read_text(encoding='utf-8')
+assert 'self:finish(#Players:GetPlayers() == 0)' in (ROOT / 'src/server/Round.lua').read_text(encoding='utf-8')
+print('PASS: stable spectate identity, rapid sprint, noncompounding pose, stale load and abandoned round guards')
 assert 'a.roundId ~= round.id' in server_source
 assert 'a.humanoid.Health <= 0' in server_source
 print('PASS: action ingress rejects stale actors and the death-before-Died window')
@@ -192,7 +200,7 @@ print('PASS: authoritative crouch/slide state is replicated in snapshots')
 # Server ingress guards must run before every movement dispatch, including Results.
 assert server_source.index('roundId ~= round.id or not round:isActive()') < server_source.index('command == "Sprint"')
 assert server_source.index('not a or not a.alive') < server_source.index('command == "Sprint"')
-assert 'send("Sprint", true)' in client and 'send("Sprint", false)' in client
+assert 'requestSprint(true)' in client and 'requestSprint(false)' in client
 assert 'UserInputService.JumpRequest' in client and 'command == "Jump"' in server_source
 print('PASS: sprint/posture/jump use existing round/alive/ingress validation')
 # Test the actual adaptive layout, including both mutually exclusive modes.
@@ -275,7 +283,7 @@ assert presentation_config_source.count('WeaponRootOffset = CFrame.new') == 3
 assert 'self.humanoid.RigType == Enum.HumanoidRigType.R15' in presentation_source
 for required in ('ServerStorage:FindFirstChild("WeaponModels")', 'if anchor and templateWeapon(f, kind, cf, anchor) then return f end', 'unsafeWeaponClasses', 'if kind == "Pistol" then'):
     assert required in cosmetics_source
-for required in ('VectorForce=true', 'AlignPosition=true', 'BodyVelocity=true', 'item:IsA("Constraint")', 'not item:IsA("WeldConstraint")', 'item:IsA("JointInstance")'):
+for required in ('VectorForce=true', 'AlignPosition=true', 'BodyVelocity=true', 'item:IsA("Constraint")', 'DropzoneWeaponWeld', 'weld.Part0, weld.Part1, weld.Parent = root, part, root', 'item:IsA("JointInstance")'):
     assert required in cosmetics_source
 assert project_source.count('"$ignoreUnknownInstances": true') == 2
 assert '"TownTemplates"' in project_source and '"WeaponModels"' in project_source

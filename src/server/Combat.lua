@@ -77,9 +77,9 @@ function Combat:fire(a, direction)
     local now = os.clock()
     if not a.alive or not spec or a.reloading or a.ammo <= 0 or not a.root.Parent
         or not a.model.Parent or a.humanoid.Health <= 0 then return end
-    -- Reject direct backshots for humans while tolerating fast legitimate turns.
-    -- Client-owned root replication means this is mitigation, not aimbot prevention.
-    if a.player and not Rules.facingShot(direction, a.root.CFrame.LookVector) then return end
+    -- A Roblox third-person camera may legitimately aim behind the avatar while
+    -- moving. Reject invalid vectors/cadence via existing server checks, not
+    -- avatar-facing comparisons that suppress normal hip-fire.
     if now < a.nextShot then
         -- Keep at most one human request arriving just before the cooldown.
         -- It fires at the authoritative deadline, never early or as a burst.

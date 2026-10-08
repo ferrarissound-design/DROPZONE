@@ -12,6 +12,12 @@
 
 ## NOW: 新HUDを含む現行ゲームの回帰・初回体験確認
 
+- [ ] N8 — 2026-10-08全コード再監査のStudio/実機検証（基準main `205df68`、修正ブランチ `fix/full-audit-round-combat-20261008`）。
+  - 実装済み: 三人称通常射撃の誤拒否解消、BOT射撃時の向き、武器テンプレ全パーツのRoot溶接、非同期LoadCharacterのtoken保護、Sprint連打、観戦対象ID維持、AnimationConstraintの姿勢補正重複回避、全員退出の棄権処理。
+  - 自動検証: GitHub Actions `tests/run.py` + `tests/preplay_analysis.py` PASS。Robloxのエンジン上の物理・テンプレ実物・高Ping・タッチ操作・実描画は未確認。
+  - 完了条件: PC通常視点の全方位射撃、スマホSprint連打、観戦中の他プレイヤー死亡、BOTの後退射撃、3武器のStudio保存モデルが分離しないこと、遅いアバター読み込み/再参加、全員退出、R6/R15アニメ姿勢を含む連続3試合を確認。未確認なのでチェックは残す。
+
+
 - [ ] N7 — 近接肩越しAIMのStudio/実機検証。
   - 実装: `feat/close-shoulder-aim`、基準main `dd97341`。run.py/preplay PASS。手順: [SHOULDER_AIM_QA](SHOULDER_AIM_QA.md)。
   - 完了条件: PC/スマホで3武器の上半身構図、壁際のカメラ遮蔽と射撃、AIM解除の距離復元、Reload/移動/建築/Draft/観戦/次戦を連続3試合確認。Studio描画/実機未確認のため未完了。

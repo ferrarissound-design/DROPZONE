@@ -36,10 +36,21 @@ function Bots:path(a, goal, now)
         end
     end)
 end
+-- Keep the rendered weapon and body aligned with the actual bot shot even
+-- while the navigation goal moves away from a close enemy.
+function Bots.faceTarget(a, delta)
+    local flat = Vector3.new(delta.X, 0, delta.Z)
+    if flat.Magnitude <= .1 then return false end
+    a.humanoid.AutoRotate = false
+    a.root.CFrame = CFrame.lookAt(a.root.Position, a.root.Position + flat.Unit)
+    return true
+end
 function Bots:step()
     local alive, now = self.actors:alive(), os.clock()
     for _, a in ipairs(alive) do
         if not a.player and a.root.Parent then
+            -- Unlocked navigation whenever this tick is not aiming at an enemy.
+            a.humanoid.AutoRotate = true
             local pos = a.root.Position
             local params = RaycastParams.new()
             params.FilterType = Enum.RaycastFilterType.Exclude
@@ -100,10 +111,12 @@ function Bots:step()
                 local delta = target.root.Position + Vector3.new(0, 0.8, 0) - (pos + Vector3.new(0, 1.4, 0))
                 local hit = workspace:Raycast(pos + Vector3.new(0, 1.4, 0), delta, params)
                 if delta.Magnitude > 0.1 and (not hit or hit.Instance:IsDescendantOf(target.model)) then
+                    Bots.faceTarget(a, delta)
                     -- Deliberate aim error and low tick rate leave humans room to react.
                     local aim = delta + Vector3.new(self.rng:NextNumber(-5, 5), self.rng:NextNumber(-2, 2), self.rng:NextNumber(-5, 5))
                     if aim.Magnitude > 0.1 then self.combat:fire(a, aim.Unit) end
                 elseif hit and self.combat.builds.entries[hit.Instance] and delta.Magnitude > 0.1 then
+                    Bots.faceTarget(a, delta)
                     self.combat:fire(a, delta.Unit)
                 end
             end

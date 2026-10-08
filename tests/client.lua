@@ -158,10 +158,21 @@ check(input.MouseBehavior=="LockCenter","collapsed ready notification does not p
 input.InputEnded:emit({UserInputType="MouseButton2"})
 local subjects={{},{}}
 state.me.alive=false;state.targets={}
-for i=1,2 do state.targets[i]={model={FindFirstChildOfClass=function() return subjects[i] end}} end
+for i=1,2 do state.targets[i]={id=100+i,model={FindFirstChildOfClass=function() return subjects[i] end}} end
 snapshot:emit(state);local first=workspace.CurrentCamera.CameraSubject
 input.InputBegan:emit({KeyCode="Tab"},true);snapshot:emit(state)
 check(workspace.CurrentCamera.CameraSubject~=first,"processed Tab still cycles spectator subject after death")
+local second=workspace.CurrentCamera.CameraSubject
+local thirdSubject={}
+state.targets={
+    {id=99,model={FindFirstChildOfClass=function() return thirdSubject end}},
+    state.targets[1],state.targets[2],
+}
+snapshot:emit(state)
+check(workspace.CurrentCamera.CameraSubject==second,"spectating selected Actor survives target-list reordering")
+table.remove(state.targets,2)
+snapshot:emit(state)
+check(workspace.CurrentCamera.CameraSubject==second,"spectating selected Actor survives another elimination")
 state.me.alive=true;state.targets={};snapshot:emit(state)
 print("PASS: "..count.." client assertions including draft pointer boundaries and spectator Tab")
 
@@ -334,6 +345,13 @@ print("PASS: "..count.." client/server assertions including numeric aim, recoil,
 input.TouchEnabled=true
 state={roundId=9,phase="Active",me={alive=true,weapon="Rifle",ammo=28,reloading=false},zone={},targets={}}
 snapshot:emit(state)
+local sprintBefore=#requests
+hud.buttons.Sprint.Activated:emit()
+hud.buttons.Sprint.Activated:emit()
+check(#requests==sprintBefore+2
+    and requests[#requests-1][2]=="Sprint" and requests[#requests-1][3]==true
+    and requests[#requests][2]=="Sprint" and requests[#requests][3]==false,
+    "rapid mobile Sprint taps send ON then OFF without waiting for a snapshot")
 width,height,inset=900,480,0
 root.Position=Vector3.zero
 hud.crosshair.AbsolutePosition=Vector2.new(435,225)

@@ -17,6 +17,8 @@ local hud, effects = Hud.new(UserInputService.TouchEnabled), Effects.new()
 local damageFeedback = DamageFeedback.new(effects.folder)
 local presentation = Presentation.new(effects.folder, player)
 local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall", 1
+local spectateId
+local sprintDesired, sprintRequestTime
 local submittedEvolutionDraft
 local touchAimToggled = false
 local mobileMode = "Combat"
@@ -47,6 +49,22 @@ local function cancelAim()
         aimButton.BackgroundColor3, aimButton.TextColor3 = Theme.Ink, Theme.Paper
     end
 end
+-- Keep rapid mobile sprint taps consistent even before the next server snapshot.
+local function requestSprint(enabled)
+    sprintDesired, sprintRequestTime = enabled, os.clock()
+    if enabled then cancelAim() end
+    send("Sprint", enabled)
+end
+local function cycleSpectate()
+    local targets = state and state.targets or {}
+    if #targets == 0 then spectateIndex, spectateId = 1, nil; return end
+    local current = 0
+    for i, target in ipairs(targets) do
+        if target.id == spectateId then current = i; break end
+    end
+    spectateIndex = current % #targets + 1
+    spectateId = targets[spectateIndex].id
+end
 local function stopFireTouch()
     -- Inform the authoritative server when a held trigger ends, so its
     -- cooldown buffer cannot emit a stale shot after release.
@@ -61,8 +79,14 @@ local function setMobileMode(mode)
     mobileMode = mode
     hud:setMobileMode(mode)
 end
-player.CharacterRemoving:Connect(function() setMobileMode("Combat") end)
-player.CharacterAdded:Connect(function() setMobileMode("Combat") end)
+player.CharacterRemoving:Connect(function()
+    setMobileMode("Combat")
+    sprintDesired = nil
+end)
+player.CharacterAdded:Connect(function()
+    setMobileMode("Combat")
+    sprintDesired = nil
+end)
 local function build()
     cancelAim()
     send("Build", buildType)
@@ -84,7 +108,7 @@ fire.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
         if not fireDrag:begin(input) then return end
         shooting = true
-        if state and state.me and state.me.sprinting then send("Sprint", false) end
+        if state and state.me and state.me.sprinting then requestSprint(false) end
         tryShoot()
     elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
         shooting = true
@@ -103,7 +127,7 @@ aimButton.Activated:Connect(function()
     if not playing() or mobileMode == "Build" then return end
     touchAimToggled = not touchAimToggled
     presentation:setAimHeld(touchAimToggled)
-    if touchAimToggled and state.me.sprinting then send("Sprint", false) end
+    if touchAimToggled and state.me.sprinting then requestSprint(false) end
     aimButton.Text = touchAimToggled and "AIM\nON" or "AIM"
     aimButton.BackgroundColor3 = touchAimToggled and Theme.Blue or Theme.Ink
     aimButton.TextColor3 = Theme.Paper
@@ -120,9 +144,9 @@ hud:button("Combat", "↩\n戦闘", 0, 0, 64, 64, function()
 end)
 -- Two movement buttons replace the previous Crouch + Slide pair.
 hud:button("Sprint", "走る", 784, 285, 82, 48, function()
-    local enable = not (state and state.me and state.me.sprinting)
-    if enable then cancelAim() end
-    send("Sprint", enable)
+    local current = sprintDesired
+    if current == nil then current = state and state.me and state.me.sprinting == true end
+    requestSprint(not current)
 end)
 local function posture() send("Posture") end
 hud:button("Crouch", "しゃがみ", 680, 340, 88, 48, posture)
@@ -142,7 +166,7 @@ for i = 1, 3 do hud:button("Slot" .. i, tostring(i), 279 + (i - 1) * 116, 418, 1
         send("Equip", i)
     end
 end) end
-hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, function() spectateIndex = spectateIndex + 1 end)
+hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, cycleSpectate)
 for name, button in pairs(hud.buttons) do
     if name ~= "Fire" then button.Activated:Connect(function() presentation.audio:play("Button") end) end
 end
@@ -151,7 +175,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     if input.KeyCode == Enum.KeyCode.Tab then
         if not UserInputService:GetFocusedTextBox() and state
             and (state.phase == "Active" or state.phase == "FinalZone") then
-            spectateIndex = spectateIndex + 1
+            cycleSpectate()
         end
         return
     end
@@ -177,17 +201,17 @@ UserInputService.InputBegan:Connect(function(input, processed)
     elseif key == Enum.KeyCode.X then buildType = "Floor"; hud.buildUntil = os.clock() + 3
     elseif key == Enum.KeyCode.C then buildType = "Ramp"; hud.buildUntil = os.clock() + 3
     elseif key == Enum.KeyCode.LeftControl or key == Enum.KeyCode.RightControl then posture()
-    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then cancelAim(); send("Sprint", true) end
+    elseif key == Enum.KeyCode.LeftShift or key == Enum.KeyCode.RightShift then requestSprint(true) end
 end)
 UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then send("Sprint", false) end
+    if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then requestSprint(false) end
     if input == fireDrag.input then stopFireTouch() end
     if input.UserInputType == Enum.UserInputType.MouseButton1 then stopFireTouch() end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then presentation:setAimHeld(false) end
 end)
 UserInputService.WindowFocusReleased:Connect(function()
     setMobileMode("Combat")
-    send("Sprint", false)
+    requestSprint(false)
 end)
 UserInputService.JumpRequest:Connect(function()
     -- Do not wait for a posture snapshot before cancelling a just-started slide.
@@ -239,7 +263,8 @@ end
 remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     if not state or state.roundId ~= s.roundId then
         stopFireTouch()
-        shooting, nextShot, spectateIndex = false, 0, 1
+        shooting, nextShot, spectateIndex, spectateId = false, 0, 1, nil
+        sprintDesired = nil
         submittedEvolutionDraft = nil
         nextJumpRequest = 0
         setMobileMode("Combat")
@@ -252,6 +277,12 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == "Wall" and Theme.Blue or Theme.Ink end
     end
     state = s
+    if not s.me or not s.me.alive then
+        sprintDesired = nil
+    elseif sprintDesired ~= nil and (s.me.sprinting == sprintDesired
+        or os.clock() - (sprintRequestTime or 0) > .6) then
+        sprintDesired = nil
+    end
     presentation:snapshot(s)
     if not playing() then
         setMobileMode("Combat")
@@ -282,9 +313,15 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
             local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
             if humanoid then camera.CameraSubject, camera.CameraType = humanoid, Enum.CameraType.Custom end
         elseif #s.targets > 0 then
-            spectateIndex = (spectateIndex - 1) % #s.targets + 1
-            local model = s.targets[spectateIndex].model
-            local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+            -- Preserve identity as combatants are removed/reordered in snapshots.
+            local selected
+            for i, target in ipairs(s.targets) do
+                if target.id == spectateId then selected = i; break end
+            end
+            spectateIndex = selected or math.min(spectateIndex, #s.targets)
+            local target = s.targets[spectateIndex]
+            spectateId = target.id
+            local humanoid = target.model and target.model:FindFirstChildOfClass("Humanoid")
             if humanoid then camera.CameraSubject, camera.CameraType = humanoid, Enum.CameraType.Custom end
         end
     end

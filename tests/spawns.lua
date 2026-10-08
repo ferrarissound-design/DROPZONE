@@ -217,4 +217,13 @@ round=setup(1,spread(24),{20})
 check(not round:start(), "all load timeouts return rather than hang")
 round.id=round.id+1; round.phase="Starting"; advance(21)
 check(#registered==0, "stale callback cannot enroll in newer round")
+round=setup(1,spread(24),{.5})
+local lobbyPlayer=roster[1]
+round:loadLobby(lobbyPlayer)
+local staleToken=round.loading[lobbyPlayer]
+local newerToken={}
+round.loading[lobbyPlayer]=newerToken
+advance(1)
+check(staleToken~=newerToken and round.loading[lobbyPlayer]==newerToken,
+    "late lobby completion never removes another in-flight character load")
 print("PASS: "..assertions.." spawn assertions (real World.resolveSpawn and Round:start)")
