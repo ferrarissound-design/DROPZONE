@@ -143,9 +143,11 @@ effects_src = (ROOT / 'src/client/Effects.lua').read_text(encoding='utf-8')
 assert 'function Combat:stopFire(a)' in combat_src
 assert 'if command == "FireStop" then' in server_src and server_src.index('if command == "FireStop" then') < server_src.index('local now = os.clock()')
 assert 'local obstruction = workspace:Raycast(sightOrigin, cf.Position-sightOrigin, sightParams)' in building_src
-assert 'Rules.facingShot(direction, a.root.CFrame.LookVector)' in combat_src
+assert 'Rules.facingShot' not in combat_src
+assert 'function Bots.faceTarget(a, delta)' in (ROOT / 'src/server/Bots.lua').read_text(encoding='utf-8')
+assert 'DropzoneWeaponWeld' in (ROOT / 'src/server/Cosmetics.lua').read_text(encoding='utf-8')
 assert 'traceOrigin = serverOrigin' in effects_src
-print('PASS: stop fire, build LOS, shot-facing and visual tracer source guards')
+print('PASS: stop fire, build LOS, third-person fire and visual tracer source guards')
 
 loot_source = (ROOT / 'src' / 'server' / 'Loot.lua').read_text(encoding='utf-8')
 assert '"Notice", self.id, "敗退' in (ROOT / 'src' / 'server' / 'Round.lua').read_text(encoding='utf-8')
@@ -153,6 +155,12 @@ assert '"Notice", a.roundId, "取得:' in loot_source
 assert '"Notice", round.id, "EVOLUTION:' in (ROOT / 'src' / 'server' / 'Main.server.lua').read_text(encoding='utf-8')
 assert 'kind == "Notice" and state and a == state.roundId' in client
 print('PASS: delayed notices carry a server round ID and cannot appear in a later round')
+assert 'spectateId = target.id' in client and 'local function cycleSpectate()' in client
+assert 'sprintDesired, sprintRequestTime = enabled, os.clock()' in client
+assert 'record.lastAppliedTransform == current' in (ROOT / 'src/client/Presentation.lua').read_text(encoding='utf-8')
+assert 'loadToken' in (ROOT / 'src/server/Round.lua').read_text(encoding='utf-8')
+assert 'self:finish(#Players:GetPlayers() == 0)' in (ROOT / 'src/server/Round.lua').read_text(encoding='utf-8')
+print('PASS: stable spectate identity, rapid sprint, noncompounding pose, stale load and abandoned round guards')
 assert 'a.roundId ~= round.id' in server_source
 assert 'a.humanoid.Health <= 0' in server_source
 print('PASS: action ingress rejects stale actors and the death-before-Died window')
