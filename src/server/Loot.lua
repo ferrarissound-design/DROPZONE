@@ -81,6 +81,7 @@ function Loot:pickup(a)
     local item = self.items[p]
     if not item then return end
     local kind = item.kind
+    local firstWeapon = Weapons[kind] ~= nil and #a.inventory == 0
     self.items[p] = nil -- claim before applying reward; no yields in this transaction
     if Weapons[kind] then self.combat:give(a, kind, item.rarity)
     elseif kind == "Ammo" then local amount = math.floor(30 * (1 + Evolution.total(a, "Scavenger")))
@@ -89,7 +90,12 @@ function Loot:pickup(a)
     elseif kind == "Shield" then a.shield = math.min(100, a.shield + 30)
     elseif kind == "Energy" then a.energy = math.min(Evolution.maxEnergy(a), a.energy + 40) end
     p:Destroy()
-    if a.diagnostics then a.diagnostics.pickups = (a.diagnostics.pickups or 0) + 1 end
+    if a.diagnostics then
+        a.diagnostics.pickups = (a.diagnostics.pickups or 0) + 1
+        if firstWeapon and a.startTime and a.diagnostics.firstWeaponSeconds == nil then
+            a.diagnostics.firstWeaponSeconds = math.max(0, os.clock() - a.startTime)
+        end
+    end
     if a.player then self.effects:FireClient(a.player, "Pickup", a.roundId, item.rarity) end
     if a.player then self.effects:FireClient(a.player, "Notice", a.roundId, "取得: " .. (item.rarity and item.rarity .. " " or "") .. (Weapons[kind] and Weapons[kind].label or labels[kind])) end
 end
