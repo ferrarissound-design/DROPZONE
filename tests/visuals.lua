@@ -404,6 +404,75 @@ presentation:undoCamera();presentation:step(.1)
 check(camera.FieldOfView==73 and nextCamera.FieldOfView<81,"camera replacement restores the previous FOV and records the new baseline")
 presentation:snapshot(snap(3,{alive=false}))
 check(nextCamera.FieldOfView==81 and humanoid.CameraOffset.X==0,"death restores the replacement camera and shoulder offset")
+-- Zoom lifecycle executes the actual controller. Standard camera collision/orbit
+-- remains an engine playtest; this verifies smooth distance and ownership.
+presentation:snapshot(snap(4,{}))
+local zoomPlayer = presentation.player
+zoomPlayer.CameraMinZoomDistance, zoomPlayer.CameraMaxZoomDistance = .5, 30
+nextCamera.CFrame, nextCamera.Focus = CFrame.new(0,0,12), CFrame.new()
+presentation:prepareCamera(1/60)
+check(presentation.zoomState==nil and zoomPlayer.CameraMaxZoomDistance==30,"hip camera never owns zoom")
+presentation:setAimHeld(true)
+presentation:prepareCamera(1/60)
+check(zoomPlayer.CameraMaxZoomDistance<12 and zoomPlayer.CameraMaxZoomDistance>4.2,"AIM approaches close distance without snapping")
+for _=1,90 do presentation:prepareCamera(1/60) end
+check(math.abs(zoomPlayer.CameraMaxZoomDistance-4.2)<.001,"rifle settles at upper-body distance")
+check(zoomPlayer.CameraMinZoomDistance==zoomPlayer.CameraMaxZoomDistance,"AIM prevents scroll or pinch from pulling camera away")
+for _,kind in ipairs({"Shotgun","Pistol","Rifle"}) do
+    presentation:snapshot(snap(4,{weapon=kind}))
+    for _=1,90 do presentation:prepareCamera(1/60) end
+    check(math.abs(zoomPlayer.CameraMaxZoomDistance-modules.PresentationConfig.Weapons[kind].AimDistance)<.001,"weapon switch adjusts close distance")
+    check(presentation.zoomState.distance==12,"weapon switch preserves original normal distance")
+end
+presentation:cancelAim()
+presentation:prepareCamera(1/60)
+check(zoomPlayer.CameraMaxZoomDistance>4.2 and zoomPlayer.CameraMaxZoomDistance<12,"AIM exit eases back")
+presentation:setAimHeld(true);presentation:prepareCamera(1/60)
+check(presentation.zoomState.distance==12,"rapid retoggle keeps original normal distance")
+presentation:cancelAim()
+for _=1,90 do presentation:prepareCamera(1/60) end
+check(presentation.zoomState==nil and zoomPlayer.CameraMinZoomDistance==.5 and zoomPlayer.CameraMaxZoomDistance==30,"exit restores original zoom bounds")
+for _,ending in ipairs({"sprint","slide","death","results","respawn","destroy"}) do
+    presentation:snapshot(snap(5,{}));presentation:setAimHeld(true);presentation:prepareCamera(.1)
+    if ending=="sprint" or ending=="slide" then
+        presentation:snapshot(snap(5,{sprinting=ending=="sprint",sliding=ending=="slide"}))
+        for _=1,90 do presentation:prepareCamera(1/60) end
+    elseif ending=="death" then presentation:snapshot(snap(5,{alive=false}))
+    elseif ending=="results" then presentation:snapshot(snap(5,{},"Results"))
+    elseif ending=="respawn" then presentation:snapshot(snap(6,{}))
+    else presentation:clear() end
+    check(presentation.zoomState==nil and zoomPlayer.CameraMinZoomDistance==.5 and zoomPlayer.CameraMaxZoomDistance==30,ending.." restores zoom ownership")
+end
+-- Numeric world/local rotations catch wrong multiplication order and pitch/yaw.
+local oldCFrame, oldJoint, oldHumanoid = CFrame, presentation.joint, presentation.humanoid
+CFrame=assert(loadfile(ROOT.."/tests/aim_math.lua"))()(Vector3)
+local numericFrame=getmetatable(CFrame.new())
+function numericFrame:ToObjectSpace(other) return self:Inverse()*other end
+function numericFrame:Lerp(other,t)
+    assert(t==0 or t==1,"orientation test only claims settled endpoints")
+    return t==1 and other or self
+end
+presentation.humanoid={RigType=Enum.HumanoidRigType.R15}
+for _,offset in ipairs({Vector3.new(.48,1.28,-1.42),Vector3.new(.48,1.22,-1.4),Vector3.new(.58,1.2,-1.25)}) do
+    for _,target in ipairs({Vector3.new(10,12,-25),Vector3.new(-12,-6,8),Vector3.new(2,2,-4)}) do
+        local parent=CFrame.new(2,0,1)*CFrame.Angles(0,.7,0)
+        presentation.joint={Parent=true,Part0={CFrame=parent},C0=CFrame.new(offset.X,offset.Y,offset.Z)}
+        local start=(parent*presentation.joint.C0).Position
+        presentation.aimBlend=1
+        presentation:updateWeaponAim(target)
+        local world=parent*presentation.joint.C0
+        check((world.LookVector-(target-start).Unit).Magnitude<1e-6,"each weapon converges toward target through pitched/yawed local transform")
+        check((world.Position-start).Magnitude<1e-6,"aim orientation preserves grip position")
+        local aimed=presentation.joint.C0
+        presentation.aimBlend=0;presentation:updateWeaponAim(Vector3.new(50,0,0))
+        check(presentation.joint.C0==aimed,"normal stance is untouched by target alignment")
+        presentation.aimBlend=1;presentation.me={reloading=true}
+        presentation:updateWeaponAim(Vector3.new(50,0,0))
+        check(presentation.joint.C0==aimed,"reload tilt is not overwritten by aim alignment")
+        presentation.me=nil
+    end
+end
+CFrame,presentation.joint,presentation.humanoid=oldCFrame,oldJoint,oldHumanoid
 presentation:destroy();check(#audioFolder:GetChildren()==0,"presentation destroy releases all pooled instances")
 
 -- Track caching, rig selection and failed-load suppression with a fake Animator.

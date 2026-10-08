@@ -2,7 +2,7 @@
 
 - 調査日: 2026-10-08
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `a9cf3995064565657b6994993c4d7f3aa5887563`（2026-10-08調査）
+- 基準コミット: `dd97341b539b1a0368eae06b4fb257c8cc2af85e`（2026-10-08調査）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
 
@@ -123,3 +123,14 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - `MobileLayout`で安全領域内の可変キャンバスと端寄せ配置。標準スティック/Jumpは維持し予約領域を空ける。建築中はEnergy、戦闘中は弾薬表示。PCキーとサーバー/Raycast/Presentation/Rojo構成は維持。
 - run.py PASS（spawn 9710 / gameplay 973 / visual 824 / client 271 / layout 1032）、preplay PASS、diffチェックPASS。
 - Studio/実機は未確認。[MOBILE_HUD_QA](MOBILE_HUD_QA.md)に配置プレビューと確認手順。TODO N6は実機確認まで未完了。
+
+## 近接肩越しAIM（2026-10-08）
+
+- 基準main: `dd97341b539b1a0368eae06b4fb257c8cc2af85e`。実装ブランチ: `feat/close-shoulder-aim`。
+- 旧AIMはFOV/CameraOffsetのみで距離は不変。PresentationがAIM中と解除遷移中だけPlayerのzoom boundsを管理し、Rifle 4.2 / Shotgun 4.6 / Pistol 4.0 studsへ指数補間する。解除時は開始時の表示距離へ戻し、元のmin/maxを復元する。通常時のzoomは変更しない。
+- 標準カメラの前にzoom、後に既存FOV/反動/武器を更新する。CameraType/PlayerModuleを置換せず、標準のorbit・タッチ・遮蔽処理を維持。右肩オフセット1.55、上方向.45、相対FOV -12で上半身を画面左へ寄せる設計。描画上の最終構図は未確認。
+- 3武器のAIM位置を調整し、PistolもR15でroot基準＋左右Position IKへ統一。表示銃は既存Fireの照準点（モバイル補助含む）へ向ける。Reload中は既存傾きを優先。R6の右手接続fallbackを維持。銃モデルの軸/マーカー実物はStudioで確認が必要。
+- Combat、弾薬、spread、root+1.4のサーバー射撃起点、遮蔽判定は変更なし。表示の銃口とサーバー射撃起点は同一ではなく、至近距離/壁際の見え方は実機QAが必要。
+- `python3 tests/run.py`: PASS（spawn 9710 / gameplay 973 / visual 879 / client 271 / layout 1032、構文/source guards含む）。`python3 tests/preplay_analysis.py`: PASS。
+- 追加検証: zoom収束/復元/連続切替/武器切替/Sprint/Slide/死亡/Results/次戦、3武器位置から上下左右の照準点への数値回転、通常時/Reloadの姿勢保護。
+- Studio・スマートフォン・PC実プレイは未実施。[SHOULDER_AIM_QA](SHOULDER_AIM_QA.md)に手順。N7は未完了。

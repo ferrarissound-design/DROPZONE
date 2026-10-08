@@ -234,7 +234,7 @@ aim = function()
         end
     end
     local direction = target - origin
-    return direction.Magnitude > 0.1 and direction.Unit or nil
+    return direction.Magnitude > 0.1 and direction.Unit or nil, target
 end
 remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     if not state or state.roundId ~= s.roundId then
@@ -329,13 +329,18 @@ remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, sh
     end
 end)
 -- Camera transforms are bracketed around Roblox's camera update, never accumulated.
-RunService:BindToRenderStep("DropzonePresentationBefore", Enum.RenderPriority.Camera.Value-1, function()
+RunService:BindToRenderStep("DropzonePresentationBefore", Enum.RenderPriority.Camera.Value-1, function(dt)
     presentation:undoCamera()
+    presentation:prepareCamera(dt)
     if fireDrag.input and fireDrag.input.UserInputState == Enum.UserInputState.Cancel then stopFireTouch() end
     if playing() then fireDrag:apply(workspace.CurrentCamera) else stopFireTouch() end
 end)
 RunService:BindToRenderStep("DropzonePresentationAfter", Enum.RenderPriority.Camera.Value+1, function(dt)
     presentation:step(math.min(dt,.1))
+    if playing() and (presentation:isAiming() or (presentation.aimBlend or 0) > .001) then
+        local _, target = aim()
+        presentation:updateWeaponAim(target)
+    end
     if shooting and playing() then tryShoot() end
 end)
 script.Destroying:Connect(function()

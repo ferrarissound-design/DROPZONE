@@ -261,7 +261,7 @@ for required in ('IKControl', 'DropzoneRightAimIK', 'DropzoneLeftAimIK', 'self.h
     assert required in presentation_source
 for required in ('RightGripPart', 'WeaponRootOffset', 'usesWeaponRoot', 'joint.Part0 = root', 'self.baseJointPart0'):
     assert required in presentation_source or required in presentation_config_source
-assert presentation_config_source.count('WeaponRootOffset = CFrame.new') == 2
+assert presentation_config_source.count('WeaponRootOffset = CFrame.new') == 3
 assert 'self.humanoid.RigType == Enum.HumanoidRigType.R15' in presentation_source
 for required in ('ServerStorage:FindFirstChild("WeaponModels")', 'if anchor and templateWeapon(f, kind, cf, anchor) then return f end', 'unsafeWeaponClasses', 'if kind == "Pistol" then'):
     assert required in cosmetics_source
