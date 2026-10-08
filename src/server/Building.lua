@@ -26,6 +26,13 @@ function Building:place(a, kind)
     if math.abs(ground.Y - a.root.Position.Y) > 12 then return end
     local size = kind == "Wall" and Vector3.new(8, 9, 1) or kind == "Floor" and Vector3.new(8, 0.6, 8) or Vector3.new(8, 7, 8)
     local cf = CFrame.new(ground + Vector3.new(0, size.Y / 2 + 0.2, 0)) * CFrame.Angles(0, yaw, 0)
+    -- Destination overlap alone cannot stop building through a solid wall.
+    local sightOrigin = a.root.Position + Vector3.new(0, 1.4, 0)
+    local sightParams = RaycastParams.new()
+    sightParams.FilterType = Enum.RaycastFilterType.Exclude
+    sightParams.FilterDescendantsInstances = {a.model}
+    local obstruction = workspace:Raycast(sightOrigin, cf.Position-sightOrigin, sightParams)
+    if obstruction and obstruction.Instance.CanCollide then return end
     -- Reject intersections with buildings, players, and other builds; avoid entombing actors.
     local params = OverlapParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
