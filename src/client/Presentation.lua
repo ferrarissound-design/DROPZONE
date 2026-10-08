@@ -2,6 +2,7 @@ local Config = require(game.ReplicatedStorage.DropzoneShared.PresentationConfig)
 local RunService = game:GetService("RunService")
 local Audio = require(script.Parent.Audio)
 local Animations = require(script.Parent.Animations)
+local EvolutionVisibility = require(script.Parent.EvolutionVisibility)
 local Presentation = {}
 Presentation.__index = Presentation
 function Presentation.new(folder, player)
@@ -16,11 +17,7 @@ function Presentation.new(folder, player)
         p.CastShadow, p.Parent = false, folder
         table.insert(self.flashes, {part=p, untilTime=0})
     end
-    local pulse = Instance.new("Highlight")
-    pulse.Name, pulse.Enabled, pulse.DepthMode = "EvolutionPulse", false, Enum.HighlightDepthMode.Occluded
-    pulse.FillColor, pulse.OutlineColor = Color3.fromRGB(66,220,238), Color3.fromRGB(184,141,244)
-    pulse.Parent = folder
-    self.pulse = pulse
+    self.evolutionVisibility = EvolutionVisibility.new()
     self.poseConnection = RunService.PreSimulation:Connect(function() self:applyConstraintPose() end)
     return self
 end
@@ -209,6 +206,7 @@ function Presentation:applyConstraintPose()
     end
 end
 function Presentation:clear()
+    self.evolutionVisibility:clear()
     self:restoreZoom()
     self:undoCamera()
     if self.camera and self.baseFov then self.camera.FieldOfView = self.baseFov end
@@ -222,7 +220,6 @@ function Presentation:clear()
     self.vertical,self.horizontal,self.fov,self.offset,self.aimBlend,self.weaponPoseBlend = 0,0,0,0,0,0
     self.aimHeld,self.combatAimHeld,self.combatAimUntil,self.aimActive,self.wasAimActive = false,false,0,false,false
     self.me, self.previous, self.roundId, self.readyAt, self.slideSound = nil,nil,nil,nil,nil
-    self.pulse.Enabled, self.pulse.Adornee = false,nil
     self.nextStep, self.lastShrink, self.warnedHoldPhase = 0,nil,nil
     for _, flash in ipairs(self.flashes) do flash.part.Transparency, flash.untilTime = 1,0 end
 end
@@ -239,6 +236,7 @@ function Presentation:snapshot(s)
     end
     if self.roundId ~= s.roundId or self.character ~= character then self:clear() end
     self.roundId, self.character, self.me = s.roundId, character, me
+    self.evolutionVisibility:bind(character)
     if not self.humanoid then
         self.humanoid, self.baseOffset = humanoid, humanoid.CameraOffset
         self.animations:bind(humanoid)
@@ -268,8 +266,8 @@ function Presentation:snapshot(s)
     elseif not draft then self.readyAt = nil end
     if previous and me.evolutions > previous.evolutions then
         self.audio:play("EvolutionApplied")
-        self.pulse.Adornee = character:FindFirstChild("Mutation") and character or nil
-        self.pulse.Enabled, self.pulseUntil = self.pulse.Adornee ~= nil, os.clock()+Config.PulseDuration
+        -- The server owns the shared flash/pulse. Preserve the existing sound
+        -- without adding a second local Highlight over the evolution animation.
     end
     local zone = s.zone
     -- One early warning per holding phase. The existing shrink-start warning
@@ -331,6 +329,7 @@ function Presentation:step(dt)
     local aimAllowed = not me.sprinting and not me.sliding
     self.aimActive = aimIntent and aimAllowed
     self.aimBlend = self.aimBlend + ((self.aimActive and 1 or 0)-self.aimBlend)*aimAlpha
+    self.evolutionVisibility:step(self.aimActive or self.aimBlend > .01)
     local wasAimActive = self.wasAimActive == true
     if self.aimActive then
         self.humanoid.AutoRotate = false
@@ -408,17 +407,12 @@ function Presentation:step(dt)
     end
     if self.slideSound and root then self.slideSound:SetPosition(root.Position) end
     if self.readyAt and now >= self.readyAt then self.readyAt=nil; self.audio:play("EvolutionReady") end
-    if self.pulse.Enabled then
-        local remaining = math.max(0,(self.pulseUntil-now)/Config.PulseDuration)
-        self.pulse.FillTransparency, self.pulse.OutlineTransparency = 1-remaining*.22,1-remaining*.65
-        if remaining == 0 then self.pulse.Enabled=false end
-    end
 end
 function Presentation:destroy()
     self:clear()
     if self.poseConnection then self.poseConnection:Disconnect(); self.poseConnection = nil end
     self.audio:destroy()
-    self.pulse:Destroy()
     for _, flash in ipairs(self.flashes) do flash.part:Destroy() end
 end
 return Presentation
+

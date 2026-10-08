@@ -18,13 +18,13 @@ Enum = {RaycastFilterType={Include="Include"}}
 OverlapParams = {new=function() return {} end}
 RaycastParams = {new=function() return {} end}
 warn = function() end
-local modules = {VisualTheme={}, MapVisuals={}, Town={}, Evolution={}, Movement={}}
+local modules = {VisualTheme={}, MapVisuals={}, Town={}, Evolution={}, Movement={}, PlayerEvolutionVisuals={clear=function() end}}
 require = function(name) return assert(modules[name], "unloaded "..tostring(name)) end
 local roster = {}
 local players = {GetPlayers=function() return roster end}
 game = {ReplicatedStorage={DropzoneShared={Config="Config", Rules="Rules", VisualTheme="VisualTheme"}},
     GetService=function(_,name) if name=="Players" then return players end end}
-script = {Parent={World="World",Actors="Actors",Evolution="Evolution",Movement="Movement",MapVisuals="MapVisuals",Town="Town"}}
+script = {Parent={PlayerEvolutionVisuals="PlayerEvolutionVisuals",World="World",Actors="Actors",Evolution="Evolution",Movement="Movement",MapVisuals="MapVisuals",Town="Town"}}
 local function load(name,path) modules[name]=assert(loadfile(ROOT.."/src/"..path))(); return modules[name] end
 local Config = load("Config","shared/Config.lua")
 load("Rules","shared/Rules.lua")
@@ -227,3 +227,4 @@ advance(1)
 check(staleToken~=newerToken and round.loading[lobbyPlayer]==newerToken,
     "late lobby completion never removes another in-flight character load")
 print("PASS: "..assertions.." spawn assertions (real World.resolveSpawn and Round:start)")
+

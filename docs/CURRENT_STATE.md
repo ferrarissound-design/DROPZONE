@@ -2,9 +2,17 @@
 
 - 調査日: 2026-10-08
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `530a43deb87aa37cb7bca57adc75bab2434765a8`（2026-10-08 初回体験改善着手時main）
+- 基準コミット: `4c3e7e4dec98267c85bd9e666410030141e3472a`（2026-10-08 プレイヤー進化外見実装時main）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
+
+## 2026-10-08 プレイヤー専用進化外見
+
+- ブランチ: `feat/player-evolution-visuals-20261008`。確認mainは上記SHA。段階/能力対応/検証手順は [PLAYER_EVOLUTION_QA](PLAYER_EVOLUTION_QA.md)。
+- 新しいserver/PlayerEvolutionVisualsで0/1〜2/3〜4/5以上の4外見段階を管理。11能力の部位別パーツを共存させ、能力IIIで増大・発光強化。最大形態で胸部コアと背部ユニット/タワーを追加。BOTは旧Mutationを含め進化装飾なし、能力/AIは既存どおり。
+- サーバー確定後に約0.45秒のTween/Highlight/小パルス。全能力IIIの常設50Part、ハード上限64、人の同時演出4。Particle/Lightなし。R6/R15の各身体部位へ非衝突Weldで接続。
+- 自分のAIM中はclient/EvolutionVisibilityで装飾だけローカル非表示。旧ローカルPulseを撤去し効果音は維持。Resultsで全装飾破棄、死亡で演出停止、Actor再登録で残留除去。
+- オフライン: tests/run.pyとpreplay_analysis.py PASS。実装を実行する両Rig/Stack/能力混在/全能力/欠損部位/BOT/同時演出/連続callback/AIM/リセットの模擬回帰を追加。Studio描画/物理/通信・スマホFPS/兵士素材実物は未検証。TODOの確認項目を未完了のまま残す。
 
 ## 2026-10-08 実プレイ計測の準備
 
@@ -42,7 +50,7 @@
 | ラウンド | Round/Actors: 7状態、参加上限20、標準12体にBOT補充、途中参加待機、死亡/退出、勝敗/DRAW、全リセット |
 | Combat | Combat/WeaponStats: 3武器、3レアリティ、サーバー命中、Shotgun減衰、Reload世代、装備/上位取得 |
 | Loot/Build | 自動取得と排他的claim、回復/Shield/Energy、Wall/Floor/Ramp、重なり拒否、破壊/期限/上限 |
-| Evolution | 11能力、3候補、5秒自動選択、最大III、カテゴリ多様性、キュー、BOT選択、Mutation |
+| Evolution | 11能力、3候補、5秒自動選択、最大III、カテゴリ多様性、キュー、BOT選択、プレイヤー専用の段階装甲 |
 | Movement | Sprint/Crouch/Slide、接地と速度確認、Jump解除、死亡/結果時姿勢リセット |
 | BOT/Zone | 有界Pathfinding、開幕10秒のLoot優先（被弾時反撃）、視線射撃、Zone退避、5段階縮小/ゼロ半径 |
 | HUD/Spectate | 日本語中心HUD、PCの状況表示、モバイル操作、READY/V、Tab/ボタン観戦、ミニマップ、結果 |
@@ -161,3 +169,4 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - `python3 tests/run.py`: PASS（spawn 9710 / gameplay 973 / visual 879 / client 271 / layout 1032、構文/source guards含む）。`python3 tests/preplay_analysis.py`: PASS。
 - 追加検証: zoom収束/復元/連続切替/武器切替/Sprint/Slide/死亡/Results/次戦、3武器位置から上下左右の照準点への数値回転、通常時/Reloadの姿勢保護。
 - Studio・スマートフォン・PC実プレイは未実施。[SHOULDER_AIM_QA](SHOULDER_AIM_QA.md)に手順。N7は未完了。
+

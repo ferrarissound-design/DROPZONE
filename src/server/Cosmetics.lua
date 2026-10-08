@@ -5,13 +5,14 @@ local Cosmetics = {}
 
 -- All visual additions pass through this boundary. Never participate in gameplay
 -- physics, touch pickup, raycast, placement overlap, or navigation.
-function Cosmetics.part(parent, name, size, cf, color, anchor, material, shape)
+function Cosmetics.part(parent, name, size, cf, color, anchor, material, shape, evolutionAdornment)
     local p = Instance.new("Part")
     p.Name, p.Size, p.CFrame = name, size, cf
     p.Color, p.Material = color, material or Enum.Material.SmoothPlastic
     p.CanCollide, p.CanTouch, p.CanQuery, p.Massless = false, false, false, true
     p.Anchored, p.CastShadow = anchor == nil, false
     if shape then p.Shape = shape end
+    if evolutionAdornment then p:SetAttribute("DropzoneEvolutionAdornment", true) end
     p.Parent = parent
     if anchor then
         local weld = Instance.new("WeldConstraint")
@@ -196,3 +197,4 @@ function Cosmetics.build(p, kind)
     return f
 end
 return Cosmetics
+

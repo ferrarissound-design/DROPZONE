@@ -42,7 +42,7 @@ local delayed = {}
 task = {delay = function(_, f) table.insert(delayed,f) end, defer = function(f) f() end}
 local players = {GetPlayers = function() return {} end}
 game = {ReplicatedStorage = {DropzoneShared = {Config="Config", Rules="Rules", Weapons="Weapons", VisualTheme="VisualTheme", WeaponStats="WeaponStats", PresentationConfig="PresentationConfig"}}, GetService=function(_, name) if name=="Players" then return players end; if name=="ServerStorage" then return {FindFirstChild=function() return nil end} end end}
-script = {Parent = {World="World", Actors="Actors", Evolution="Evolution", Movement="Movement", Cosmetics="Cosmetics", MapVisuals="MapVisuals", Town="Town"}}
+script = {Parent = {PlayerEvolutionVisuals="PlayerEvolutionVisuals",World="World", Actors="Actors", Evolution="Evolution", Movement="Movement", Cosmetics="Cosmetics", MapVisuals="MapVisuals", Town="Town"}}
 local Config = load("Config", "shared/Config.lua")
 local Rules = load("Rules", "shared/Rules.lua")
 load("Weapons", "shared/Weapons.lua")
@@ -54,6 +54,14 @@ load("MapVisuals", "server/MapVisuals.lua")
 local Town = load("Town", "server/Town.lua")
 local Movement = load("Movement", "server/Movement.lua")
 local World = load("World", "server/World.lua")
+-- Gameplay regressions spy on the visual boundary; tests/visuals.lua executes
+-- the real constructor, tween, replication markers and lifecycle separately.
+modules.PlayerEvolutionVisuals = {
+    initialize=function(a) a.mutationFolder=nil end,
+    update=function(a) if a.player then a.visualUpdates=(a.visualUpdates or 0)+1 end end,
+    stop=function(a) a.visualStopped=true end,
+    clear=function(a) a.visualCleared=true end,
+}
 local Actors = load("Actors", "server/Actors.lua")
 local Evolution = load("Evolution", "server/Evolution.lua")
 local Zone = load("Zone", "server/Zone.lua")
@@ -225,10 +233,12 @@ Evolution.grant(shieldEvolution,"CombatShield")
 check(shieldEvolution.shield==10,"Combat Shield grants its first rank when selected")
 Evolution.grant(shieldEvolution,"CombatShield")
 check(shieldEvolution.shield==17,"Combat Shield upgrade grants only its diminishing rank value")
-local visualParts=#stackActor.mutationFolder.children
-check(visualParts==3 and stackActor.mutationFolder.children[1].CanCollide==false
-    and stackActor.mutationFolder.children[1].CanTouch==false and stackActor.mutationFolder.children[1].CanQuery==false,
-    "stack visuals are cosmetic and do not add queryable hitboxes")
+check(stackActor.visualUpdates==nil and stackActor.mutationFolder==nil,
+    "BOT ability grants do not create player or legacy mutation visuals")
+check(drafter.visualUpdates==1 and chosen~=nil,
+    "server-confirmed human draft selection calls the visual boundary exactly once")
+check(timerActor.visualUpdates==1,
+    "timeout-confirmed human draft selection also calls the visual boundary")
 
 -- Keep evolution-specific fixtures out of round population/rank assertions.
 actors:clear()
@@ -326,7 +336,7 @@ local finishRound=Round.new({actors=actors,zone=zone,bots=service("bots"),builds
 finishRound.id,finishRound.phase,finishRound.started=77,"Active",os.clock()
 finishRound:finish()
 deferredEvolution()
-check(lateEvolution.roundId==-1 and lateEvolution.evolutionDraft==nil and lateEvolution.queuedDrafts==0,
+check(lateEvolution.visualCleared and lateEvolution.roundId==-1 and lateEvolution.evolutionDraft==nil and lateEvolution.queuedDrafts==0,
     "Results invalidates deferred evolution work from the finished round")
 local abandonedActors=Actors.new()
 actors=abandonedActors
@@ -676,3 +686,4 @@ actors.onDeath(timingVictim,timingKiller)
 check(timingKiller.kills==1 and timingKiller.diagnostics.firstKillSeconds>=11,
     "first confirmed elimination has a single timestamp independent of presentation")
 print("PASS: "..count.." gameplay assertions including jitter buffering, spectator delivery and first-match timings")
+
