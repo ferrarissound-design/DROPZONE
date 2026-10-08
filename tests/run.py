@@ -252,8 +252,13 @@ combat_source = (ROOT / 'src' / 'server' / 'Combat.lua').read_text(encoding='utf
 round_source_text = (ROOT / 'src' / 'server' / 'Round.lua').read_text(encoding='utf-8')
 assert 'PlaytestDiagnostics = true' in config_source
 assert 'diag.shots[item.kind]' in combat_source and 'diag.weaponDamage[item.kind]' in combat_source
+assert 'diag.firstShotSeconds = math.max(0, now - a.startTime)' in combat_source
+assert 'firstWeaponSeconds' in (ROOT / 'src/server/Loot.lua').read_text(encoding='utf-8')
+assert 'firstEvolutionSeconds' in (ROOT / 'src/server/Evolution.lua').read_text(encoding='utf-8')
+assert 'firstKillSeconds' in round_source_text
 assert 'if hitEnemy then diag.hits[item.kind]' in combat_source
 assert 'emitDiagnostics(self)' in round_source_text
+assert 'firstWeapon=%s firstShot=%s firstKill=%s firstEvolution=%s' in round_source_text
 assert round_source_text.count('[DROPZONE DIAG]') == 2
 assert 'print(' not in combat_source
 print('PASS: diagnostics collect silently during play and print only bounded round summaries')
