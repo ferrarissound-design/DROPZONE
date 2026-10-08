@@ -57,7 +57,8 @@ function hud:button(name,_,x,y,w,h,callback)
     return b
 end
 function hud:setMobileMode(mode) self.mobileMode=mode end
-function hud:update() end
+function hud:update() self.spectated=nil end
+function hud:setSpectateName(name) self.spectated=name end
 function hud:learn() end
 function hud:step() end
 function hud:toggleDraft() self.draft.Visible = not self.draft.Visible end
@@ -158,10 +159,11 @@ check(input.MouseBehavior=="LockCenter","collapsed ready notification does not p
 input.InputEnded:emit({UserInputType="MouseButton2"})
 local subjects={{},{}}
 state.me.alive=false;state.targets={}
-for i=1,2 do state.targets[i]={id=100+i,model={FindFirstChildOfClass=function() return subjects[i] end}} end
+for i=1,2 do state.targets[i]={id=100+i,name="Drone "..i,model={FindFirstChildOfClass=function() return subjects[i] end}} end
 snapshot:emit(state);local first=workspace.CurrentCamera.CameraSubject
+check(hud.spectated=="Drone 1","initial spectator label identifies the followed BOT")
 input.InputBegan:emit({KeyCode="Tab"},true);snapshot:emit(state)
-check(workspace.CurrentCamera.CameraSubject~=first,"processed Tab still cycles spectator subject after death")
+check(workspace.CurrentCamera.CameraSubject~=first and hud.spectated=="Drone 2","processed Tab cycles spectator and updates target label")
 local second=workspace.CurrentCamera.CameraSubject
 local thirdSubject={}
 state.targets={
@@ -169,11 +171,12 @@ state.targets={
     state.targets[1],state.targets[2],
 }
 snapshot:emit(state)
-check(workspace.CurrentCamera.CameraSubject==second,"spectating selected Actor survives target-list reordering")
+check(workspace.CurrentCamera.CameraSubject==second and hud.spectated=="Drone 2","spectating selected Actor and label survive target-list reordering")
 table.remove(state.targets,2)
 snapshot:emit(state)
-check(workspace.CurrentCamera.CameraSubject==second,"spectating selected Actor survives another elimination")
+check(workspace.CurrentCamera.CameraSubject==second and hud.spectated=="Drone 2","spectating selected Actor and label survive another elimination")
 state.me.alive=true;state.targets={};snapshot:emit(state)
+check(hud.spectated==nil,"returning to play clears the spectator label")
 print("PASS: "..count.." client assertions including draft pointer boundaries and spectator Tab")
 
 -- Feed real client Fire payloads into real Combat.fire. Intersections depend on
