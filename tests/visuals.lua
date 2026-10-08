@@ -158,6 +158,8 @@ local world={root=folder(workspace,"World")};world.map=folder(world.root,"Map")
 local scenery=MapVisuals.create(world)
 local mapCount=cosmeticCount(scenery,true)
 check(mapCount<=210 and scenery.Parent==world.root and scenery.Parent~=world.map,"scenery budget and ground-ray exclusion")
+load("MobileLayout","client/MobileLayout.lua")
+script.Parent.MobileLayout="MobileLayout"
 local Hud=load("Hud","client/Hud.lua")
 local hud=Hud.new(true)
 local cards={
@@ -171,7 +173,7 @@ hud:update(s,function() return true end)
 check(hud.hpBar.Size.X.Scale==.8 and hud.shieldBar.Size.X.Scale==.25 and hud.energyBar.Size.X.Scale==.5,"HUD bars follow authoritative snapshot")
 check(hud.draft.Visible and hud.draftCards[2].RichText and hud.cardStrokes[2].Color==Theme.Category.Survival,"draft typography and category colors")
 local rightEdge=hud.draft.Position.X.Offset+hud.draft.Size.X.Offset
-check(rightEdge==616 and rightEdge<632,"draft stays left of existing right controls")
+check(rightEdge < hud.mobileWidth-248,"draft stays left of existing right controls")
 for _,card in ipairs(hud.draftCards) do
     check(card.Position.Y.Offset+card.Size.Y.Offset<=hud.draft.Size.Y.Offset,"card remains within bounded touch region")
 end
@@ -186,6 +188,21 @@ check(not hud.buttons.Sprint.Visible and not hud.buttons.Crouch.Visible,"death h
 s.phase="Results";s.winner="Drone";s.me.rank=1;hud:update(s);check(hud.result.Visible and hud.result.RichText,"result renders with hierarchy")
 s.roundId=2;s.me=nil;s.phase="Intermission";hud:update(s)
 check(not hud.draft.Visible and hud.hpBar.Size.X.Scale==0 and hud.energyBar.Size.X.Scale==0,"new round clears visuals/bars")
+s.phase="Active";s.me=me;me.alive=true
+for _,name in ipairs({"Fire","Aim","Reload","Build","Wall","Floor","Ramp","Place","Combat","Slot1"}) do hud:button(name,"",0,0,1,1) end
+hud:update(s)
+hud:setMobileMode("Build")
+check(not hud.buttons.Fire.Visible and not hud.buttons.Fire.Active and hud.buttons.Place.Visible and hud.buttons.Place.Active,"real HUD hides/disables Fire and exposes PLACE immediately")
+check(hud.energy.Visible and not hud.ammo.Visible,"build shows energy instead of ammo")
+hud:setMobileMode("Combat")
+check(hud.buttons.Fire.Visible and not hud.buttons.Place.Visible and hud.ammo.Visible and not hud.energy.Visible,"real HUD restores Combat without waiting for snapshot")
+check(hud.gui.ScreenInsets==Enum.ScreenInsets.CoreUISafeInsets,"mobile uses core UI/device safe area")
+for _,size in ipairs({{640,320},{844,350},{932,390},{1024,768},{390,760}}) do
+    hud.gui.AbsoluteSize=Vector2.new(size[1],size[2]);hud.gui:GetPropertyChangedSignal("AbsoluteSize"):Fire()
+    local r=modules.MobileLayout.buttons(hud.mobileWidth,hud.mobileHeight).Fire
+    check(hud.buttons.Fire.Position.X.Offset==r[1] and hud.buttons.Fire.Size.X.Offset==r[3],"real HUD recomputes button coordinates after resize")
+    check(hud.crosshair.Position.X.Scale==.5 and hud.crosshair.Position.Y.Scale==.5,"adaptive reticle remains centered")
+end
 local old=hud.gui;Hud.new();check(old.Parent==nil,"HUD reconstruction does not duplicate UI")
 print("PASS: "..assertions.." visual constructor / cleanup assertions; map cosmetics="..mapCount)
 

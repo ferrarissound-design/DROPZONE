@@ -359,6 +359,8 @@ print("PASS: " .. count .. " regression assertions")
 local shared = {WaitForChild=function(_, name) return name end}
 local services = {ReplicatedStorage={WaitForChild=function() return shared end}}
 game.GetService=function(_, name) return services[name] or {} end
+load("MobileLayout", "client/MobileLayout.lua")
+script.Parent.MobileLayout = "MobileLayout"
 local Hud = load("Hud", "client/Hud.lua")
 local cards = {}
 for i=1,3 do

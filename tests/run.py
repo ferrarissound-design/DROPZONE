@@ -185,18 +185,8 @@ assert server_source.index('not a or not a.alive') < server_source.index('comman
 assert 'send("Sprint", true)' in client and 'send("Sprint", false)' in client
 assert 'UserInputService.JumpRequest' in client and 'command == "Jump"' in server_source
 print('PASS: sprint/posture/jump use existing round/alive/ingress validation')
-# Rectangles from actual button call sites; Draft stays clear at any uniform UIScale.
-rects = []
-for match in re.finditer(r'hud:button\("(Fire|Aim|Reload|Build|Sprint|Crouch)",\s*"[^"]+",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', client):
-    rects.append((match[1], *map(int, match.groups()[1:])))
-assert len(rects)==6
-rects += [('Draft',16,132,600,177)]
-rects += [(f'BuildType{i}',632+i*82,137,76,52) for i in range(3)]
-rects += [(f'Slot{i}',279+i*116,418,110,48) for i in range(3)]
-for i,(name,x,y,w,h) in enumerate(rects):
-    for other,ox,oy,ow,oh in rects[i+1:]:
-        assert x+w<=ox or ox+ow<=x or y+h<=oy or oy+oh<=y, (name,other)
-print('PASS: movement/combat/build/slot/Draft rectangles do not overlap on the shared canvas')
+# Test the actual adaptive layout, including both mutually exclusive modes.
+run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/mobile_layout.lua').read_text(encoding='utf-8'), 'mobile_layout.lua', True)
 
 assert 'local function useful(a, item)' in loot_source
 assert 'WeaponStats.rank(item.rarity) > WeaponStats.rank(weapon.rarity)' in loot_source
