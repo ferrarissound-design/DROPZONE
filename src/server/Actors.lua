@@ -1,6 +1,7 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local Rules = require(game.ReplicatedStorage.DropzoneShared.Rules)
 local Cosmetics = require(script.Parent.Cosmetics)
+local PlayerEvolutionVisuals = require(script.Parent.PlayerEvolutionVisuals)
 local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
 local Movement = require(script.Parent.Movement)
 local Actors = {}
@@ -23,6 +24,7 @@ function Actors:add(model, player, id)
     humanoid.MaxHealth, humanoid.Health = Config.BaseHealth, Config.BaseHealth
     humanoid.WalkSpeed, humanoid.UseJumpPower, humanoid.JumpPower = Config.BaseSpeed, true, Config.BaseJump
     humanoid.BreakJointsOnDeath = false
+    PlayerEvolutionVisuals.initialize(a)
     Movement.initialize(a)
     local ff = model:FindFirstChildOfClass("ForceField")
     if ff then ff:Destroy() end
@@ -87,6 +89,7 @@ end
 function Actors:clear()
     for _, c in ipairs(self.connections) do c:Disconnect() end
     for _, a in ipairs(self.list) do
+        PlayerEvolutionVisuals.clear(a)
         Movement.reset(a)
         a.inventory, a.ammo = {}, 0
         a.alive, a.reloadToken = false, a.reloadToken + 1
@@ -136,3 +139,4 @@ function Actors.botModel(parent, index)
     return model
 end
 return Actors
+

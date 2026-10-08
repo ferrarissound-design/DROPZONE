@@ -16,7 +16,7 @@ Roblox Studio + Rojo用の公開前検証版です。人間1人でもBOTを補�
 - Wall / Floor / Rampを前方グリッドへ設置。エネルギー消費、破壊、寿命、総数上限、重なり検査。
 - 撃破ごとにサーバーが異なるカテゴリを混ぜて3つのEvolution候補を提示。5秒以内に選ばない場合は自動選択され、選択中も戦闘・移動は続きます。能力は最大3段階まで逓減Stackし、撃破ごとに構成が変化します。
 - EvolutionはSwift Legs、Iron Skin、Hunter Eyes、Quick Hands、Builder、High Jump、Regenerationに加え、Scavenger、Adrenaline、Combat Shield、Overchargeを収録。BOTも状況に応じて候補から自動選択します。
-- 能力に応じた発光Mutationを付与します。追加パーツは衝突・接触・Raycast判定を持たず、ラウンド終了時に破棄されます。
+- 人間プレイヤーは能力別の機械装甲で進化します。1〜2回で初期改造、3〜4回で共通シャーシ、5回以上で胸部コア/背部ユニットの高度形態。BOTは能力だけ進化し、外見は維持。装甲は非衝突/非Raycast、AIM中は自分の画面だけ非表示、Resultsで破棄。[確認手順](docs/PLAYER_EVOLUTION_QA.md)はStudio/実機で未検証。
 - 日本語中心のHUD、横画面タッチ操作、軽い照準補助、観戦、順位/キル/ダメージ/生存時間/進化数のリザルト。
 - 初回は武器取得→撃破→Evolution選択の3ステップミッションをHUD左上に表示。初進化後はセッション中非表示。観戦時は追跡対象名を表示、Zone縮小10秒前には1フェーズ1回の音声警告。
 - Town / Warehouse / Forest / Hill / Coreのコード生成マップ。
@@ -206,3 +206,4 @@ Luau型検査、Roblox物理、ネットワーク、Pathfinding、実機性能�
 **SoundはCreator Storeで確認した短い効果音をAudioConfigへ設定済みです。Animation IDは引き続き空欄です。** Rifle / Shotgun / Pistol、Reload、Empty、Shield/HP Hit、Elimination、Pickup、Evolution、Slide開始/終了、Zone、UIに音を割り当てています。Footstep / SprintFootstep / SlideLoopは、見つかった素材が長いシーケンスまたはループ不向きだったため意図的に空欄です。実際の利用権限・音量・聞こえ方はStudioで確認し、問題があるAssetはAudioConfigのIDを空に戻せば安全に無効化できます。
 
 発砲音と他プレイヤーのSlide開始音は距離減衰する3D音。足音とSlide Loopは本人の近傍演出に限定し、BOT全員へ追加Track/足音処理を割り当てません。命中音はServer確定Damageのみ、PickupはServer取得イベント、Reload/移動/EvolutionはSnapshotに連動します。`EvolutionSelect` / `Button` / `Empty` は入力受付・現在表示中の弾数に対するローカルFeedbackで、成功や能力獲得の確定ではありません。`Error` キーは将来の明示的な失敗通知用に予約しています。
+

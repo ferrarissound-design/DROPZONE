@@ -1,5 +1,5 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
-local Theme = require(game.ReplicatedStorage.DropzoneShared.VisualTheme)
+local PlayerEvolutionVisuals = require(script.Parent.PlayerEvolutionVisuals)
 local Movement = require(script.Parent.Movement)
 local Evolution = {}
 Evolution.__index = Evolution
@@ -62,40 +62,6 @@ local function refreshStats(a)
     a.humanoid.MaxHealth = Config.BaseHealth + Evolution.total(a, "IronSkin")
     a.energy = math.min(a.energy, Evolution.maxEnergy(a))
 end
-local function visualLimb(a, ability)
-    local limb = a.model:FindFirstChild(ability.limb)
-    if not limb then
-        local fallback = ability.category == "Mobility" and (ability.limb:find("Leg") and "Left Leg" or "Right Leg")
-            or ability.category == "Attack" and (ability.limb == "Head" and "Head" or "Right Arm")
-            or ability.id == "Builder" and "Left Arm" or "Torso"
-        limb = a.model:FindFirstChild(fallback) or a.model:FindFirstChild("Torso") or a.root
-    end
-    return limb
-end
-local palette = Theme.Category
-local function addMutation(a, ability, rank)
-    local folder = a.mutationFolder
-    if not folder or not folder.Parent then
-        folder = Instance.new("Folder")
-        folder.Name, folder.Parent = "Mutation", a.model
-        a.mutationFolder = folder
-    end
-    local limb = visualLimb(a, ability)
-    local part = Instance.new("Part")
-    part.Name, part.Material = ability.id .. rank, Enum.Material.Neon
-    part.Color, part.Transparency = palette[ability.category], 0.12
-    part.Anchored, part.Massless = false, true
-    part.CanCollide, part.CanTouch, part.CanQuery = false, false, false
-    part.CastShadow = false
-    part.Size = ability.category == "Survival" and Vector3.new(.65,.55,.16)
-        or ability.category == "Utility" and Vector3.new(.42,.65,.22)
-        or Vector3.new(.24,.75 + rank*.08,.18)
-    local side = (rank % 2 == 0 and -1 or 1)
-    part.CFrame = limb.CFrame * CFrame.new(side * (limb.Size.X / 2 + 0.11), (rank-2)*.3, -limb.Size.Z / 2 - 0.12)
-    part.Parent = folder
-    local weld = Instance.new("WeldConstraint")
-    weld.Part0, weld.Part1, weld.Parent = limb, part, part
-end
 local function apply(a, id)
     if not a.alive or not a.model.Parent then return nil end
     local ability = byId[id]
@@ -121,7 +87,7 @@ local function apply(a, id)
         a.energy = math.min(Evolution.maxEnergy(a), a.energy + ability.values[newRank])
     end
     refreshStats(a)
-    addMutation(a, ability, newRank)
+    PlayerEvolutionVisuals.update(a, id)
     return {id=id, name=ability.name, rank=newRank, rankText=roman[newRank]}
 end
 local function eligible(a)
@@ -250,6 +216,7 @@ function Evolution.cancel(a)
     if not a then return end
     a.evolutionDraft = nil
     a.queuedDrafts = 0
+    PlayerEvolutionVisuals.stop(a)
     a.draftVersion = (a.draftVersion or 0) + 1
 end
 function Evolution.step(a, dt)
@@ -276,3 +243,4 @@ function Evolution.snapshot(a)
     return build, a.evolutionDraft and publicDraft(a.evolutionDraft) or nil
 end
 return Evolution
+

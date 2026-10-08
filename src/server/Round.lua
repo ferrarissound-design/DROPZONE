@@ -4,6 +4,7 @@ local Rules = require(game.ReplicatedStorage.DropzoneShared.Rules)
 local World = require(script.Parent.World)
 local Actors = require(script.Parent.Actors)
 local Evolution = require(script.Parent.Evolution)
+local PlayerEvolutionVisuals = require(script.Parent.PlayerEvolutionVisuals)
 local Movement = require(script.Parent.Movement)
 local Round = {}
 Round.__index = Round
@@ -194,6 +195,7 @@ function Round:finish(abandoned)
     self.winner = not abandoned and alive[1] and alive[1].name or nil
     for _, a in ipairs(self.actors.list) do
         Evolution.cancel(a)
+        PlayerEvolutionVisuals.clear(a)
         -- Invalidate deferred/timeout Evolution work from the finished round before Results begins.
         Movement.reset(a)
         Evolution.refresh(a)
@@ -307,3 +309,4 @@ function Round:run()
     end
 end
 return Round
+

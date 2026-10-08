@@ -38,10 +38,12 @@ math.clamp=function(v,a,b) return math.min(b,math.max(a,v)) end
 Random={new=function() return {NextNumber=function(_,a,b) return (a+b)/2 end} end}
 local function signal()
     local callbacks = {}
-    return {Connect=function(_,f) callbacks[#callbacks+1]=f; return {Disconnect=function() end} end,
-        Fire=function(_,...) for _,f in ipairs(callbacks) do f(...) end end}
+    return {Connect=function(_,f) local token={fn=f}; callbacks[#callbacks+1]=token; return {Disconnect=function() token.fn=nil end} end,
+        Fire=function(_,...) for _,token in ipairs(callbacks) do if token.fn then token.fn(...) end end end}
 end
 local methods={}
+function methods:SetAttribute(name,value) self._attributes=self._attributes or {};self._attributes[name]=value end
+function methods:GetAttribute(name) return self._attributes and self._attributes[name] end
 function methods:GetChildren() local out={}; for child in pairs(self._children) do out[#out+1]=child end;return out end
 function methods:GetDescendants()
     local out={};for _,child in ipairs(self:GetChildren()) do out[#out+1]=child;for _,desc in ipairs(child:GetDescendants()) do out[#out+1]=desc end end;return out
@@ -60,7 +62,7 @@ function methods:Destroy() self:ClearAllChildren();self.Parent=nil;self._destroy
 function methods:ClearAllChildren() for _,child in ipairs(self:GetChildren()) do child:Destroy() end end
 local propertiesOf={}
 Instance={new=function(kind)
-    local properties={ClassName=kind,Name=kind,Size=Vector3.new(1,1,1),Position=Vector3.new(0,0,0),CFrame=CFrame.new(),AbsoluteSize=Vector2.new(900,480),Activated=signal(),InputBegan=signal()}
+    local properties={ClassName=kind,Name=kind,Size=Vector3.new(1,1,1),Position=Vector3.new(0,0,0),CFrame=CFrame.new(),AbsoluteSize=Vector2.new(900,480),Activated=signal(),InputBegan=signal(),DescendantAdded=signal(),LocalTransparencyModifier=0}
     local obj={_children={}}
     propertiesOf[obj]=properties
     return setmetatable(obj,{
@@ -69,7 +71,14 @@ Instance={new=function(kind)
             if k=="Color" or k=="BackgroundColor3" or k=="TextColor3" then assert(type(v)=="table" and v.Color3,"invalid Color3 on "..kind.."."..k) end
             if k=="Parent" then
                 if properties.Parent then properties.Parent._children[t]=nil end
-                if v then v._children[t]=true end
+                if v then
+                    v._children[t]=true
+                    local ancestor=v
+                    while ancestor do
+                        if ancestor.DescendantAdded then ancestor.DescendantAdded:Fire(t) end
+                        ancestor=ancestor.Parent
+                    end
+                end
             end
             properties[k]=v
         end,
@@ -88,7 +97,7 @@ local tweens={Create=function(_,_,_,_) return {Play=function() end,Cancel=functi
 game={ReplicatedStorage={DropzoneShared={VisualTheme="VisualTheme",Rules="Rules",Config="Config",Weapons="Weapons",WeaponStats="WeaponStats",PresentationConfig="PresentationConfig"}},GetService=function(_,name)
     return ({Players={LocalPlayer=player},TweenService=tweens,ReplicatedStorage=replicated,ServerStorage=folder(nil,"ServerStorage"),RunService={PreSimulation=signal()}})[name]
 end}
-script={Parent={Cosmetics="Cosmetics",MapVisuals="MapVisuals",Movement="Movement",Town="Town"}}
+script={Parent={PlayerEvolutionVisuals="PlayerEvolutionVisuals",Cosmetics="Cosmetics",MapVisuals="MapVisuals",Movement="Movement",Town="Town"}}
 local Theme=load("VisualTheme","shared/VisualTheme.lua")
 load("Config","shared/Config.lua");load("Rules","shared/Rules.lua");load("Weapons","shared/Weapons.lua");load("WeaponStats","shared/WeaponStats.lua")
 load("PresentationConfig","shared/PresentationConfig.lua")
@@ -97,6 +106,9 @@ local Cosmetics=load("Cosmetics","server/Cosmetics.lua")
 local MapVisuals=load("MapVisuals","server/MapVisuals.lua")
 load("Town","server/Town.lua")
 load("Movement","server/Movement.lua")
+local evolutionDelayed={}
+task={delay=function(_,callback) evolutionDelayed[#evolutionDelayed+1]=callback end}
+local PlayerEvolutionVisuals=load("PlayerEvolutionVisuals","server/PlayerEvolutionVisuals.lua")
 local Actors=load("Actors","server/Actors.lua")
 local World=load("World","server/World.lua")
 -- Eliminated bodies remain visible but leave weapon/LOS query space immediately.
@@ -303,7 +315,10 @@ function methods:Stop() self.IsPlaying=false end
 function cf:Inverse() return self end
 local Audio=load("Audio","client/Audio.lua")
 local Animations=load("Animations","client/Animations.lua")
+script.Parent.EvolutionVisibility="EvolutionVisibility"
+local EvolutionVisibility=load("EvolutionVisibility","client/EvolutionVisibility.lua")
 local Presentation=load("Presentation","client/Presentation.lua")
+assert(loadfile(ROOT.."/tests/evolution_visuals.lua"))()(check, PlayerEvolutionVisuals, EvolutionVisibility, workspace, evolutionDelayed)
 local audioFolder=folder(workspace,"PresentationTest")
 local audio=Audio.new(audioFolder)
 -- Empty optional channels still allocate nothing.
@@ -390,10 +405,10 @@ check(presentation.kick==modules.PresentationConfig.Weapons.Shotgun.Kick and pre
 check(#presentation.flashes==8,"muzzle flashes use a fixed pool")
 for _,flash in ipairs(presentation.flashes) do check(not flash.part.CanQuery and not flash.part.CanCollide and not flash.part.CanTouch,"flash never enters gameplay queries") end
 presentation:snapshot(snap(1,{evolutions=1}))
-check(presentation.pulse.Enabled,"applied evolution starts brief pulse")
+check(presentation.pulse==nil,"shared server evolution pulse does not duplicate local Highlight")
 presentation:snapshot(snap(1,{alive=false}))
 check(camera.FieldOfView==73 and humanoid.CameraOffset.Y==0 and presentation.vertical==0,"death restores FOV, offset and recoil")
-check(not presentation.pulse.Enabled and presentation.me==nil and next(presentation.animations.tracks)==nil,"death clears pulse, movement state and tracks")
+check(presentation.pulse==nil and presentation.me==nil and next(presentation.animations.tracks)==nil,"death clears pulse, movement state and tracks")
 presentation:snapshot(snap(2,{sprinting=true,reloading=true}))
 presentation:step(.1)
 presentation:snapshot(snap(2,{},"Results"))
@@ -634,3 +649,4 @@ me.alive=false;desktop:update(s)
 check(not desktop.ready.Visible and not desktop.draft.Visible and desktop.buttons.Spectate.Visible,"spectator hides draft and exposes target switching")
 check(desktop.result.AnchorPoint.X==0 and desktop.result.AnchorPoint.Y==1,"spectator result is anchored away from center")
 print("PASS: "..assertions.." visual assertions including desktop HUD states and five viewport sizes")
+
