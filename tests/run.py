@@ -283,7 +283,7 @@ assert presentation_config_source.count('WeaponRootOffset = CFrame.new') == 3
 assert 'self.humanoid.RigType == Enum.HumanoidRigType.R15' in presentation_source
 for required in ('ServerStorage:FindFirstChild("WeaponModels")', 'if anchor and templateWeapon(f, kind, cf, anchor) then return f end', 'unsafeWeaponClasses', 'if kind == "Pistol" then'):
     assert required in cosmetics_source
-for required in ('VectorForce=true', 'AlignPosition=true', 'BodyVelocity=true', 'item:IsA("Constraint")', 'not item:IsA("WeldConstraint")', 'item:IsA("JointInstance")'):
+for required in ('VectorForce=true', 'AlignPosition=true', 'BodyVelocity=true', 'item:IsA("Constraint")', 'DropzoneWeaponWeld', 'weld.Part0, weld.Part1, weld.Parent = root, part, root', 'item:IsA("JointInstance")'):
     assert required in cosmetics_source
 assert project_source.count('"$ignoreUnknownInstances": true') == 2
 assert '"TownTemplates"' in project_source and '"WeaponModels"' in project_source
