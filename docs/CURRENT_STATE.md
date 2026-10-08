@@ -6,6 +6,13 @@
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
 
+## 2026-10-08 PR #33 カメラ透明度レビュー修正
+
+- 対象: PR #33、レビュー時head `30c575ac82b0739b35fab2ad7cdda0faf6e7b253`。main基準は上記SHA。
+- EvolutionVisibilityが通常時にも登録時の透明度を毎フレーム書き戻し、カメラの一人称非表示を上書きしていた。AIM開始時のLocalTransparencyModifierを保存し、AIM中だけ非表示、解除時に一度復元して以降はカメラへ制御を返す方式へ修正。
+- clearもAIMで所有していた値だけ復元。AIM外のカメラ透明度を変更しない。AIM開始前/解除後のカメラ変更、反復フレーム、AIM中/外のclearを両Rigの模擬テストで確認。
+- tests/run.py・preplay_analysis.py PASS。Studioの一人称ズーム、肩越しAIMとの往復、実機描画は未検証。PR #33は未マージ。
+
 ## 2026-10-08 プレイヤー専用進化外見
 
 - ブランチ: `feat/player-evolution-visuals-20261008`。確認mainは上記SHA。段階/能力対応/検証手順は [PLAYER_EVOLUTION_QA](PLAYER_EVOLUTION_QA.md)。

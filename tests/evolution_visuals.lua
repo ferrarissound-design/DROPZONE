@@ -81,6 +81,24 @@ return function(check, Visuals, Visibility, workspace, delayed)
         check(late.LocalTransparencyModifier==1,"new replicated armor is hidden during ongoing AIM")
         visibility:step(false);check(sample.LocalTransparencyModifier==0,"AIM exit restores armor visibility")
         visibility:step(true);visibility:clear();check(sample.LocalTransparencyModifier==0,"death/results/character replacement restores local transparency")
+        visibility:bind(a.model)
+        sample.LocalTransparencyModifier=1 -- Roblox camera enters first-person after bind.
+        for _=1,3 do visibility:step(false) end
+        check(sample.LocalTransparencyModifier==1,"normal first-person camera transparency is never overwritten")
+        visibility:step(true);visibility:step(false)
+        check(sample.LocalTransparencyModifier==1,"AIM captures the current camera modifier rather than the bind-time value")
+        sample.LocalTransparencyModifier=.35;visibility:step(true)
+        sample.LocalTransparencyModifier=.6;visibility:step(true)
+        check(sample.LocalTransparencyModifier==1,"AIM maintains hiding without replacing its original restore value")
+        visibility:step(false)
+        check(sample.LocalTransparencyModifier==.35,"AIM exit restores its entry modifier once")
+        sample.LocalTransparencyModifier=.85
+        for _=1,3 do visibility:step(false) end
+        check(sample.LocalTransparencyModifier==.85,"camera transparency after AIM release remains camera-owned")
+        visibility:clear()
+        check(sample.LocalTransparencyModifier==.85,"clear outside AIM does not reset camera-owned transparency")
+        visibility:bind(a.model);visibility:step(true);visibility:clear()
+        check(sample.LocalTransparencyModifier==.85,"clear during AIM restores the most recent pre-AIM modifier")
         local cachedFolder=a.evolutionVisualFolder
         a.alive=false;Visuals.update(a,"IronSkin")
         check(a.evolutionVisualFolder==cachedFolder,"dead player cannot receive new visuals")

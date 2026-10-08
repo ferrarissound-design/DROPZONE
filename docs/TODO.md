@@ -14,7 +14,7 @@
 
 - [ ] N10 — プレイヤー進化外見のStudio/スマホ/複数人検証。
   - 実装: `feat/player-evolution-visuals-20261008`。基準main `4c3e7e4`。コードとオフライン回帰は実装済み、実描画は未検証。
-  - 手順/能力対応: [PLAYER_EVOLUTION_QA](PLAYER_EVOLUTION_QA.md)。0/1/3/5回、同一Stack/混在、R6/R15、BOT外観不変、観戦で他人の進化、AIM視認性、3試合リセット、低性能スマホFPSを確認。
+  - 手順/能力対応: [PLAYER_EVOLUTION_QA](PLAYER_EVOLUTION_QA.md)。0/1/3/5回、同一Stack/混在、R6/R15、BOT外観不変、観戦で他人の進化、AIM視認性、通常一人称⇔三人称⇔AIMの透明度復元（PR #33レビュー修正）、3試合リセット、低性能スマホFPSを確認。
   - 完了条件: 外見段階が判別可能、50Part最悪構成でも機種別負荷が許容内、照準/射撃/移動/建築/観戦に回帰なし。機種・人数・結果を記録後に完了へ移す。
 
 - [ ] N9 — 初回ミッション・観戦名・縮小10秒前通知の実機体験確認（ブランチ `feat/first-match-release-polish-20261008`）。
