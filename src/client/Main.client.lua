@@ -18,6 +18,8 @@ local damageFeedback = DamageFeedback.new(effects.folder)
 local presentation = Presentation.new(effects.folder, player)
 local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall", 1
 local submittedEvolutionDraft
+local touchAimToggled = false
+local aimButton
 local nextJumpRequest = 0
 local playing, send, aim
 local function tryShoot()
@@ -37,13 +39,17 @@ send = function(command, argument)
     if playing() then action:FireServer(state.roundId, command, argument) end
 end
 local function cancelAim()
+    touchAimToggled = false
     presentation:cancelAim()
+    if aimButton then
+        aimButton.Text = "AIM"
+        aimButton.BackgroundColor3, aimButton.TextColor3 = Theme.Ink, Theme.Paper
+    end
 end
 local function stopFireTouch()
     if fireDrag.input then
         shooting = false
         fireDrag:clear()
-        presentation:setCombatAim(false)
     end
 end
 player.CharacterRemoving:Connect(function() stopFireTouch(); cancelAim() end)
@@ -59,7 +65,7 @@ local function mouseOnEvolutionPanel(input)
     return position.X >= origin.X and position.X <= origin.X + size.X
         and position.Y >= origin.Y and position.Y <= origin.Y + size.Y
 end
-local fire = hud:button("Fire", "射撃", 784, 190, 82, 82)
+local fire = hud:button("Fire", "FIRE\n射撃", 780, 194, 92, 92)
 fire.BackgroundColor3, fire.TextColor3 = Theme.Orange, Theme.Ink
 -- Active sinks this touch for Roblox CameraInput, including after it leaves the
 -- button. Otherwise the standard camera and FireDrag could both rotate it.
@@ -69,7 +75,6 @@ fire.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
         if not fireDrag:begin(input) then return end
         shooting = true
-        presentation:setCombatAim(true)
         if state and state.me and state.me.sprinting then send("Sprint", false) end
         tryShoot()
     elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -83,6 +88,16 @@ UserInputService.InputChanged:Connect(function(input)
     if not playing() then stopFireTouch(); return end
     -- Intentionally accept processed input: our captured Fire GUI touch is sunk.
     fireDrag:move(input)
+end)
+aimButton = hud:button("Aim", "AIM", 590, 320, 76, 56)
+aimButton.Activated:Connect(function()
+    if not playing() then return end
+    touchAimToggled = not touchAimToggled
+    presentation:setAimHeld(touchAimToggled)
+    if touchAimToggled and state.me.sprinting then send("Sprint", false) end
+    aimButton.Text = touchAimToggled and "AIM\nON" or "AIM"
+    aimButton.BackgroundColor3 = touchAimToggled and Theme.Blue or Theme.Ink
+    aimButton.TextColor3 = Theme.Paper
 end)
 hud:button("Reload", "装填 R", 680, 275, 88, 56, function() send("Reload") end)
 hud:button("Build", "建築 Q", 680, 205, 88, 60, build)

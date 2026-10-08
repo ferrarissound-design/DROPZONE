@@ -172,7 +172,7 @@ assert 'a.root.AssemblyLinearVelocity' in movement_source
 print('PASS: crouch and slide are server-authoritative with cooldown and movement gates')
 
 assert 'command == "Crouch"' in server_source and 'command == "Slide"' in server_source
-assert 'hud:button("Crouch"' in client and 'hud:button("Sprint"' in client
+assert 'hud:button("Crouch"' in client and 'hud:button("Sprint"' in client and 'hud:button("Aim"' in client
 assert 'Enum.KeyCode.LeftControl' in client and 'Enum.KeyCode.LeftShift' in client
 print('PASS: mobile buttons and keyboard movement controls are wired')
 
@@ -187,9 +187,9 @@ assert 'UserInputService.JumpRequest' in client and 'command == "Jump"' in serve
 print('PASS: sprint/posture/jump use existing round/alive/ingress validation')
 # Rectangles from actual button call sites; Draft stays clear at any uniform UIScale.
 rects = []
-for match in re.finditer(r'hud:button\("(Fire|Reload|Build|Sprint|Crouch)",\s*"[^"]+",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', client):
+for match in re.finditer(r'hud:button\("(Fire|Aim|Reload|Build|Sprint|Crouch)",\s*"[^"]+",\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', client):
     rects.append((match[1], *map(int, match.groups()[1:])))
-assert len(rects)==5
+assert len(rects)==6
 rects += [('Draft',16,132,600,177)]
 rects += [(f'BuildType{i}',632+i*82,137,76,52) for i in range(3)]
 rects += [(f'Slot{i}',279+i*116,418,110,48) for i in range(3)]
@@ -215,8 +215,11 @@ assert 'Enum.RenderPriority.Camera.Value-1' in client and 'Enum.RenderPriority.C
 assert 'UnbindFromRenderStep("DropzonePresentationBefore")' in client
 assert 'UnbindFromRenderStep("DropzonePresentationAfter")' in client
 assert 'Enum.UserInputType.MouseButton2' in client
-assert 'presentation:setCombatAim(true)' in client and 'presentation:setCombatAim(false)' in client
-assert 'hud:button("Aim"' not in client
+assert 'presentation:setAimHeld(touchAimToggled)' in client
+assert 'presentation:setCombatAim(' not in client
+assert 'if not fireDrag:begin(input) then return end' in client
+assert 'if input == fireDrag.input then stopFireTouch() end' in client
+assert 'aimButton.Activated:Connect' in client and 'tryShoot()' not in client[client.index('aimButton.Activated:Connect'):client.index('hud:button("Reload"')]
 assert 'AimShoulderX' in presentation and 'AimFov' in presentation
 assert 'task.delay' not in presentation and 'TweenService' not in presentation
 # Animation defaults remain empty; audio may use reviewed Creator Store numeric IDs.

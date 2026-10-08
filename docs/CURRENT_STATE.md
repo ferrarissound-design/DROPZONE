@@ -110,3 +110,9 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - Rifle / Shotgunだけは正規化済みWeaponModelsのRootをHumanoidRootPart基準へ置き、右手をGrip、左手をBarrel / PumpへPosition IKで追従させる。銃床は右肩付近、Muzzleはキャラクター前方を維持し、通常・移動中も武器別のIK blendを残す。Pistolの既存Aim設定は変更しない。
 - R15限定の長物処理とし、武器切替・死亡・ラウンド終了ではPresentationJointの元Part0/C0とIKを復元する。R6は従来の右手接続へfallbackする。
 - Studio SoloでR15、外観Rootの前方、Stock / Grip / Barrel / Pumpマーカー、通常時の左右IKと武器切替後の復元を確認。Studio Pluginのバージョン不一致により端末シミュレーターは使用できず、スマートフォン実機、複数人、全移動状態の目視回帰は未確認。
+
+## モバイルAIM / FIRE分離（2026-10-08）
+
+- モバイルHUDに独立したトグル式AIMを追加。AIMは`Presentation:setAimHeld`だけを切り替え、Fire Remoteを呼ばず、アクティブ中は青色の`AIM ON`表示になる。Sprint、Build、死亡/リスポーン、ラウンド終了、フォーカス解除で必ず解除する。
+- FIREは射撃だけを開始/停止し、Aim状態を変更しない。既存FireDragのタッチ所有権、ボタン外ドラッグ、マルチタッチ分離、長押し連射、武器別発射間隔は維持する。PCの左/右マウス操作は変更しない。
+- FIREを92x92、AIMを76x56とし、既存のReload / Build / Sprint / Crouch / Draftと重ならない右側配置にした。Combat.lua、Raycast、Damage、Ammo、Aim Assist、BOTは変更なし。

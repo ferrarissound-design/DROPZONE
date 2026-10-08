@@ -22,6 +22,7 @@
   - 対象: Main.client.lua、FireDrag.lua、PresentationConfig、[MOBILE_FIRE_DRAG_QA](MOBILE_FIRE_DRAG_QA.md)。
   - 実装: PR #23参照。client-onlyは249 assertions PASS、preplay PASS。PR #23時点の全体tests/run.pyは基準main由来の模擬環境不足でFAILだったが、fix/connect-round-safe-spawnsでテスト環境を補完し全体PASSを確認。
   - 完了条件: 実機でFire開始→ドラッグ→連射→離して停止、二重回転なし、移動+Jump/UIとの同時操作、反動/肩寄せ/Aim Assist/遮蔽、死亡/respawn/連続3試合とPC回帰。機種・感度・結果を記録。実機未確認のためチェックは残す。
+  - AIM / FIRE分離後は、AIMを複数回トグルしても弾薬不変、AIM中のFIREドラッグ、FIRE解除後もAIM維持、解除後の通常カメラ復帰も確認する。
 
 
 - [ ] N0 — 開始スポーンの建物めり込み修正をStudioで回帰確認。
