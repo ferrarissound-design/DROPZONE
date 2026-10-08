@@ -8,7 +8,7 @@
 
 ## 2026-10-08 実プレイ計測の準備
 
-- 実装ブランチ: `feat/first-match-playtest-metrics-20261008`。基準main `805fd4a`。
+- 実装ブランチ: `feat/first-match-playtest-metrics-20261008`（PR #32）。基準main `805fd4a`。
 - 人間の初Weapon pickup、初Shot、初Kill、初Evolutionまでの経過秒数をActorの既存診断辞書へ1回だけ記録。成功したサーバーActionと既存イベントを使用し、クライアント申告値に依存しない。ログはResults時にだけ出す。
 - 未達成の項目は `-`、達成は小数第1位の秒数。Build/Loot/Evolution/Combatの判定、命中/抽選/確率、UI、通信、DataStoreを一切変更しない。
 - `Config.PlaytestDiagnostics` の既存スイッチで出力を停止できる。レコードは各ラウンドのActor破棄と共に消滅。実機でログを収集し、初動でどこに迷うかを評価するN3は引き続き未完了。
