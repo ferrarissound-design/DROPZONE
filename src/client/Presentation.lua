@@ -66,11 +66,17 @@ function Presentation:setupIK(held, spec)
     local leftUpper = self.character:FindFirstChild("LeftUpperArm")
     local leftHand = self.character:FindFirstChild("LeftHand")
     local grip = held and held:FindFirstChild(spec.LeftGripPart or "", true)
+    local rightGrip = held and held:FindFirstChild(spec.RightGripPart or "", true)
     if not root or not rightUpper or not rightHand then return end
     local rightTarget = Instance.new("Attachment")
-    rightTarget.Name, rightTarget.CFrame, rightTarget.Parent = "DropzoneRightHandTarget", spec.RightHandTarget or CFrame.new(.45,1.5,.3), root
+    rightTarget.Name = "DropzoneRightHandTarget"
+    if spec.WeaponRootOffset and rightGrip and rightGrip:IsA("BasePart") then
+        rightTarget.CFrame, rightTarget.Parent = spec.RightGripOffset or CFrame.new(), rightGrip
+    else
+        rightTarget.CFrame, rightTarget.Parent = spec.RightHandTarget or CFrame.new(.45,1.5,.3), root
+    end
     local rightIK = Instance.new("IKControl")
-    rightIK.Name, rightIK.Type, rightIK.ChainRoot, rightIK.EndEffector = "DropzoneRightAimIK", Enum.IKControlType.Transform, rightUpper, rightHand
+    rightIK.Name, rightIK.Type, rightIK.ChainRoot, rightIK.EndEffector = "DropzoneRightAimIK", spec.WeaponRootOffset and Enum.IKControlType.Position or Enum.IKControlType.Transform, rightUpper, rightHand
     rightIK.Target, rightIK.Offset, rightIK.Weight = rightTarget, spec.RightHandOffset or CFrame.new(), 0
     rightIK.SmoothTime, rightIK.Priority, rightIK.Parent = .06, 20, self.humanoid
     self.rightTarget, self.rightIK = rightTarget, rightIK
@@ -85,8 +91,11 @@ function Presentation:setupIK(held, spec)
 end
 function Presentation:restoreWeapon()
     self:destroyIK()
-    if self.joint and self.joint.Parent then self.joint.C0 = self.baseJoint end
-    self.joint, self.baseJoint = nil, nil
+    if self.joint and self.joint.Parent then
+        self.joint.C0 = self.baseJoint
+        if self.baseJointPart0 then self.joint.Part0 = self.baseJointPart0 end
+    end
+    self.joint, self.baseJoint, self.baseJointPart0 = nil, nil, nil
     self.kick, self.tilt = 0, 0
     self.animations:stop("Reload")
     if self.reloadSound then self.reloadSound:Stop(); self.reloadSound = nil end
@@ -141,7 +150,7 @@ function Presentation:applyConstraintPose()
     for name, record in pairs(self.poseJoints) do
         local isShoulder = name == "RightShoulder" or name == "Right Shoulder" or name == "LeftShoulder" or name == "Left Shoulder"
         if record.kind == "AnimationConstraint" and record.joint.Parent and (not isShoulder or not self.rightIK) then
-            local pose = CFrame.new():Lerp(targets[name] or CFrame.new(), self.aimBlend or 0)
+            local pose = CFrame.new():Lerp(targets[name] or CFrame.new(), self.weaponPoseBlend or self.aimBlend or 0)
             record.joint.Transform = pose * record.joint.Transform
         end
     end
@@ -156,7 +165,7 @@ function Presentation:clear()
     self.animations.movementKey = nil
     self.audio:clear()
     self.camera, self.baseFov, self.humanoid, self.baseOffset, self.character = nil,nil,nil,nil,nil
-    self.vertical,self.horizontal,self.fov,self.offset,self.aimBlend = 0,0,0,0,0
+    self.vertical,self.horizontal,self.fov,self.offset,self.aimBlend,self.weaponPoseBlend = 0,0,0,0,0,0
     self.aimHeld,self.combatAimHeld,self.combatAimUntil,self.aimActive,self.wasAimActive = false,false,0,false,false
     self.me, self.previous, self.roundId, self.readyAt, self.slideSound = nil,nil,nil,nil,nil
     self.pulse.Enabled, self.pulse.Adornee = false,nil
@@ -295,21 +304,33 @@ function Presentation:step(dt)
     local held = self.character:FindFirstChild("HeldWeapon")
     local joint = held and held:FindFirstChild("PresentationJoint")
     local weaponSpec = Config.Weapons[me.weapon] or Config.Weapons.Rifle
+    local usesWeaponRoot = weaponSpec.WeaponRootOffset and self.humanoid.RigType == Enum.HumanoidRigType.R15
     if joint ~= self.joint then
-        if self.joint and self.joint.Parent then self.joint.C0 = self.baseJoint end
-        self.joint, self.baseJoint = joint,joint and joint.C0
+        if self.joint and self.joint.Parent then
+            self.joint.C0 = self.baseJoint
+            if self.baseJointPart0 then self.joint.Part0 = self.baseJointPart0 end
+        end
+        self.joint, self.baseJoint, self.baseJointPart0 = joint,joint and joint.C0,joint and joint.Part0
+        if joint and usesWeaponRoot and root then joint.Part0 = root end
         if joint then self:setupIK(held, weaponSpec) else self:destroyIK() end
     end
     self.tilt = self.tilt+((me.reloading and Config.ReloadTilt or 0)-self.tilt)*alpha
-    self:applyPose(weaponSpec, self.aimBlend)
-    if self.rightTarget then self.rightTarget.CFrame = weaponSpec.RightHandTarget or self.rightTarget.CFrame end
-    if self.rightIK then self.rightIK.Offset = weaponSpec.RightHandOffset or CFrame.new() end
+    local readyBlend = weaponSpec.ReadyBlend or 0
+    local movementBlend = (me.sprinting or me.sliding) and (weaponSpec.MovementBlend or 0) or readyBlend
+    local poseBlend = movementBlend + (1-movementBlend)*self.aimBlend
+    if me.reloading then poseBlend = poseBlend*.35 end
+    self.weaponPoseBlend = poseBlend
+    self:applyPose(weaponSpec, poseBlend)
+    if self.rightTarget then
+        self.rightTarget.CFrame = usesWeaponRoot and (weaponSpec.RightGripOffset or CFrame.new()) or weaponSpec.RightHandTarget or self.rightTarget.CFrame
+    end
+    if self.rightIK then self.rightIK.Offset = usesWeaponRoot and CFrame.new() or weaponSpec.RightHandOffset or CFrame.new() end
     if self.leftTarget then self.leftTarget.CFrame = weaponSpec.LeftGripOffset or self.leftTarget.CFrame end
-    local ikWeight = self.aimBlend * (me.reloading and .35 or 1)
+    local ikWeight = poseBlend
     if self.rightIK then self.rightIK.Weight = ikWeight end
     if self.leftIK then self.leftIK.Weight = ikWeight end
     if joint then
-        joint.C0 = self.baseJoint
+        joint.C0 = (usesWeaponRoot and weaponSpec.WeaponRootOffset or self.baseJoint)
             * CFrame.new():Lerp(weaponSpec.AimOffset or CFrame.new(), self.aimBlend)
             * CFrame.new(0,0,self.kick)
             * CFrame.Angles(0,0,math.rad(self.tilt))

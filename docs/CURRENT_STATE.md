@@ -1,6 +1,6 @@
 # 現在の実装状態
 
-- 調査日: 2026-10-05
+- 調査日: 2026-10-08
 - 調査対象: ferrarissound-design/DROPZONE のmain
 - 基準コミット: `43c87c6`（2026-10-05時点のorigin/main）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
@@ -71,3 +71,10 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - `ServerStorage/WeaponModels/{Pistol,Rifle,Shotgun}`が存在すれば、安全化した外観だけをHeldWeaponへ複製する。Script/Tool/Remote/Humanoid等は複製後にも除去し、全BasePartを非Collide/Touch/Query・Masslessにする。テンプレート欠落時は従来のPart生成を維持する。
 - Studio保存モデル: Classic pistol w slide（13916503156）、Assault Rifle (Rivals)（110214445805991）、rigged shotgun（10806289779）。3モデルとも銃床/グリップが肩側、Muzzleが前方になるよう外観方向を確認・反転済み。モデル実体はPlace側にありGitには含まれない。
 - Studio Soloで3武器の取得・切替・Aim開始/解除・各1発・Reload・死亡/respawnを確認。各武器でWeaponModel/PresentationJointが1個、Aim中は左右IK=1かつAutoRotate=false、解除後はIK=0かつAutoRotate=true、respawn後は旧HeldWeapon/IKなし。スマートフォン実機と複数人は未確認。
+
+## Rifle / Shotgunの両手構え（2026-10-08）
+
+- 原因調査で、R15の長物は非Aim時のIKが0のため右手から垂れ下がり、Aim時は手首Transform IKと大きいShoulder補正が競合して銃身が身体を横切ることを確認した。Tool/Gripは使用せず、HeldWeaponのPresentationJointと左右IKで表示している。
+- Rifle / Shotgunだけは正規化済みWeaponModelsのRootをHumanoidRootPart基準へ置き、右手をGrip、左手をBarrel / PumpへPosition IKで追従させる。銃床は右肩付近、Muzzleはキャラクター前方を維持し、通常・移動中も武器別のIK blendを残す。Pistolの既存Aim設定は変更しない。
+- R15限定の長物処理とし、武器切替・死亡・ラウンド終了ではPresentationJointの元Part0/C0とIKを復元する。R6は従来の右手接続へfallbackする。
+- Studio SoloでR15、外観Rootの前方、Stock / Grip / Barrel / Pumpマーカー、通常時の左右IKと武器切替後の復元を確認。Studio Pluginのバージョン不一致により端末シミュレーターは使用できず、スマートフォン実機、複数人、全移動状態の目視回帰は未確認。
