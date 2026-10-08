@@ -538,6 +538,12 @@ local shown=0;for _,slot in ipairs(fx.tracers) do if slot.expires>0 then shown=s
 check(shown==3,"shotgun draws only three representative pellet paths")
 check(fx.tracers[1].trail.CFrame.Position.Z==-20 and fx.tracers[1].trail.Size.Z==40,"tracer centered and long axis oriented between endpoints")
 check(fx.tracers[1].trail.CFrame.LookVector.Z==-1 and fx.tracers[1].origin==origin,"trace begins at supplied display muzzle")
+local savedRaycast=workspace.Raycast
+workspace.Raycast=function(_,muzzle,path) return {Position=muzzle+path*.2} end
+local blockedMuzzle=Vector3.new(5,4,0)
+fx:shot(blockedMuzzle,{endpoint},"Rifle",true,{},10.05,origin)
+check(fx.tracers[4].origin==origin,"blocked cosmetic muzzle uses server ray origin")
+workspace.Raycast=savedRaycast
 check(fx.tracers[1].streak.Size.Z<=40,"moving streak cannot overshoot short shots")
 check(fx.impacts[1].parts[1].CFrame.Position.Z>endpoint.Z,"wall flash offset is outside surface")
 fx:step(10.1)
