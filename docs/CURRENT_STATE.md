@@ -8,7 +8,7 @@
 
 ## 2026-10-08 初回体験の小型リリース改善
 
-- 実装ブランチ: `feat/first-match-release-polish-20261008`。基準main `530a43d`。
+- 実装ブランチ: `feat/first-match-release-polish-20261008`、PR #31。基準main `530a43d`。
 - Hud: 現在使用していないEvolution小型ラベルを再利用し、初心者へ「武器取得→初撃破→進化選択」を段階表示。最大90秒/試合、初Evolution取得後はセッション中繰り返さず4秒の達成表示。サーバーSnapshotの既存 `weapon`、`kills`、`evolutionDraft`、`evolutions` のみ使用。端末間に進行保存はしない。
 - Main/Hud: 観戦中のActor ID追従に合わせ、その対象の表示名を左上に表示。RichTextエスケープ済み、戦闘へ復帰すれば非表示。
 - Presentation: Zoneの保持時間が残り10秒以下になった最初のSnapshotで音声を1回再生。従来の縮小開始警告は維持。死亡・結果・次のラウンドでフェーズ記録をリセット。
