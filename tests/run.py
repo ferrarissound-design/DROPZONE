@@ -136,6 +136,13 @@ assert client.index('if input.KeyCode == Enum.KeyCode.Tab then') < client.index(
 assert 'and (state.phase == "Active" or state.phase == "FinalZone") then' in client
 assert 'camera:ScreenPointToRay(center.X, center.Y)' in client
 print('PASS: draft panel alone blocks pointer input; gameplay and spectator Tab remain available')
+assert "place(self.evo,16,70,200,30)" in hud
+assert "function Hud:setSpectateName(name)" in hud and "escapeRichText(tostring(name))" in hud
+assert "self.onboardingComplete = true" in hud
+assert "hud:setSpectateName(target.name or \"BOT\")" in client
+presentation_source = (ROOT / "src/client/Presentation.lua").read_text(encoding="utf-8")
+assert "self.warnedHoldPhase ~= zone.phase" in presentation_source
+print('PASS: contextual first-match mission, safe spectator names and once-per-phase zone warning')
 combat_src = (ROOT / 'src/server/Combat.lua').read_text(encoding='utf-8')
 server_src = (ROOT / 'src/server/Main.server.lua').read_text(encoding='utf-8')
 building_src = (ROOT / 'src/server/Building.lua').read_text(encoding='utf-8')
