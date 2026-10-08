@@ -92,21 +92,34 @@ function Effects:impact(position, normal, color, localShot, now)
         p.Transparency = 0
     end
 end
-function Effects:shot(origin, endpoints, kind, localShot, impacts, now)
+function Effects:shot(origin, endpoints, kind, localShot, impacts, now, serverOrigin, shooterModel)
     now = now or os.clock()
     local color = kind == "Shotgun" and Color3.fromRGB(255,180,70) or Color3.fromRGB(255,240,170)
     local limit = kind == "Shotgun" and Config.ShotgunVisualPellets or 1
     for i,endpoint in ipairs(endpoints) do
         if i > limit then break end
-        local distance = (endpoint-origin).Magnitude
+        local traceOrigin = origin
+        if serverOrigin and (origin-serverOrigin).Magnitude > .05 then
+            -- Muzzle flash is visual-only. If its direct path crosses closer
+            -- cover, start the tracer from the server-confirmed origin.
+            local path = endpoint-origin
+            if path.Magnitude > .05 then
+                local params = RaycastParams.new()
+                params.FilterType = Enum.RaycastFilterType.Exclude
+                params.FilterDescendantsInstances = shooterModel and {self.folder, shooterModel} or {self.folder}
+                local blocker = workspace:Raycast(origin, path, params)
+                if blocker and (blocker.Position-endpoint).Magnitude > 1.5 then traceOrigin = serverOrigin end
+            end
+        end
+        local distance = (endpoint-traceOrigin).Magnitude
         if distance > .01 then
             local slot = self:acquire(self.tracers, localShot, Config.LocalTracerPool, "tracer")
-            slot.origin, slot.endpoint, slot.distance = origin, endpoint, distance
+            slot.origin, slot.endpoint, slot.distance = traceOrigin, endpoint, distance
             slot.life = localShot and Config.TracerLife or Config.RemoteTracerLife
             slot.started, slot.expires = now, now+slot.life
             slot.width = localShot and Config.TracerWidth or .075
             slot.trail.Color, slot.streak.Color = color, color
-            line(slot.trail, origin, endpoint, slot.width*.65)
+            line(slot.trail, traceOrigin, endpoint, slot.width*.65)
             slot.trail.Transparency = .35
             self:streak(slot, 0)
         end
