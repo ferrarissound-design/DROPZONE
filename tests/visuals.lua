@@ -396,6 +396,15 @@ presentation:step(.1)
 presentation:snapshot(snap(2,{},"Results"))
 check(camera.FieldOfView==73 and presentation.tilt==0 and presentation.reloadSound==nil,"Results clears second-round reload and FOV")
 presentation:snapshot(snap(3,{}));check(presentation.roundId==3 and presentation.vertical==0,"third round starts without previous recoil")
+local earlyZone=snap(3,{})
+earlyZone.zone={phase=2,shrinking=false,remaining=9}
+presentation:snapshot(earlyZone)
+check(presentation.warnedHoldPhase==2,"zone cue triggers once when hold reaches 10 seconds")
+presentation:snapshot(earlyZone)
+check(presentation.warnedHoldPhase==2,"repeated 5Hz snapshots do not reset warning phase")
+earlyZone.zone={phase=3,shrinking=false,remaining=9}
+presentation:snapshot(earlyZone)
+check(presentation.warnedHoldPhase==3,"next zone phase can warn again")
 presentation:setAimHeld(true)
 presentation:step(.1)
 local nextCamera=Instance.new("Camera");nextCamera.FieldOfView=81
@@ -503,6 +512,8 @@ local uiMe={alive=true,hp=100,maxHp=100,shield=0,energy=60,maxEnergy=100,kills=0
 local uiState={roundId=90,phase="Active",alive=12,remaining=300,me=uiMe,zone={phase=1,radius=250,nextRadius=140,remaining=30,center=Vector3.new(0,0,0),nextCenter=Vector3.new(0,0,0)}}
 equipHud:update(uiState)
 check(equipHud.ammo.Text:find("23 / 28",1,true) and equipHud.ammo.Text:find("予備 198",1,true),"Rifle displays current / capacity and separate reserve")
+check(equipHud.evo.Visible and equipHud.evo.Text:find("MISSION 2/3",1,true),
+    "first combat snapshot uses the dormant label to guide a new player toward a kill")
 check(equipHud.hint.Text:find("1 / 2 / 3",1,true),"first guide teaches weapon switch")
 check(equipHud.buttons.Slot1.Text:find("▶",1,true) and equipHud.buttons.Slot1.UIStroke.Thickness==3,"selected slot has arrow and thick outline")
 check(equipHud.buttons.Slot3.Text:find("空",1,true) and not equipHud.buttons.Slot3.Active,"empty slot visibly differs and is inactive")
@@ -513,6 +524,23 @@ for _,kind in ipairs({"Pistol","Shotgun"}) do
     newer.weapon=kind;newer.ammo=2;newer.reserve=24;equipHud:update(uiState)
     check(equipHud.ammo.Text:find("2 / "..modules.Weapons[kind].magazine,1,true),"capacity follows equipped weapon")
 end
+-- Contextual onboarding consumes the existing snapshot; no new remotes or GUI
+-- instances. The guide is not reset to beginner mode after first Evolution.
+newer.weapon=nil;newer.kills=0;newer.evolutions=0;newer.evolutionDraft=nil
+equipHud:update(uiState)
+check(equipHud.evo.Visible and equipHud.evo.Text:find("MISSION 1/3",1,true),"no weapon prompts pickup")
+newer.weapon="Rifle";equipHud:update(uiState)
+check(equipHud.evo.Text:find("MISSION 2/3",1,true),"weapon acquisition advances to eliminate")
+newer.kills=1;newer.evolutionDraft={id=1,seconds=5,options=cards};equipHud:update(uiState)
+check(equipHud.evo.Text:find("MISSION 3/3",1,true),"server-offered Evolution prompt advances the guide")
+newer.evolutions=1;newer.evolutionDraft=nil;equipHud:update(uiState)
+check(equipHud.onboardingComplete and equipHud.evo.Text:find("MISSION COMPLETE",1,true),
+    "first Evolution completes guide once per client session")
+uiState.roundId=91;equipHud:update(uiState)
+check(not equipHud.evo.Visible,"subsequent rounds do not repeat completed tutorial")
+equipHud:setSpectateName("Drone<&>")
+check(equipHud.evo.Visible and equipHud.evo.Text:find("&lt;&amp;&gt;",1,true),
+    "spectator label escapes arbitrary RichText names")
 -- Real vector math for the effect geometry; engine drawing still needs Studio.
 vec.__index=function(v,k)
     if k=="Magnitude" then return math.sqrt(v.X*v.X+v.Y*v.Y+v.Z*v.Z) end
@@ -577,7 +605,8 @@ desktop:toggleDraft();check(desktop.draft.Visible,"ready click opens draft")
 desktop:update(s);check(desktop.draft.Visible,"same draft snapshot preserves expansion")
 me.evolutionDraft={id=11,seconds=5,options=cards};desktop:update(s)
 check(not desktop.draft.Visible,"queued new draft starts collapsed")
-check(not desktop.evo.Visible and not desktop.energy.Visible,"ability summary and build energy are absent at rest")
+check(desktop.evo.Visible and desktop.evo.Text:find("MISSION 3/3",1,true) and not desktop.energy.Visible,
+    "desktop first-match mission is compact and build energy stays hidden at rest")
 for _,name in ipairs({"Fire","Aim","Build","Reload","Sprint","Crouch","Wall","Floor","Ramp"}) do check(not desktop.buttons[name].Visible,"PC hides touch control "..name) end
 check(desktop.buttons.Slot1.Visible and desktop.ammo.Visible,"PC retains usable slots and ammunition")
 for _,command in ipairs({"Equip","Sprint","Posture","Build"}) do desktop:learn(command) end

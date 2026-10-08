@@ -223,7 +223,7 @@ function Presentation:clear()
     self.aimHeld,self.combatAimHeld,self.combatAimUntil,self.aimActive,self.wasAimActive = false,false,0,false,false
     self.me, self.previous, self.roundId, self.readyAt, self.slideSound = nil,nil,nil,nil,nil
     self.pulse.Enabled, self.pulse.Adornee = false,nil
-    self.nextStep, self.lastShrink = 0,nil
+    self.nextStep, self.lastShrink, self.warnedHoldPhase = 0,nil,nil
     for _, flash in ipairs(self.flashes) do flash.part.Transparency, flash.untilTime = 1,0 end
 end
 function Presentation:snapshot(s)
@@ -271,8 +271,17 @@ function Presentation:snapshot(s)
         self.pulse.Adornee = character:FindFirstChild("Mutation") and character or nil
         self.pulse.Enabled, self.pulseUntil = self.pulse.Adornee ~= nil, os.clock()+Config.PulseDuration
     end
-    if s.zone and s.zone.shrinking and not self.lastShrink then self.audio:play("ZoneWarning") end
-    self.lastShrink = s.zone and s.zone.shrinking
+    local zone = s.zone
+    -- One early warning per holding phase. The existing shrink-start warning
+    -- remains intact; phase identity avoids repeating the cue at 5 Hz.
+    if zone and not zone.shrinking and zone.phase
+        and zone.remaining and zone.remaining > 0 and zone.remaining <= 10
+        and self.warnedHoldPhase ~= zone.phase then
+        self.warnedHoldPhase = zone.phase
+        self.audio:play("ZoneWarning")
+    end
+    if zone and zone.shrinking and not self.lastShrink then self.audio:play("ZoneWarning") end
+    self.lastShrink = zone and zone.shrinking
     self.previous = me
 end
 function Presentation:shot(origin, kind, shooterId, targets)

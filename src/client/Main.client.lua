@@ -323,6 +323,9 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
             spectateId = target.id
             local humanoid = target.model and target.model:FindFirstChildOfClass("Humanoid")
             if humanoid then camera.CameraSubject, camera.CameraType = humanoid, Enum.CameraType.Custom end
+            if s.phase == "Active" or s.phase == "FinalZone" then
+                hud:setSpectateName(target.name or "BOT")
+            end
         end
     end
 end)
