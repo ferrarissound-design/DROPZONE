@@ -179,8 +179,8 @@ Footstep / SprintFootstep / SlideLoopは現時点では空欄です。長い素�
 ## Shoulder combat camera
 
 - PC: 右クリック長押しで右肩越しへ自然に寄り、離すと通常視点へ戻る
-- Mobile: 射撃ボタン押下で自動的に肩越しへ寄り、離して約0.7秒後に戻る
-- MobileにAim専用ボタンが増えていない
+- Mobile: AIMボタンのタップで肩越しをON/OFFし、AIM操作だけではFire Remoteも弾薬も変化しない
+- Mobile: FIREは押している間だけ射撃し、指を離すと停止する。AIM状態とは独立し、FIREドラッグで視点を動かせる
 - 肩越し中も中央クロスヘアと着弾方向が一致する
 - Sprint開始、Build、Round変更、死亡、ResultsでAim入力/余韻が残らない
 - Slide中は肩越しAimが抑制される。Evolution Draft中は戦闘継続仕様のためAimも継続できる

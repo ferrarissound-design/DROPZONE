@@ -333,7 +333,7 @@ presentation:step(.1)
 check(camera.FieldOfView>73 and camera.FieldOfView<79,"sprint FOV is relative to original camera")
 check(#presentation.audio.voices==0 and next(presentation.animations.tracks)==nil,"unconfigured assets preserve code-only feedback")
 
--- Shoulder aim is presentation-only: PC hold and mobile fire share one bounded camera state.
+-- Shoulder aim is presentation-only: PC hold and mobile AIM toggle share one bounded camera state.
 presentation:snapshot(snap(1,{}))
 presentation:setAimHeld(true)
 presentation:undoCamera();presentation:step(.1)
@@ -347,11 +347,10 @@ presentation:undoCamera();presentation:step(.1)
 check(not presentation.aimActive,"sprint suppresses shoulder aim even while the input is held")
 presentation:snapshot(snap(1,{}))
 presentation:setAimHeld(false)
-presentation:setCombatAim(true)
+presentation:setAimHeld(true)
 presentation:undoCamera();presentation:step(.1)
-check(presentation:isAiming(),"mobile fire enters combat camera without an extra HUD button")
-presentation:setCombatAim(false)
-check(presentation.combatAimUntil>os.clock(),"mobile fire release keeps only a short configured camera grace")
+check(presentation:isAiming(),"mobile AIM toggle enters the shoulder camera without firing")
+presentation:setAimHeld(false)
 presentation:cancelAim()
 check(not presentation.aimHeld and not presentation.combatAimHeld and presentation.combatAimUntil==0,
     "sprint/build/round hard cancel removes pending aim grace")
@@ -478,7 +477,7 @@ print("PASS: "..assertions.." total visual assertions including bounded shot eff
 
 -- Desktop HUD behavior and viewport geometry, using the real Hud constructor.
 local desktop=Hud.new(false)
-for _,name in ipairs({"Fire","Build","Reload","Sprint","Crouch","Wall","Floor","Ramp","Slot1","Slot2","Slot3","Spectate"}) do desktop:button(name,"",0,0,80,40) end
+for _,name in ipairs({"Fire","Aim","Build","Reload","Sprint","Crouch","Wall","Floor","Ramp","Slot1","Slot2","Slot3","Spectate"}) do desktop:button(name,"",0,0,80,40) end
 s.roundId=10;s.phase="Active";s.me=me;me.alive=true;me.evolutionDraft={id=10,seconds=5,options=cards}
 desktop:update(s,function() return true end)
 check(not desktop.draft.Visible and desktop.ready.Visible,"PC draft begins as a small ready notification")
@@ -487,7 +486,7 @@ desktop:update(s);check(desktop.draft.Visible,"same draft snapshot preserves exp
 me.evolutionDraft={id=11,seconds=5,options=cards};desktop:update(s)
 check(not desktop.draft.Visible,"queued new draft starts collapsed")
 check(not desktop.evo.Visible and not desktop.energy.Visible,"ability summary and build energy are absent at rest")
-for _,name in ipairs({"Fire","Build","Reload","Sprint","Crouch","Wall","Floor","Ramp"}) do check(not desktop.buttons[name].Visible,"PC hides touch control "..name) end
+for _,name in ipairs({"Fire","Aim","Build","Reload","Sprint","Crouch","Wall","Floor","Ramp"}) do check(not desktop.buttons[name].Visible,"PC hides touch control "..name) end
 check(desktop.buttons.Slot1.Visible and desktop.ammo.Visible,"PC retains usable slots and ammunition")
 for _,command in ipairs({"Equip","Sprint","Posture","Build"}) do desktop:learn(command) end
 desktop:update(s);check(not desktop.hint.Visible and desktop.energy.Visible,"used tutorials disappear; building exposes contextual energy")
