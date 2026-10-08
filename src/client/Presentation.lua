@@ -51,6 +51,53 @@ function Presentation:undoCamera()
     end
     self.applied = nil
 end
+-- Own zoom bounds only during AIM and its exit blend. Roblox still owns orbit,
+-- touch/mouse input and occlusion; never layer a second camera CFrame controller.
+function Presentation:restoreZoom()
+    if not self.zoomState then return end
+    local saved = self.zoomState
+    self.player.CameraMinZoomDistance = math.min(self.player.CameraMinZoomDistance, saved.min)
+    self.player.CameraMaxZoomDistance = saved.max
+    self.player.CameraMinZoomDistance = saved.min
+    self.zoomState = nil
+end
+function Presentation:prepareCamera(dt)
+    local camera, me = workspace.CurrentCamera, self.me
+    if not camera or not me or not self.humanoid or self.humanoid.Health <= 0 then
+        self:restoreZoom()
+        return
+    end
+    local intent = self.aimHeld or self.combatAimHeld or os.clock() < (self.combatAimUntil or 0)
+    local active = intent and not me.sprinting and not me.sliding
+    if active and not self.zoomState then
+        local minimum, maximum = self.player.CameraMinZoomDistance, self.player.CameraMaxZoomDistance
+        local distance = math.clamp((camera.CFrame.Position-camera.Focus.Position).Magnitude, minimum, maximum)
+        self.zoomState = {min=minimum, max=maximum, distance=distance, current=distance}
+    end
+    local saved = self.zoomState
+    if not saved then return end
+    local spec = Config.Weapons[me.weapon] or Config.Weapons.Rifle
+    local target = active and spec.AimDistance or saved.distance
+    saved.current = saved.current + (target-saved.current)*(1-math.exp(-Config.AimRecovery*math.min(dt,.1)))
+    -- Lower min first, then max, then min: Roblox clamps crossing zoom bounds.
+    self.player.CameraMinZoomDistance = math.min(self.player.CameraMinZoomDistance, saved.current)
+    self.player.CameraMaxZoomDistance = saved.current
+    self.player.CameraMinZoomDistance = saved.current
+    if not active and math.abs(saved.current-target) < .01 then self:restoreZoom() end
+end
+-- Consume the SAME target (including mobile assistance) used by Fire. The
+-- server still casts from its validated root origin; this only turns cosmetics.
+function Presentation:updateWeaponAim(target)
+    local joint = self.joint
+    if not self.humanoid or self.humanoid.RigType ~= Enum.HumanoidRigType.R15 then return end
+    if not target or not joint or not joint.Parent or not joint.Part0 or (self.aimBlend or 0) <= .001 then return end
+    if self.me and self.me.reloading then return end
+    local world = joint.Part0.CFrame * joint.C0
+    local direction = target-world.Position
+    if direction.Magnitude <= .1 then return end
+    local desired = joint.Part0.CFrame:ToObjectSpace(CFrame.lookAt(world.Position, target))
+    joint.C0 = joint.C0:Lerp(desired, self.aimBlend)
+end
 function Presentation:destroyIK()
     for _, item in ipairs({self.rightIK, self.leftIK, self.rightTarget, self.leftTarget}) do
         if item and item.Parent then item:Destroy() end
@@ -156,6 +203,7 @@ function Presentation:applyConstraintPose()
     end
 end
 function Presentation:clear()
+    self:restoreZoom()
     self:undoCamera()
     if self.camera and self.baseFov then self.camera.FieldOfView = self.baseFov end
     if self.humanoid and self.humanoid.Parent and self.baseOffset then self.humanoid.CameraOffset = self.baseOffset end

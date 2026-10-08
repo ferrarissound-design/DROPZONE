@@ -12,6 +12,11 @@
 
 ## NOW: 新HUDを含む現行ゲームの回帰・初回体験確認
 
+- [ ] N7 — 近接肩越しAIMのStudio/実機検証。
+  - 実装: `feat/close-shoulder-aim`、基準main `dd97341`。run.py/preplay PASS。手順: [SHOULDER_AIM_QA](SHOULDER_AIM_QA.md)。
+  - 完了条件: PC/スマホで3武器の上半身構図、壁際のカメラ遮蔽と射撃、AIM解除の距離復元、Reload/移動/建築/Draft/観戦/次戦を連続3試合確認。Studio描画/実機未確認のため未完了。
+
+
 - [ ] N6 — スマホ戦闘/建築HUDの実機検証。
   - 実装ブランチ: `feat/mobile-combat-build-hud`、基準main `a9cf399`。オフラインrun.py/preplay PASS。操作と配置図は[MOBILE_HUD_QA](MOBILE_HUD_QA.md)。
   - 完了条件: 小型/ノッチ付きiPhone・タブレットで標準操作との干渉、AIM弾薬不変、保持Fireから建築への切替、選択→PLACE、移動/視点/Jump、Draft、死亡/結果→次戦、PC回帰を連続3試合確認。実機未確認。

@@ -69,7 +69,7 @@ function effects:destroy() end
 local numbers={calls=0,clear=function() end,step=function() end}
 function numbers:show(records) if #records>0 then self.calls=self.calls+1 end end
 local muzzle=Vector3.new(2,3,-2)
-local presentation={audio={play=function() end},snapshot=function() end,step=function() end,undoCamera=function() end,destroy=function() end,damage=function() end}
+local presentation={audio={play=function() end},snapshot=function() end,step=function() end,prepareCamera=function() end,updateWeaponAim=function() end,undoCamera=function() end,destroy=function() end,damage=function() end}
 function presentation:shot() return muzzle end
 function presentation:cancelAim() self.aimHeld=false; self.combatAimHeld=false end
 function presentation:setAimHeld(value) self.aimHeld=value end
