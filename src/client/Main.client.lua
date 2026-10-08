@@ -48,14 +48,15 @@ local function cancelAim()
     end
 end
 local function stopFireTouch()
-    if fireDrag.input then
-        shooting = false
-        fireDrag:clear()
-    end
+    -- Inform the authoritative server when a held trigger ends, so its
+    -- cooldown buffer cannot emit a stale shot after release.
+    local wasShooting = shooting
+    shooting = false
+    fireDrag:clear()
+    if wasShooting and playing and playing() then send("FireStop") end
 end
 local function setMobileMode(mode)
     stopFireTouch()
-    shooting = false
     cancelAim()
     mobileMode = mode
     hud:setMobileMode(mode)
@@ -136,7 +137,8 @@ end
 hud.buttons.Wall.BackgroundColor3 = Theme.Blue
 for i = 1, 3 do hud:button("Slot" .. i, tostring(i), 279 + (i - 1) * 116, 418, 110, 48, function()
     if playing() then
-        if UserInputService.TouchEnabled then setMobileMode("Combat") end
+        -- Switching weapons in combat must not cancel the independent AIM.
+        if UserInputService.TouchEnabled and mobileMode == "Build" then setMobileMode("Combat") end
         send("Equip", i)
     end
 end) end
@@ -180,12 +182,10 @@ end)
 UserInputService.InputEnded:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then send("Sprint", false) end
     if input == fireDrag.input then stopFireTouch() end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then shooting = false end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then stopFireTouch() end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then presentation:setAimHeld(false) end
 end)
 UserInputService.WindowFocusReleased:Connect(function()
-    stopFireTouch()
-    shooting = false
     setMobileMode("Combat")
     send("Sprint", false)
 end)
@@ -254,8 +254,6 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     state = s
     presentation:snapshot(s)
     if not playing() then
-        stopFireTouch()
-        shooting = false
         setMobileMode("Combat")
     end
     if s.phase ~= "Active" and s.phase ~= "FinalZone" then
@@ -303,7 +301,15 @@ remotes:WaitForChild("Effects").OnClientEvent:Connect(function(kind, a, b, c, sh
         local localShot = shooterId == player.UserId
         -- Server origin remains the damage ray origin; the barrel tip is display-only.
         local visualOrigin = presentation:shot(a, c, shooterId, state.targets) or a
-        effects:shot(visualOrigin, b, c, localShot, impacts)
+        -- Cosmetic muzzle and authoritative ray may be on opposite sides of
+        -- near cover. Pass both origins to select an honest tracer path.
+        local shooterModel = localShot and player.Character or nil
+        if not shooterModel then
+            for _, target in ipairs(state.targets) do
+                if target.id == shooterId then shooterModel = target.model; break end
+            end
+        end
+        effects:shot(visualOrigin, b, c, localShot, impacts, nil, a, shooterModel)
         if localShot then hud.shotUntil = os.clock() + .14 end
     elseif kind == "Damage" and state and a == state.roundId and (state.phase == "Active" or state.phase == "FinalZone") then
         -- Only the server can send confirmed damage; never predict a hit locally.
