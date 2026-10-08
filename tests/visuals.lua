@@ -236,10 +236,13 @@ loot.rng={NextNumber=function() return .97 end}
 loot:spawn(Vector3.new(0,0,0),"Rifle")
 local pickup,entry=next(loot.items);pickup.Position=Vector3.new(0,0,0)
 check(entry.rarity=="Epic" and pickup.RarityFootprint.CanQuery==false,"server-generated rarity has a harmless glow footprint")
-local looter={alive=true,inventory={},root={Position=Vector3.new(30,0,0)},humanoid={Health=100,MaxHealth=100}}
+local looter={alive=true,inventory={},root={Position=Vector3.new(30,0,0)},humanoid={Health=100,MaxHealth=100},
+    diagnostics={},startTime=os.clock()-7}
 loot:pickup(looter);check(rewards==0,"loot distance enforced before rarity reward")
 looter.root.Position=Vector3.new(0,0,0);loot:pickup(looter);loot:pickup(looter)
 check(rewards==1 and looter.received=="Epic" and pickup.Parent==nil,"duplicate pickup cannot award twice; visuals deleted")
+check(looter.diagnostics.firstWeaponSeconds and looter.diagnostics.firstWeaponSeconds>=7
+    and looter.diagnostics.firstWeaponSeconds<8,"first valid weapon pickup records time without duplicate claims")
 loot:spawn(Vector3.new(0,0,0),"Pistol",true)
 local starter,startEntry=next(loot.items)
 check(startEntry.rarity=="Common","insertion weapons always use common tier")
