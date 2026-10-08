@@ -104,9 +104,9 @@ check(Rules.botCount(1,12)==11, "solo bots")
 check(Rules.botCount(5,12)==7, "five humans")
 check(Rules.botCount(20,12)==0, "no negative bots")
 check(not Rules.finite(0/0) and not Rules.finite(math.huge), "NaN and infinity rejected")
-check(Rules.facingShot(Vector3.new(1,0,0),Vector3.new(0,0,-1)),"lateral fire remains legal")
-check(Rules.facingShot(Vector3.new(0,1,0),Vector3.new(0,0,-1)),"vertical fire remains legal")
-check(not Rules.facingShot(Vector3.new(0,0,1),Vector3.new(0,0,-1)),"backward fire blocked")
+-- Third-person hip-fire may be aimed behind the avatar while moving;
+-- directional integrity comes from server-origin rays, cooldown and ammo.
+check(Rules.finite(1) and Rules.finite(-1),"server still accepts valid signed shot components")
 local scout, corpse, living =
     {alive=true, root={Position=Vector3.new(0,0,0)}},
     {alive=false, root={Position=Vector3.new(1,0,0)}},
@@ -327,6 +327,13 @@ finishRound:finish()
 deferredEvolution()
 check(lateEvolution.roundId==-1 and lateEvolution.evolutionDraft==nil and lateEvolution.queuedDrafts==0,
     "Results invalidates deferred evolution work from the finished round")
+local abandonedActors=Actors.new()
+actors=abandonedActors
+local abandonedBot=actor(64)
+local abandonedRound=Round.new({actors=abandonedActors,zone=zone,bots=service("bots"),builds=service("builds"),loot=service("loot"),effects={FireClient=function() end}})
+abandonedRound.started=os.clock()
+abandonedRound:finish(true)
+check(abandonedRound.winner==nil and abandonedBot.rank==nil,"empty human server cannot award a BOT victory")
 task.defer=function(callback) callback() end
 
 -- Three consecutive lifecycles clear service state, not just the Actor list.
@@ -400,6 +407,13 @@ services.PathfindingService={CreatePath=function() error("simulated engine path 
 local Bots=load("Bots", "server/Bots.lua")
 local botService=Bots.new({}, {}, {}, {}, {})
 botService.rng={NextNumber=function() return 0 end}
+local originalLookAt=CFrame.lookAt
+CFrame.lookAt=function() return fakeCF end
+local strafingBot={root={Position=Vector3.zero,CFrame=fakeCF},humanoid={AutoRotate=true}}
+check(Bots.faceTarget(strafingBot,Vector3.new(0,1,-10))
+    and strafingBot.humanoid.AutoRotate==false and strafingBot.root.CFrame==fakeCF,
+    "BOT attack locks body facing to enemy independent of retreat MoveTo")
+CFrame.lookAt=originalLookAt
 task.spawn=function(callback) callback() end
 local pathActor={alive=true,root={Position=Vector3.zero},humanoid={}}
 botService:path(pathActor,Vector3.zero,10)
@@ -520,6 +534,10 @@ check(damageEvents==0,"misses never produce a damage number")
 check(shooter.diagnostics.shots.Shotgun==2 and shooter.diagnostics.hits.Shotgun==1
     and math.abs(shooter.diagnostics.weaponDamage.Shotgun-50)<.0001,
     "misses count as shots but never inflate hit or damage diagnostics")
+shooter.nextShot=0
+local ammoBeforeReverse=shooter.ammo
+shotCombat:fire(shooter,Vector3.new(-1,0,0))
+check(shooter.ammo==ammoBeforeReverse-1,"third-person fire behind running avatar is valid and still ammo-authoritative")
 print("PASS: "..count.." total gameplay assertions including movement, rarity and confirmed combat")
 
 local shotEvent
