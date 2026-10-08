@@ -72,13 +72,17 @@ function Round:isActive()
 end
 function Round:loadLobby(player)
     if self.loading[player] then return end
-    self.loading[player] = true
+    local loadToken = {}
+    self.loading[player] = loadToken
     task.spawn(function()
         local ok = pcall(function() player:LoadCharacterAsync() end)
+        -- Never let an old asynchronous completion clear a newer load lock.
+        if self.loading[player] ~= loadToken then return end
         self.loading[player] = nil
-        if ok and player.Parent and not self.actors.byPlayer[player] and player.Character then
-            player.Character:PivotTo(self.world.lobby)
-            local root = player.Character:FindFirstChild("HumanoidRootPart")
+        local character = player.Character
+        if ok and player.Parent and not self.actors.byPlayer[player] and character then
+            character:PivotTo(self.world.lobby)
+            local root = character:FindFirstChild("HumanoidRootPart")
             if root then root.Anchored = false end
         end
     end)
@@ -112,13 +116,16 @@ function Round:start()
                 local deadline = os.clock() + 5
                 while self.loading[player] and os.clock() < deadline do task.wait(0.1) end
                 if self.loading[player] or not player.Parent then pending = pending - 1; return end
-                self.loading[player] = true
+                local loadToken = {}
+                self.loading[player] = loadToken
                 local ok = pcall(function() player:LoadCharacterAsync() end)
+                if self.loading[player] ~= loadToken then pending = pending - 1; return end
                 self.loading[player] = nil
-                if ok and player.Parent and player.Character then
+                local character = player.Character
+                if ok and player.Parent and character and character == player.Character then
                     if acceptingLoads and self.id == id and self.phase == "Starting" then
                         local position = World.resolveSpawn(self.world, preferredSpawn(i), occupied)
-                        local a = position and self.actors:add(player.Character, player, player.UserId)
+                        local a = position and self.actors:add(character, player, player.UserId)
                         if a then
                             a.roundId = id
                             table.insert(occupied, position)
@@ -127,13 +134,18 @@ function Round:start()
                             a.root.AssemblyLinearVelocity, a.root.AssemblyAngularVelocity = Vector3.zero, Vector3.zero
                         else
                             -- Never register a combatant at an unchecked/blocked point.
-                            player.Character:PivotTo(self.world.lobby)
-                            local root = player.Character:FindFirstChild("HumanoidRootPart")
+                            character:PivotTo(self.world.lobby)
+                            local root = character:FindFirstChild("HumanoidRootPart")
                             if root then root.Anchored = false end
                             warn(string.format("[DROPZONE] safe spawn unavailable for %s; waiting for next round", player.Name))
                             self.effects:FireClient(player, "Notice", id, "安全な開始位置がないため、次の試合を待ちます")
                         end
-                    elseif not self.actors.byPlayer[player] then player.Character:PivotTo(self.world.lobby) end
+                    elseif not self.actors.byPlayer[player] then
+                        -- A late load is a lobby-only avatar, never a round actor.
+                        character:PivotTo(self.world.lobby)
+                        local root = character:FindFirstChild("HumanoidRootPart")
+                        if root then root.Anchored = false end
+                    end
                 end
                 pending = pending - 1
             end)
@@ -166,17 +178,18 @@ function Round:start()
     for _, a in ipairs(self.actors.list) do a.startTime, a.root.Anchored = self.started, false end
     return true
 end
-function Round:finish()
+function Round:finish(abandoned)
     self.phase = "Results"
     local alive = self.actors:alive()
-    self.winner = alive[1] and alive[1].name or nil
+    -- Everyone leaving is an abandoned match, not an automatic BOT victory.
+    self.winner = not abandoned and alive[1] and alive[1].name or nil
     for _, a in ipairs(self.actors.list) do
         Evolution.cancel(a)
         -- Invalidate deferred/timeout Evolution work from the finished round before Results begins.
         Movement.reset(a)
         Evolution.refresh(a)
         a.roundId = -1
-        if a.alive then a.rank, a.survival = 1, os.clock() - self.started end
+        if a.alive and not abandoned then a.rank, a.survival = 1, os.clock() - self.started end
         a.reloadToken, a.reloading = a.reloadToken + 1, false
         if a.root.Parent then a.root.Anchored = true end
     end
@@ -275,8 +288,10 @@ function Round:run()
         local started = self:start()
         if started then
             while self:isActive() and #Players:GetPlayers() > 0 do task.wait(0.25) end
-            if self:isActive() then self:finish() end
-            for t = Config.ResultsTime, 1, -1 do self.remaining = t; task.wait(1) end
+            if self:isActive() then self:finish(#Players:GetPlayers() == 0) end
+            if #Players:GetPlayers() > 0 then
+                for t = Config.ResultsTime, 1, -1 do self.remaining = t; task.wait(1) end
+            end
         end
         self:reset()
         task.wait(1)
