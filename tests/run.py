@@ -200,7 +200,7 @@ print('PASS: authoritative crouch/slide state is replicated in snapshots')
 # Server ingress guards must run before every movement dispatch, including Results.
 assert server_source.index('roundId ~= round.id or not round:isActive()') < server_source.index('command == "Sprint"')
 assert server_source.index('not a or not a.alive') < server_source.index('command == "Sprint"')
-assert 'send("Sprint", true)' in client and 'send("Sprint", false)' in client
+assert 'requestSprint(true)' in client and 'requestSprint(false)' in client
 assert 'UserInputService.JumpRequest' in client and 'command == "Jump"' in server_source
 print('PASS: sprint/posture/jump use existing round/alive/ingress validation')
 # Test the actual adaptive layout, including both mutually exclusive modes.
