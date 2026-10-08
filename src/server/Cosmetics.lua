@@ -51,7 +51,7 @@ local function templateWeapon(parent, kind, cf, anchor)
     model.Name = "WeaponModel"
     for _, item in ipairs(model:GetDescendants()) do
         if unsafeWeaponClasses[item.ClassName]
-            or (item:IsA("Constraint") and not item:IsA("WeldConstraint"))
+            or item:IsA("Constraint")
             or item:IsA("JointInstance") then
             item:Destroy()
         end
@@ -65,6 +65,13 @@ local function templateWeapon(parent, kind, cf, anchor)
         if part:IsA("BasePart") then
             part.CanCollide, part.CanTouch, part.CanQuery, part.Massless = false, false, false, true
             part.Anchored = anchor == nil
+            if anchor and part ~= root then
+                -- Templates may rely on Motor6D or preexisting welds, which are
+                -- stripped above. Rebuild a complete rigid assembly from Root.
+                local weld = Instance.new("WeldConstraint")
+                weld.Name = "DropzoneWeaponWeld"
+                weld.Part0, weld.Part1, weld.Parent = root, part, root
+            end
         end
     end
     if anchor then
