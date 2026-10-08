@@ -2,9 +2,21 @@
 
 - 調査日: 2026-10-08
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `dd97341b539b1a0368eae06b4fb257c8cc2af85e`（2026-10-08調査）
+- 基準コミット: `205df68f43c7e3049b3db1030ede739f77d6269b`（2026-10-08全コード再監査時main）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
+
+## 2026-10-08 全コード再監査の修正記録
+
+- 調査main: `205df68`。実装: `fix/full-audit-round-combat-20261008`（PR作成後、PR番号を記録）。
+- Combat.lua: 150度のアバター正面制限を解除。通常の三人称カメラが後方を向く場合も発砲できるようにした。型・有限数・弾薬・発射間隔・サーバー起点Raycastと既存レート制限は継続。これはaimbot検出を実装したことを意味しない。
+- Round.lua: ロビー/開始の非同期LoadCharacterAsyncにloadTokenを導入し、古い完了処理が新しいロックを解除するのを防止。遅着者のロビー送還を明示。全プレイヤーが退出した試合は勝利を授与しない。
+- Cosmetics.lua: 保存WeaponModelsの既存関節・制約を安全に削除後、各部品をRootへ新しいWeldConstraintで接続。現物モデルのサイズ/位置/動作はStudioで未確認。
+- Bots.lua: 射撃するBOTの胴体を敵に向け、逃走MoveToと見た目の銃口方向が食い違いにくいように変更。射撃をしない場合はAutoRotateを復元。
+- Main.client.lua: モバイルSprintの未確認入力状態を短時間保持し連続ON/OFFを正しく送信。観戦対象を配列番号でなくActor IDで維持。
+- Presentation.lua: AnimationConstraintのTransformが次のアニメ評価でリセットされなかった場合、前回の追加姿勢を再び掛けないように補正の元Transformを記録。
+- 回帰: tests/spawns.lua、tests/client.lua、tests/regression.lua、tests/run.pyを更新。GitHub ActionsのLua回帰/Preplay分析PASSを確認。Studio・実機・通信遅延・テンプレアセット実物の検証は残る。
+- 検証タスクは [TODO N8](TODO.md) に未完了で記録。
 
 ## 実装済み
 
