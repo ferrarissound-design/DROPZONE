@@ -65,6 +65,10 @@ function Combat:reload(a)
         a.ammo, a.reloading = item.ammo, false
     end)
 end
+function Combat:stopFire(a)
+    -- Stale cooldown callbacks compare the identity of this reservation.
+    a.pendingShot = nil
+end
 function Combat:fire(a, direction)
     if typeof(direction) ~= "Vector3" or not Rules.finite(direction.X) or not Rules.finite(direction.Y)
         or not Rules.finite(direction.Z) or direction.Magnitude < 0.5 or direction.Magnitude > 1.5 then return end
@@ -73,6 +77,9 @@ function Combat:fire(a, direction)
     local now = os.clock()
     if not a.alive or not spec or a.reloading or a.ammo <= 0 or not a.root.Parent
         or not a.model.Parent or a.humanoid.Health <= 0 then return end
+    -- Reject direct backshots for humans while tolerating fast legitimate turns.
+    -- Client-owned root replication means this is mitigation, not aimbot prevention.
+    if a.player and not Rules.facingShot(direction, a.root.CFrame.LookVector) then return end
     if now < a.nextShot then
         -- Keep at most one human request arriving just before the cooldown.
         -- It fires at the authoritative deadline, never early or as a burst.
