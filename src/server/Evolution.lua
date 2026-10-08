@@ -107,6 +107,10 @@ local function apply(a, id)
     a.evolutions[id] = newRank -- kept as the existing public rank map
     a.evolutionCount = a.evolutionCount + 1
     table.insert(a.evolutionHistory, id)
+    if a.evolutionCount == 1 and a.diagnostics and a.startTime
+        and a.diagnostics.firstEvolutionSeconds == nil then
+        a.diagnostics.firstEvolutionSeconds = math.max(0, os.clock() - a.startTime)
+    end
     if id == "Adrenaline" then a.adrenalineUntil = os.clock() + Config.AdrenalineSeconds end
     if id == "IronSkin" then
         a.humanoid.MaxHealth = Config.BaseHealth + Evolution.total(a, id)
