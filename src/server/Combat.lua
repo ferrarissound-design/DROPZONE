@@ -102,6 +102,9 @@ function Combat:fire(a, direction)
     a.nextShot = now + spec.interval
     item.ammo, a.ammo = item.ammo - 1, item.ammo - 1
     local diag = diagnostics(a)
+    if diag.firstShotSeconds == nil and a.startTime then
+        diag.firstShotSeconds = math.max(0, now - a.startTime)
+    end
     diag.shots[item.kind] = (diag.shots[item.kind] or 0) + 1
     local origin = a.root.Position + Vector3.new(0, 1.4, 0)
     local params = RaycastParams.new()

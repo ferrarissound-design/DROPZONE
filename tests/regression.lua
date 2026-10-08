@@ -190,6 +190,7 @@ check(Evolution.select(drafter,41,draft.id,4)==nil and drafter.evolutionCount==0
     "candidate outside server-held choices cannot be acquired")
 local chosen=Evolution.select(drafter,41,draft.id,1)
 check(chosen~=nil and drafter.evolutionCount==1, "valid pick grants exactly one evolution")
+check(drafter.diagnostics.firstEvolutionSeconds~=nil,"first server-approved Evolution records its time")
 check(Evolution.select(drafter,41,draft.id,2)==nil and drafter.evolutionCount==1,
     "a draft token cannot be selected twice")
 -- Fire the real five-second callback after advancing its deadline; stale callbacks are harmless.
@@ -504,6 +505,7 @@ check(#collector.inventory==0 and collector.ammo==0,"reset discards rarity inven
 actors=Actors.new()
 local shooter,victim=actor(910),actor(911)
 shooter.player={Parent=true};shooter.roundId=77;shooter.slot=1;shooter.nextShot=0
+shooter.startTime=os.clock()-4
 players.GetPlayers=function() return {shooter.player} end
 shooter.inventory={{kind="Shotgun",rarity="Epic",ammo=6,reserve=24}};shooter.ammo=6
 victim.humanoid.Health,victim.shield=20,30
@@ -515,6 +517,8 @@ typeof=function(value) return getmetatable(value)==vec and "Vector3" or type(val
 fakeCF.LookVector=Vector3.new(1,0,0);CFrame.lookAt=function() return fakeCF end;CFrame.Angles=function() return fakeCF end
 workspace={Raycast=function() return {Instance={Parent=victim.model},Distance=10,Position=victim.root.Position} end}
 shotCombat:fire(shooter,Vector3.new(1,0,0))
+check(shooter.diagnostics.firstShotSeconds and shooter.diagnostics.firstShotSeconds>=4,
+    "accepted server-authoritative shot records elapsed seconds once")
 local confirmed
 for _,event in ipairs(messages) do if event.kind=="Damage" then confirmed=event end end
 check(confirmed and confirmed.player==shooter.player and confirmed.args[1]==77 and #confirmed.args[2]==1,
@@ -664,4 +668,11 @@ check(recipients[buffered.player] and recipients[dead.player] and recipients[lat
 check(not recipients[distant.player] and not recipients[departed],
     "live distance culling and disconnected-player exclusion remain intact")
 os.clock, task.delay, players.GetPlayers=originalClock,originalDelay,originalRoster
-print("PASS: "..count.." gameplay assertions including jitter buffering and spectator delivery")
+local timingKiller,timingVictim=actor(940),actor(941)
+timingKiller.player={Parent=true};timingKiller.startTime=os.clock()-11;timingKiller.roundId=88
+local timingRound=Round.new({actors=actors,zone=zone,effects={FireClient=function() end}})
+timingRound.id=88
+actors.onDeath(timingVictim,timingKiller)
+check(timingKiller.kills==1 and timingKiller.diagnostics.firstKillSeconds>=11,
+    "first confirmed elimination has a single timestamp independent of presentation")
+print("PASS: "..count.." gameplay assertions including jitter buffering, spectator delivery and first-match timings")

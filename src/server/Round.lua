@@ -21,6 +21,11 @@ local function weaponLine(a)
     end
     return table.concat(parts, " ")
 end
+-- Session-only timings in seconds since round start. Nil means the milestone
+-- was never reached; no DataStore, per-frame samples or new player tracking.
+local function milestone(value)
+    return type(value) == "number" and string.format("%.1f", value) or "-"
+end
 local function emitDiagnostics(self)
     if not Config.PlaytestDiagnostics then return end
     local totalKills, totalDamage, zoneDeaths = 0, 0, 0
@@ -42,10 +47,11 @@ local function emitDiagnostics(self)
         if a.player then
             local d = a.diagnostics or {}
             local evolution = #a.evolutionHistory > 0 and table.concat(a.evolutionHistory, ">") or "-"
-            print(string.format("[DROPZONE DIAG] player=%s rank=%s kills=%d damage=%d survival=%ds builds=%d pickups=%d zoneDamage=%d death=%s evo=%s %s",
+            print(string.format("[DROPZONE DIAG] player=%s rank=%s kills=%d damage=%d survival=%ds builds=%d pickups=%d zoneDamage=%d death=%s evo=%s firstWeapon=%s firstShot=%s firstKill=%s firstEvolution=%s %s",
                 a.name, tostring(a.rank or "-"), a.kills or 0, math.floor(a.damage or 0), math.floor(a.survival or 0),
                 d.builds or 0, d.pickups or 0, math.floor(d.zoneDamage or 0), d.deathReason or (a.alive and "Alive" or "Other"),
-                evolution, weaponLine(a)))
+                evolution, milestone(d.firstWeaponSeconds), milestone(d.firstShotSeconds),
+                milestone(d.firstKillSeconds), milestone(d.firstEvolutionSeconds), weaponLine(a)))
         end
     end
 end
@@ -60,6 +66,9 @@ function Round.new(services)
         end
         if killer and killer ~= a and killer.alive then
             killer.kills = killer.kills + 1
+            if killer.kills == 1 and killer.diagnostics and killer.startTime then
+                killer.diagnostics.firstKillSeconds = math.max(0, os.clock() - killer.startTime)
+            end
             killer.energy = math.min(Evolution.maxEnergy(killer), killer.energy + 25)
             Evolution.onKill(killer, self.id, self.zone)
         end
