@@ -8,7 +8,7 @@
 
 ## 2026-10-08 全コード再監査の修正記録
 
-- 調査main: `205df68`。実装: `fix/full-audit-round-combat-20261008`（PR作成後、PR番号を記録）。
+- 調査main: `205df68`。実装: `fix/full-audit-round-combat-20261008`（PR #30）。
 - Combat.lua: 150度のアバター正面制限を解除。通常の三人称カメラが後方を向く場合も発砲できるようにした。型・有限数・弾薬・発射間隔・サーバー起点Raycastと既存レート制限は継続。これはaimbot検出を実装したことを意味しない。
 - Round.lua: ロビー/開始の非同期LoadCharacterAsyncにloadTokenを導入し、古い完了処理が新しいロックを解除するのを防止。遅着者のロビー送還を明示。全プレイヤーが退出した試合は勝利を授与しない。
 - Cosmetics.lua: 保存WeaponModelsの既存関節・制約を安全に削除後、各部品をRootへ新しいWeldConstraintで接続。現物モデルのサイズ/位置/動作はStudioで未確認。
