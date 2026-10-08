@@ -12,6 +12,11 @@
 
 ## NOW: 新HUDを含む現行ゲームの回帰・初回体験確認
 
+- [ ] N6 — スマホ戦闘/建築HUDの実機検証。
+  - 実装ブランチ: `feat/mobile-combat-build-hud`、基準main `a9cf399`。オフラインrun.py/preplay PASS。操作と配置図は[MOBILE_HUD_QA](MOBILE_HUD_QA.md)。
+  - 完了条件: 小型/ノッチ付きiPhone・タブレットで標準操作との干渉、AIM弾薬不変、保持Fireから建築への切替、選択→PLACE、移動/視点/Jump、Draft、死亡/結果→次戦、PC回帰を連続3試合確認。実機未確認。
+
+
 - [ ] N5 — 連射ジッター/観戦Shot配信の実機回帰確認。
   - 対象: server/Combat.lua、tests/regression.lua。修正ブランチ `fix/fire-jitter-spectator-feedback`。
   - オフライン: run.py PASS（gameplay 973 assertions）、preplay PASS。10要求のジッター、発射上限、待機1件、死亡/Reload/装備/Results/次戦/退出の取消、遠方観戦/途中参加/生存者距離制限を模擬確認。

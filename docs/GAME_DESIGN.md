@@ -50,10 +50,10 @@ Waiting → Intermission → Starting → Active → FinalZone → Results → R
 ## PCとモバイル
 
 PC: WASD/マウス、左射撃、右Aim、R Reload、1/2/3装備、Shift Sprint、Ctrl Crouch/Slide、Space姿勢解除/Jump、Q建築、Z/X/C建築種、E取得、V Draft開閉、Tab観戦。
-モバイル: 標準スティック/Jumpと横画面タッチHUD。射撃長押しで一時的な右肩カメラ、Sprint切替、姿勢ボタン、装備/Reload/建築ボタン。見えている敵への軽い照準補助。
+モバイル: 標準スティック/Jumpと横画面タッチHUD。AIMトグルとFIRE長押し/ドラッグは独立。戦闘/建築モード、パーツ選択→PLACE、Sprint切替、姿勢ボタン、装備/Reload。見えている敵への軽い照準補助。
 
 PC HUDは左下HP/Shield、右下武器/弾薬、上中央人数/Zone。DraftはREADY/Vで開き、建築情報は操作後3秒、Loot名は取得範囲内で最寄り1件、初回ガイドは習得後消える。
-モバイルは従来の900×480基準と自動Draft展開を維持。現在Staminaはない。
+モバイルは安全領域内で760×360基準から可変キャンバスへ配置し、自動Draft展開を維持。現在Staminaはない。
 
 ## 決着・リセット・設計境界
 

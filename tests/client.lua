@@ -52,6 +52,7 @@ function hud:button(name,_,x,y,w,h,callback)
     self.buttons[name]=b
     return b
 end
+function hud:setMobileMode(mode) self.mobileMode=mode end
 function hud:update() end
 function hud:learn() end
 function hud:step() end
@@ -462,4 +463,45 @@ input.InputEnded:emit(t)
 camera.CameraType="Custom"
 script.Destroying:emit()
 check(next(bindings)==nil and not presentation.combatAimHeld,"script cleanup unbinds both camera callbacks and clears Fire touch")
+-- Execute mode changes through actual button callbacks, including held Fire.
+input.TouchEnabled=true
+state.me.alive=true;state.phase="Active";snapshot:emit(state)
+hud.buttons.Aim.Activated:emit()
+t=touch(820,220);begin(t)
+n=#requests
+hud.buttons.Build.Activated:emit()
+check(hud.mobileMode=="Build" and not presentation.aimHeld and #requests==n,"BUILD changes mode, cancels aim, and never places or fires")
+move(t,850,210);frame()
+check(#requests==n,"entering build cancels held Fire and pending drag")
+hud.buttons.Aim.Activated:emit();begin(touch(820,220));frame()
+check(#requests==n and not presentation.aimHeld,"hidden/stale combat events cannot aim or shoot in Build")
+for _,kind in ipairs({"Wall","Floor","Ramp"}) do
+    hud.buttons[kind].Activated:emit()
+    check(#requests==n,"part selection sends no Fire or Build")
+    hud.buttons.Place.Activated:emit()
+    check(requests[#requests][2]=="Build" and requests[#requests][3]==kind,"PLACE sends selected kind through existing server action")
+    n=#requests
+end
+hud.buttons.Combat.Activated:emit()
+check(hud.mobileMode=="Combat" and #requests==n,"COMBAT restores controls without firing")
+hud.buttons.Place.Activated:emit()
+check(#requests==n,"stale PLACE event ignored in Combat")
+t=touch(820,220);begin(t);input.InputEnded:emit(t)
+check(requests[#requests][2]=="Fire","fresh Fire works after Combat return")
+hud.buttons.Build.Activated:emit();hud.buttons.Slot2.Activated:emit()
+check(hud.mobileMode=="Combat" and requests[#requests][2]=="Equip" and requests[#requests][3]==2,"weapon slot returns to combat and equips")
+for _,event in ipairs({"death","results","round","respawn","focus"}) do
+    hud.buttons.Build.Activated:emit()
+    if event=="death" then state.me.alive=false;snapshot:emit(state)
+    elseif event=="results" then state.phase="Results";snapshot:emit(state)
+    elseif event=="round" then state={roundId=state.roundId+1,phase="Active",me=state.me,zone={},targets={}};snapshot:emit(state)
+    elseif event=="respawn" then player.CharacterRemoving:emit(character)
+    else input.WindowFocusReleased:emit() end
+    check(hud.mobileMode=="Combat",event.." resets Build mode")
+    state.me.alive=true;state.phase="Active";snapshot:emit(state)
+end
+input.TouchEnabled=false
+n=#requests
+input.InputBegan:emit({KeyCode="X"},false);input.InputBegan:emit({KeyCode="Q"},false)
+check(#requests==n+1 and requests[#requests][2]=="Build" and requests[#requests][3]=="Floor","PC X/Q retains direct selection and placement")
 print("PASS: "..count.." client/server assertions including FireDrag ownership, camera math, lifecycle, UI and Aim Assist")

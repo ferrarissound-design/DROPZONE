@@ -2,7 +2,7 @@
 
 - 調査日: 2026-10-08
 - 調査対象: ferrarissound-design/DROPZONE のmain
-- 基準コミット: `d79466ba29051d1dc10d831b62e32e01dbad8551`（2026-10-07に調査したmain、PR #24反映済み）
+- 基準コミット: `a9cf3995064565657b6994993c4d7f3aa5887563`（2026-10-08調査）
 - この記録はソース調査。コードに存在することと、Studio/実機で正常動作したことは区別する。以下の実装一覧は実機検証済みの意味ではない。
 - 更新時は最新mainとの差分を確認し、基準SHAと実施した検証を更新する。
 
@@ -116,3 +116,10 @@ TownTemplatesとWeaponModelsは各フォルダ内だけ`$ignoreUnknownInstances:
 - モバイルHUDに独立したトグル式AIMを追加。AIMは`Presentation:setAimHeld`だけを切り替え、Fire Remoteを呼ばず、アクティブ中は青色の`AIM ON`表示になる。Sprint、Build、死亡/リスポーン、ラウンド終了、フォーカス解除で必ず解除する。
 - FIREは射撃だけを開始/停止し、Aim状態を変更しない。既存FireDragのタッチ所有権、ボタン外ドラッグ、マルチタッチ分離、長押し連射、武器別発射間隔は維持する。PCの左/右マウス操作は変更しない。
 - FIREを92x92、AIMを76x56とし、既存のReload / Build / Sprint / Crouch / Draftと重ならない右側配置にした。Combat.lua、Raycast、Damage、Ammo、Aim Assist、BOTは変更なし。
+
+## スマホ戦闘・建築HUD（2026-10-08）
+
+- `feat/mobile-combat-build-hud`: タッチ専用のCombat/Build切替、選択→PLACE、即時の可視/Active切替、保持Fire/Aim取消と死亡/次戦等での復帰を実装。
+- `MobileLayout`で安全領域内の可変キャンバスと端寄せ配置。標準スティック/Jumpは維持し予約領域を空ける。建築中はEnergy、戦闘中は弾薬表示。PCキーとサーバー/Raycast/Presentation/Rojo構成は維持。
+- run.py PASS（spawn 9710 / gameplay 973 / visual 824 / client 271 / layout 1032）、preplay PASS、diffチェックPASS。
+- Studio/実機は未確認。[MOBILE_HUD_QA](MOBILE_HUD_QA.md)に配置プレビューと確認手順。TODO N6は実機確認まで未完了。

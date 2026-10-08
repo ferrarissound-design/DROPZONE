@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Rules = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("Rules"))
 local Theme = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("VisualTheme"))
 local WeaponStats = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("WeaponStats"))
+local MobileLayout = require(script.Parent.MobileLayout)
 local Hud = {}
 Hud.__index = Hud
 local white = Theme.Paper
@@ -43,6 +44,7 @@ end
 function Hud.new(mobile)
     local gui = Instance.new("ScreenGui")
     gui.Name, gui.ResetOnSpawn, gui.IgnoreGuiInset = "DropzoneHUD", false, false
+    if mobile then gui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets end
     gui.DisplayOrder, gui.ZIndexBehavior = 10, Enum.ZIndexBehavior.Sibling
     local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
     local old = playerGui:FindFirstChild(gui.Name)
@@ -53,15 +55,22 @@ function Hud.new(mobile)
     canvas.Size, canvas.BackgroundTransparency, canvas.Parent = UDim2.fromOffset(900, 480), 1, gui
     local scale = Instance.new("UIScale")
     scale.Parent = canvas
+    local self
     local function resize()
-        scale.Scale = math.min(gui.AbsoluteSize.X / 900, gui.AbsoluteSize.Y / 480, mobile and math.huge or 1)
+        if mobile then
+            local w, h, factor = MobileLayout.measure(gui.AbsoluteSize.X, gui.AbsoluteSize.Y)
+            scale.Scale, canvas.Size = factor, UDim2.fromOffset(w,h)
+            if self then self:layoutMobile(w,h) end
+            return
+        end
+        scale.Scale = math.min(gui.AbsoluteSize.X / 900, gui.AbsoluteSize.Y / 480, 1)
         if not mobile then
             canvas.Size = UDim2.fromOffset(gui.AbsoluteSize.X / scale.Scale, gui.AbsoluteSize.Y / scale.Scale)
         end
     end
     gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
     resize()
-    local self = setmetatable({gui = gui, canvas = canvas, buttons = {}, mobile = mobile == true, learned = {}}, Hud)
+    self = setmetatable({gui = gui, canvas = canvas, buttons = {}, mobile = mobile == true, learned = {}}, Hud)
     self.top = label(canvas, "Round", UDim2.fromOffset(270, 8), UDim2.fromOffset(360, 38), "DROPZONE", 18)
     self.zone = label(canvas, "Zone", UDim2.fromOffset(280, 51), UDim2.fromOffset(340, 33), "安全地帯", 15)
     self.stats = label(canvas, "Health", UDim2.fromOffset(22, 16), UDim2.fromOffset(218, 58), "HP —", 17)
@@ -155,8 +164,63 @@ function Hud.new(mobile)
     self.currentCircle, self.nextCircle, self.dot = circle(Color3.fromRGB(68, 208, 255)), circle(Color3.fromRGB(240, 240, 240)), circle(Color3.fromRGB(255, 214, 70), true)
     self.dot.Size = UDim2.fromOffset(5, 5)
     self.ready = self:button("EvolutionReady", "EVOLUTION READY [V]", 22, 128, 218, 30, function() self:toggleDraft() end)
-    if not self.mobile then self:layoutDesktop() end
+    if self.mobile then resize() else self:layoutDesktop() end
     return self
+end
+-- Transparent containers never capture screen drags. Only actual buttons do.
+function Hud:layoutMobile(w,h)
+    self.mobileWidth, self.mobileHeight = w,h
+    local function place(obj,x,y,width,height)
+        obj.AnchorPoint = Vector2.new(0,0)
+        obj.Position, obj.Size = UDim2.fromOffset(x,y), UDim2.fromOffset(width,height)
+    end
+    place(self.stats,16,8,218,58)
+    place(self.top,w/2-100,8,200,26)
+    place(self.zone,w/2-100,38,200,24)
+    place(self.mini,w-138,8,122,78)
+    place(self.ammo,w/2-140,h-110,280,40)
+    place(self.energy,w/2-112,h-110,224,26)
+    self.energyBar.Parent.Size = UDim2.fromOffset(204,4)
+    self.energyBar.Parent.Position = UDim2.fromOffset(10,22)
+    place(self.notice,w/2-160,66,320,30)
+    place(self.hint,w/2-170,h-146,340,28)
+    -- Draft stays left of the action bank and above both native thumb controls.
+    local draftWidth = math.min(w-304,540)
+    place(self.draft,16,104,draftWidth,132)
+    place(self.draftTitle,10,4,draftWidth-90,24)
+    place(self.draftTimer,draftWidth-76,4,66,24)
+    self.draftTitle.TextSize = 13
+    local cardWidth = (draftWidth-40)/3
+    for i,card in ipairs(self.draftCards) do
+        place(card,10+(i-1)*(cardWidth+10),32,cardWidth,92)
+    end
+    for name,rect in pairs(MobileLayout.buttons(w,h)) do
+        local button = self.buttons[name]
+        if button then place(button,table.unpack(rect)) end
+    end
+    for _,obj in ipairs({self.crosshair,self.hitMarker}) do
+        obj.AnchorPoint, obj.Position = Vector2.new(.5,.5), UDim2.fromScale(.5,.5)
+    end
+    for _,obj in ipairs({self.stats,self.ammo,self.top,self.zone,self.energy,self.hint}) do
+        obj.BackgroundTransparency = .45
+    end
+    self.top.BackgroundColor3, self.top.TextColor3 = Theme.Ink, white
+    self.mini.BackgroundTransparency = .55
+end
+function Hud:setMobileMode(mode)
+    self.mobileMode = mode == "Build" and "Build" or "Combat"
+    self:refreshMobileControls()
+end
+function Hud:refreshMobileControls()
+    if not self.mobile then return end
+    for name,button in pairs(self.buttons) do
+        if name ~= "EvolutionReady" and name ~= "Spectate" then
+            button.Visible = self.mobilePlaying == true and MobileLayout.visible(name,self.mobileMode)
+            if not name:match("^Slot") then button.Active = button.Visible end
+        end
+    end
+    self.energy.Visible = self.mobilePlaying == true and self.mobileMode == "Build"
+    self.ammo.Visible = self.mobilePlaying == true and self.mobileMode ~= "Build"
 end
 -- Edge anchors keep the center clear at wide resolutions; desktop never scales up.
 function Hud:layoutDesktop()
@@ -252,7 +316,8 @@ function Hud:updateDraftCards()
         local category = option and option.category or "Utility"
         local accent = Theme.Category[category] or Theme.Purple
         local status = submitted and (i == self.submittedChoice and "送信中…" or "選択待ち") or "EVOLVE  ›"
-        local text = option and string.format('<font size="14">%s</font>\n<font size="20"><b>%s %s</b></font>\n<font size="16">%s</font>\n<font size="14"><b>%s</b></font>',
+        local template = self.mobile and '<font size="11">%s</font>\n<font size="14"><b>%s %s</b></font>\n<font size="12">%s</font>\n<font size="11"><b>%s</b></font>' or '<font size="14">%s</font>\n<font size="20"><b>%s %s</b></font>\n<font size="16">%s</font>\n<font size="14"><b>%s</b></font>'
+        local text = option and string.format(template,
             string.upper(category), string.upper(option.name), option.rankText, option.description, status) or "—"
         card.Text = text
         card.BackgroundColor3 = submitted and (i == self.submittedChoice and Color3.fromRGB(188,242,199) or Color3.fromRGB(202,211,213)) or Theme.Paper
@@ -284,7 +349,12 @@ function Hud:button(name, text, x, y, width, height, callback)
             b.Text = "観戦切替 [Tab]"
         end
     end
+    if self.mobile then
+        b.BackgroundTransparency, b.TextSize = .35, 14
+        b.Active = true
+    end
     self.buttons[name] = b
+    if self.mobile and self.mobileWidth then self:layoutMobile(self.mobileWidth,self.mobileHeight) end
     return b
 end
 function Hud:toast(text)
@@ -317,6 +387,7 @@ function Hud:update(s, onEvolutionPick)
     local active = s.phase == "Active" or s.phase == "FinalZone"
     local playing = active and me and me.alive
     if playing and not self.guideUntil then self.guideUntil = os.clock() + 9 end
+    self.mobilePlaying = not not playing
     local previous = self.previousMe
     if playing and previous and previous.alive then
         if me.hp + me.shield < previous.hp + previous.shield then
@@ -398,6 +469,7 @@ function Hud:update(s, onEvolutionPick)
         elseif name == "Spectate" then button.Visible = active and not playing
         else button.Visible = not not playing and (self.mobile or name:match("^Slot") ~= nil) end
     end
+    self:refreshMobileControls()
     local crouchButton, sprintButton = self.buttons.Crouch, self.buttons.Sprint
     if crouchButton then
         local cooldown = me and me.slideCooldown or 0
@@ -439,6 +511,10 @@ function Hud:update(s, onEvolutionPick)
         self.result.Position = self.mobile and (active and UDim2.fromOffset(275,150) or UDim2.fromOffset(265,150))
             or active and UDim2.new(0,22,1,-72) or UDim2.fromScale(.5,.5)
         self.result.Size = active and UDim2.fromOffset(350, 115) or UDim2.fromOffset(370, 205)
+        if self.mobile then
+            self.result.AnchorPoint = Vector2.new(.5,.5)
+            self.result.Position = UDim2.fromScale(.5,.5)
+        end
         self.result.TextSize = active and 15 or 19
     end
     local function mapPosition(p) return UDim2.fromOffset(61 + p.X / 720 * 78, 39 + p.Z / 720 * 78) end
@@ -454,7 +530,10 @@ function Hud:update(s, onEvolutionPick)
         local delta = root.Position - z.center
         if playing and math.sqrt(delta.X*delta.X + delta.Z*delta.Z) >= z.radius - 12 then
             self.hint.Text = "危険！ 安全地帯の内側へ移動"
-            self.hint.Visible = true
+            if self.mobile then
+                self.zone.Text = "危険! " .. self.zone.Text
+                self.zone.TextColor3 = Theme.Orange
+            else self.hint.Visible = true end
             self.hint.TextColor3 = Color3.fromRGB(255, 180, 90)
         else self.hint.TextColor3 = white end
     end

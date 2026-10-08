@@ -19,11 +19,12 @@ local presentation = Presentation.new(effects.folder, player)
 local state, shooting, nextShot, buildType, spectateIndex = nil, false, 0, "Wall", 1
 local submittedEvolutionDraft
 local touchAimToggled = false
+local mobileMode = "Combat"
 local aimButton
 local nextJumpRequest = 0
 local playing, send, aim
 local function tryShoot()
-    if not playing or not playing() or os.clock() < nextShot then return end
+    if not playing or not playing() or (UserInputService.TouchEnabled and mobileMode == "Build") or os.clock() < nextShot then return end
     local spec = state and state.me and Weapons[state.me.weapon]
     if not spec then return end
     nextShot = os.clock() + spec.interval
@@ -52,8 +53,15 @@ local function stopFireTouch()
         fireDrag:clear()
     end
 end
-player.CharacterRemoving:Connect(function() stopFireTouch(); cancelAim() end)
-player.CharacterAdded:Connect(function() stopFireTouch(); cancelAim() end)
+local function setMobileMode(mode)
+    stopFireTouch()
+    shooting = false
+    cancelAim()
+    mobileMode = mode
+    hud:setMobileMode(mode)
+end
+player.CharacterRemoving:Connect(function() setMobileMode("Combat") end)
+player.CharacterAdded:Connect(function() setMobileMode("Combat") end)
 local function build()
     cancelAim()
     send("Build", buildType)
@@ -71,7 +79,7 @@ fire.BackgroundColor3, fire.TextColor3 = Theme.Orange, Theme.Ink
 -- button. Otherwise the standard camera and FireDrag could both rotate it.
 fire.Active = true
 fire.InputBegan:Connect(function(input)
-    if not playing() or mouseOnEvolutionPanel(input) then return end
+    if not playing() or mobileMode == "Build" or mouseOnEvolutionPanel(input) then return end
     if input.UserInputType == Enum.UserInputType.Touch then
         if not fireDrag:begin(input) then return end
         shooting = true
@@ -91,7 +99,7 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 aimButton = hud:button("Aim", "AIM", 590, 320, 76, 56)
 aimButton.Activated:Connect(function()
-    if not playing() then return end
+    if not playing() or mobileMode == "Build" then return end
     touchAimToggled = not touchAimToggled
     presentation:setAimHeld(touchAimToggled)
     if touchAimToggled and state.me.sprinting then send("Sprint", false) end
@@ -99,8 +107,16 @@ aimButton.Activated:Connect(function()
     aimButton.BackgroundColor3 = touchAimToggled and Theme.Blue or Theme.Ink
     aimButton.TextColor3 = Theme.Paper
 end)
-hud:button("Reload", "装填 R", 680, 275, 88, 56, function() send("Reload") end)
-hud:button("Build", "建築 Q", 680, 205, 88, 60, build)
+hud:button("Reload", "↻\n装填", 680, 275, 88, 56, function() if mobileMode == "Combat" then send("Reload") end end)
+hud:button("Build", "▦\n建築", 680, 205, 88, 60, function()
+    if playing() then setMobileMode("Build") end
+end)
+hud:button("Place", "＋\n設置", 0, 0, 64, 64, function()
+    if playing() and mobileMode == "Build" then build() end
+end)
+hud:button("Combat", "↩\n戦闘", 0, 0, 64, 64, function()
+    if playing() then setMobileMode("Combat") end
+end)
 -- Two movement buttons replace the previous Crouch + Slide pair.
 hud:button("Sprint", "走る", 784, 285, 82, 48, function()
     local enable = not (state and state.me and state.me.sprinting)
@@ -112,16 +128,23 @@ hud:button("Crouch", "しゃがみ", 680, 340, 88, 48, posture)
 for i, kind in ipairs({"Wall", "Floor", "Ramp"}) do
     local labels = {"壁", "床", "坂"}
     hud:button(kind, labels[i], 632 + (i - 1) * 82, 137, 76, 52, function()
+        if not playing() or mobileMode ~= "Build" then return end
         buildType = kind
         for _, k in ipairs({"Wall", "Floor", "Ramp"}) do hud.buttons[k].BackgroundColor3 = k == kind and Theme.Blue or Theme.Ink end
     end)
 end
 hud.buttons.Wall.BackgroundColor3 = Theme.Blue
-for i = 1, 3 do hud:button("Slot" .. i, tostring(i), 279 + (i - 1) * 116, 418, 110, 48, function() send("Equip", i) end) end
+for i = 1, 3 do hud:button("Slot" .. i, tostring(i), 279 + (i - 1) * 116, 418, 110, 48, function()
+    if playing() then
+        if UserInputService.TouchEnabled then setMobileMode("Combat") end
+        send("Equip", i)
+    end
+end) end
 hud:button("Spectate", "観戦対象を切替", 350, 285, 200, 52, function() spectateIndex = spectateIndex + 1 end)
 for name, button in pairs(hud.buttons) do
     if name ~= "Fire" then button.Activated:Connect(function() presentation.audio:play("Button") end) end
 end
+hud:setMobileMode("Combat")
 UserInputService.InputBegan:Connect(function(input, processed)
     if input.KeyCode == Enum.KeyCode.Tab then
         if not UserInputService:GetFocusedTextBox() and state
@@ -163,7 +186,7 @@ end)
 UserInputService.WindowFocusReleased:Connect(function()
     stopFireTouch()
     shooting = false
-    cancelAim()
+    setMobileMode("Combat")
     send("Sprint", false)
 end)
 UserInputService.JumpRequest:Connect(function()
@@ -219,7 +242,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
         shooting, nextShot, spectateIndex = false, 0, 1
         submittedEvolutionDraft = nil
         nextJumpRequest = 0
-        cancelAim()
+        setMobileMode("Combat")
         damageFeedback:clear()
         effects:clear()
         hud.shotUntil, hud.hitUntil, hud.hitMarkerUntil = 0, 0, 0
@@ -233,7 +256,7 @@ remotes:WaitForChild("Snapshot").OnClientEvent:Connect(function(s)
     if not playing() then
         stopFireTouch()
         shooting = false
-        cancelAim()
+        setMobileMode("Combat")
     end
     if s.phase ~= "Active" and s.phase ~= "FinalZone" then
         damageFeedback:clear()
