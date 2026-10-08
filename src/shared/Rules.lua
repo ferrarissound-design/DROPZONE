@@ -47,6 +47,16 @@ function Rules.closestLiveTarget(actor, actors, maxDistance)
     end
     return target, distance
 end
+-- Broad 150-degree half-angle in the horizontal plane: allow quick turns,
+-- side shots and vertical aim while rejecting fire directly behind the rig.
+function Rules.facingShot(direction, facing)
+    if not facing or not Rules.finite(facing.X) or not Rules.finite(facing.Z) then return false end
+    local dx, dz, fx, fz = direction.X, direction.Z, facing.X, facing.Z
+    local horizontal, forward = math.sqrt(dx*dx + dz*dz), math.sqrt(fx*fx + fz*fz)
+    if horizontal < .1 then return true end
+    if forward < .1 then return false end
+    return (dx*fx + dz*fz) / (horizontal*forward) >= -0.866025403784
+end
 function Rules.canFire(actor, weapon, now)
     return actor.alive and weapon ~= nil and not actor.reloading
         and actor.ammo > 0 and now >= actor.nextShot
