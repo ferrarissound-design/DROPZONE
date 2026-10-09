@@ -37,7 +37,15 @@ Creator Storeで次の語を組み合わせ、ライセンスと制作者をStud
 5. Collisionは壁6〜10枚＋屋根1枚程度に簡略化します。窓枠、看板、雨樋、取手、家具、小物はCollisionにしません。
 6. 上記の正確な名前で`ServerStorage/TownTemplates`へ移動します。元AssetのScriptが残っていてもServerStorageから直接Workspaceへ複製せず、`Town.lua`の検査済みcloneだけを使用します。
 
-検査済みcloneでは、Collisionだけが`Anchored=true / CanCollide=true / CanQuery=true / CanTouch=false`になります。それ以外の見た目Partは`Anchored=true / CanCollide=false / CanQuery=false / CanTouch=false / Massless=true`です。危険・不要クラスはcloneがWorkspaceへ入る前に再帰削除されます。
+検査済みcloneでは、Collisionだけが`Anchored=true / CanCollide=true / CanQuery=true / CanTouch=false`になります。それ以外の見た目Partは`Anchored=true / CanCollide=false / CanTouch=false / Massless=true`です。**透明度が0.95未満の見た目PartはCanQuery=trueになり、プレイヤーとBOT両方の弾・射線を遮ります。** 完全に透明な補助Partは通常CanQuery=falseです。危険・不要クラスはcloneがWorkspaceへ入る前に再帰削除されます。
+
+## 弾が建物を貫通するとき
+
+- まず建物が`ServerStorage/TownTemplates`に上記の名前であり、ゲーム開始時に`DropzoneWorld/Map/Buildings`へ生成されているか確認します。**Workspaceへ手動配置した別モデルはTownの自動補正対象外**です。
+- 壁・屋根の見た目Partは通常、自動的に射撃用Raycastへ参加します。移動用Collisionは勝手に追加されないため、壁を歩いて抜けられる場合は`Collision`フォルダへ単純な壁Partを追加するか、`TownCollision=true`にしてください。ドア・入口は塞がないでください。
+- 装飾パーツを弾が素通りすべき場合に限り、非CollisionのPartへBoolean属性`TownBulletPassThrough=true`を設定できます。Collisionに設定された物理壁はこの属性でも貫通しません。
+- **検証:** 同じ壁に向かって自分が撃つ／BOTの反対側に隠れる／通常の扉を通る／建築を壁越しに置けないことをStudioで確認。弾痕とHP減少が壁の向こうに出ないことも確認します。
+- 1枚の巨大なMeshPartで建物全体を作ったモデルは、開口部のRaycastがMeshの衝突形状に左右されます。入口を含むモデルは単純な独立した壁Colliderを推奨します。
 
 ## 採用判断
 
