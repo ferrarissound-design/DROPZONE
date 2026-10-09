@@ -14,7 +14,9 @@ v.__add = function(a,b) return Vector3.new(a.X+b.X,a.Y+b.Y,a.Z+b.Z) end
 v.__sub = function(a,b) return Vector3.new(a.X-b.X,a.Y-b.Y,a.Z-b.Z) end
 v.__mul = function(a,b) return Vector3.new(a.X*b,a.Y*b,a.Z*b) end
 v.__div = function(a,b) return Vector3.new(a.X/b,a.Y/b,a.Z/b) end
-CFrame = {lookAt=function(position, target) return {Position=position,LookVector=(target-position).Unit} end}
+local emptyFrame = setmetatable({}, {__mul=function(a) return a end})
+CFrame = {lookAt=function(position, target) return {Position=position,LookVector=(target-position).Unit} end,
+    new=function() return emptyFrame end, Angles=function() return emptyFrame end}
 Enum = {RaycastFilterType={Exclude="Exclude"},CameraType={Custom="Custom",Scriptable="Scriptable"}}
 RaycastParams = {new=function() return {} end}
 math.clamp = function(x,a,b) return math.min(b,math.max(a,x)) end
