@@ -208,6 +208,22 @@ check(hud.buttons.Fire.BackgroundColor3==Theme.Orange and hud.buttons.Fire.Backg
 check(hud.buttons.Aim.BackgroundTransparency==.62 and hud.buttons.Build.BackgroundTransparency==.62,"auxiliary controls reveal more of the world")
 check(hud.mini.Size.X.Offset==104 and hud.mini.Size.Y.Offset==66,"mobile minimap is reduced")
 hud:update(s)
+check(hud.currentCircle.Position.X.Offset==52 and hud.currentCircle.Position.Y.Offset==33,
+    "mobile minimap zero-world center uses resized frame center")
+check(math.abs(hud.currentCircle.Size.X.Offset-250/360*66)<1e-6,
+    "mobile minimap zone rings use resized frame scale")
+s.zone.center=Vector3.new(180,0,90)
+s.zone.nextCenter=Vector3.new(-180,0,-90)
+hud:update(s)
+check(math.abs(hud.currentCircle.Position.X.Offset-(52+180/720*66))<1e-6
+    and math.abs(hud.currentCircle.Position.Y.Offset-(33+90/720*66))<1e-6,
+    "mobile current zone marker maps world coordinates to resized frame")
+check(math.abs(hud.nextCircle.Position.X.Offset-(52-180/720*66))<1e-6
+    and math.abs(hud.nextCircle.Position.Y.Offset-(33-90/720*66))<1e-6,
+    "mobile next zone marker maps world coordinates to resized frame")
+s.zone.center=Vector3.new(0,0,0)
+s.zone.nextCenter=Vector3.new(0,0,0)
+hud:update(s)
 hud:setMobileMode("Build")
 check(not hud.buttons.Fire.Visible and not hud.buttons.Fire.Active and hud.buttons.Place.Visible and hud.buttons.Place.Active,"real HUD hides/disables Fire and exposes PLACE immediately")
 check(hud.energy.Visible and not hud.ammo.Visible,"build shows energy instead of ammo")
@@ -220,7 +236,14 @@ for _,size in ipairs({{640,320},{844,350},{932,390},{1024,768},{390,760}}) do
     check(hud.buttons.Fire.Position.X.Offset==r[1] and hud.buttons.Fire.Size.X.Offset==r[3],"real HUD recomputes button coordinates after resize")
     check(hud.crosshair.Position.X.Scale==.5 and hud.crosshair.Position.Y.Scale==.5,"adaptive reticle remains centered")
 end
-local old=hud.gui;Hud.new();check(old.Parent==nil,"HUD reconstruction does not duplicate UI")
+local old=hud.gui;local desktop=Hud.new();check(old.Parent==nil,"HUD reconstruction does not duplicate UI")
+desktop:update(s)
+check(desktop.mini.Size.X.Offset==122 and desktop.mini.Size.Y.Offset==78,
+    "desktop minimap keeps its original dimensions")
+check(desktop.currentCircle.Position.X.Offset==61 and desktop.currentCircle.Position.Y.Offset==39,
+    "desktop minimap zero-world center is unchanged")
+check(math.abs(desktop.currentCircle.Size.X.Offset-250/360*78)<1e-6,
+    "desktop zone rings retain original scale")
 print("PASS: "..assertions.." visual constructor / cleanup assertions; map cosmetics="..mapCount)
 
 -- Fixed damage pool never allocates per hit, including repeated shotgun bursts.
