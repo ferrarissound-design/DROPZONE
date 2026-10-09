@@ -261,7 +261,8 @@ aim = function()
         if tracked then target = tracked end
     end
     -- Existing weak hip-fire correction remains available without AIM.
-    if UserInputService.TouchEnabled then
+    -- During AIM the LOS-checked tracked candidate owns the correction.
+    if UserInputService.TouchEnabled and not (touchAimToggled and presentation:isAiming()) then
         local best = math.cos(math.rad(5))
         for _, candidate in ipairs(state.targets) do
             local model = candidate.model
