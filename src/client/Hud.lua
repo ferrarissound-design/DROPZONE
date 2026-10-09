@@ -180,7 +180,7 @@ function Hud:layoutMobile(w,h)
     place(self.evo,16,70,200,30)
     place(self.top,w/2-100,8,200,26)
     place(self.zone,w/2-100,38,200,24)
-    place(self.mini,w-138,8,122,78)
+    place(self.mini,w-120,8,104,66)
     place(self.ammo,w/2-140,h-110,280,40)
     place(self.energy,w/2-112,h-110,224,26)
     self.energyBar.Parent.Size = UDim2.fromOffset(204,4)
@@ -361,7 +361,8 @@ function Hud:button(name, text, x, y, width, height, callback)
         end
     end
     if self.mobile then
-        b.BackgroundTransparency, b.TextSize = .35, 14
+        b.BackgroundTransparency, b.TextSize = name == "Fire" and .25 or .62, name == "Fire" and 14 or 12
+        if name == "Fire" then b.BackgroundColor3, b.TextColor3 = Theme.Orange, Theme.Ink end
         b.Active = true
     end
     self.buttons[name] = b
@@ -553,11 +554,16 @@ function Hud:update(s, onEvolutionPick)
         end
         self.result.TextSize = active and 15 or 19
     end
-    local function mapPosition(p) return UDim2.fromOffset(61 + p.X / 720 * 78, 39 + p.Z / 720 * 78) end
+    -- Use the current minimap dimensions: mobile is 104x66, desktop 122x78.
+    -- Keep a uniform world-to-pixel scale so zone rings remain circular.
+    local mapWidth, mapHeight = self.mini.Size.X.Offset, self.mini.Size.Y.Offset
+    local function mapPosition(p)
+        return UDim2.fromOffset(mapWidth / 2 + p.X / 720 * mapHeight,
+            mapHeight / 2 + p.Z / 720 * mapHeight)
+    end
     for _, pair in ipairs({{self.currentCircle, z.center, z.radius}, {self.nextCircle, z.nextCenter, z.nextRadius}}) do
         pair[1].Position = mapPosition(pair[2])
-        -- Fixed stud-to-pixel scale keeps circles circular on this rectangular panel.
-        pair[1].Size = UDim2.fromOffset(pair[3] / 360 * 78, pair[3] / 360 * 78)
+        pair[1].Size = UDim2.fromOffset(pair[3] / 360 * mapHeight, pair[3] / 360 * mapHeight)
     end
     local char = Players.LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")

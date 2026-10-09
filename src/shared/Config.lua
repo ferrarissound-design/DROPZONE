@@ -3,7 +3,7 @@ return {
     TargetCombatants = 12, MaxPlayers = 20,
     Intermission = 12, ResultsTime = 12,
     BaseHealth = 100, BaseSpeed = 18, BaseJump = 50,
-    CrouchSpeedMultiplier = 0.58, CrouchHipDrop = 1.15, CrouchToggleCooldown = 0.15,
+    CrouchSpeedMultiplier = 0.58, CrouchToggleCooldown = 0.15,
     SprintMultiplier = 1.3, SprintCooldown = 0.25, MaxMoveSpeed = 32,
     SlideSpeed = 34, SlideMinSpeed = 20, SlideDuration = 0.65, SlideCooldown = 2.1, SlideSteerMultiplier = 0.35,
     StartEnergy = 60, MaxEnergy = 150,

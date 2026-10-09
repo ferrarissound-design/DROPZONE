@@ -46,6 +46,7 @@ else:
 for path in sorted((ROOT / 'src').rglob('*.lua')):
     run(path.read_text(encoding='utf-8'), str(path.relative_to(ROOT)))
 print('PASS: syntax of all Lua modules (Lua 5.4 compatible subset)')
+run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/crouch_pose.lua').read_text(encoding='utf-8'), 'crouch_pose.lua', True)
 run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/spawns.lua').read_text(encoding='utf-8'), 'spawns.lua', True)
 if "--spawn-only" in sys.argv:
     sys.exit(0)

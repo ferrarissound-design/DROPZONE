@@ -12,6 +12,10 @@
 
 ## NOW: 新HUDを含む現行ゲームの回帰・初回体験確認
 
+- [ ] N11 — スマホUI縮小と地面めり込み修正の実機確認。
+  - 実装: `fix/mobile-ui-grounded-crouch-20261009`、基準main `055bcde`。run.py/preplay/diffチェックPASS。足元補正307・画面配置1054 assertions。手順: [MOBILE_CROUCH_QA](MOBILE_CROUCH_QA.md)。
+  - 完了条件: R6/R15・体格違いで静止/歩行/斜面/段差/Slide→Crouch→Jump、3武器の射撃/AIM/Reload、進化装甲、PC操作、スマホの小型/ノッチ/タブレットと連続3試合を確認。実物理・描画未確認のため未完了。
+
 - [ ] N10 — プレイヤー進化外見のStudio/スマホ/複数人検証。
   - 実装: `feat/player-evolution-visuals-20261008`。基準main `4c3e7e4`。コードとオフライン回帰は実装済み、実描画は未検証。
   - 手順/能力対応: [PLAYER_EVOLUTION_QA](PLAYER_EVOLUTION_QA.md)。0/1/3/5回、同一Stack/混在、R6/R15、BOT外観不変、観戦で他人の進化、AIM視認性、通常一人称⇔三人称⇔AIMの透明度復元（PR #33レビュー修正）、3試合リセット、低性能スマホFPSを確認。

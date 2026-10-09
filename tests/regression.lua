@@ -52,6 +52,8 @@ load("PresentationConfig", "shared/PresentationConfig.lua")
 load("Cosmetics", "server/Cosmetics.lua")
 load("MapVisuals", "server/MapVisuals.lua")
 local Town = load("Town", "server/Town.lua")
+script.Parent.CrouchPose = "CrouchPose"
+load("CrouchPose", "server/CrouchPose.lua")
 local Movement = load("Movement", "server/Movement.lua")
 local World = load("World", "server/World.lua")
 -- Gameplay regressions spy on the visual boundary; tests/visuals.lua executes
@@ -167,8 +169,8 @@ local function actor(id)
 end
 -- Crouch and slide are server-owned states with grounded/cooldown gates.
 local mover=actor(30); mover.baseHipHeight=2
-check(Movement.toggleCrouch(mover) and mover.crouching and mover.humanoid.HipHeight < mover.baseHipHeight,
-    "crouch lowers stance through authoritative movement state")
+check(Movement.toggleCrouch(mover) and mover.crouching and mover.humanoid.HipHeight == mover.baseHipHeight,
+    "crouch preserves physical ground clearance")
 check(Movement.speedMultiplier(mover)==Config.CrouchSpeedMultiplier and not Movement.canJump(mover),
     "crouch slows movement and blocks jumping")
 mover.nextCrouch=0
@@ -180,7 +182,7 @@ check(Movement.slide(mover) and mover.sliding and mover.root.AssemblyLinearVeloc
     "moving actor receives a bounded server slide impulse")
 check(not Movement.slide(mover), "slide cooldown rejects repeated activation")
 mover.slideUntil=os.clock()-1; Movement.step(mover)
-check(not mover.sliding and mover.humanoid.AutoRotate and mover.crouching and mover.humanoid.HipHeight<mover.baseHipHeight,
+check(not mover.sliding and mover.humanoid.AutoRotate and mover.crouching and mover.humanoid.HipHeight==mover.baseHipHeight,
     "slide timeout enters crouch and restores rotation")
 
 -- Evolution Draft offers are server-created, three distinct options from mixed build categories.
