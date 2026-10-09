@@ -53,6 +53,7 @@ if "--spawn-only" in sys.argv:
 # Targeted client regressions can run independently of unrelated engine doubles.
 if "--client-only" in sys.argv:
     run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/client.lua').read_text(encoding='utf-8'), 'client.lua', True)
+    run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/mobile_aim_tracking.lua').read_text(encoding='utf-8'), 'mobile_aim_tracking.lua', True)
     print('PASS: targeted client regressions (Roblox engine validation remains separate)')
     sys.exit(0)
 source = (ROOT / 'tests' / 'regression.lua').read_text(encoding='utf-8')
@@ -61,6 +62,7 @@ run(source, 'regression.lua', True)
 visual_source = 'ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests' / 'visuals.lua').read_text(encoding='utf-8')
 run(visual_source, 'visuals.lua', True)
 run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/client.lua').read_text(encoding='utf-8'), 'client.lua', True)
+run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/mobile_aim_tracking.lua').read_text(encoding='utf-8'), 'mobile_aim_tracking.lua', True)
 
 hud = (ROOT / 'src' / 'client' / 'Hud.lua').read_text(encoding='utf-8')
 assert not re.search(r'EVOLUTION\s+[^\n]*\s*/\s*7', hud, re.I)
@@ -139,6 +141,10 @@ assert 'me.evolutionDraft == nil' not in (ROOT / 'src' / 'client' / 'Presentatio
 assert client.index('if input.KeyCode == Enum.KeyCode.Tab then') < client.index('if processed then return end')
 assert 'and (state.phase == "Active" or state.phase == "FinalZone") then' in client
 assert 'camera:ScreenPointToRay(center.X, center.Y)' in client
+assert 'local MobileAimTracking = require(script.Parent.MobileAimTracking)' in client
+assert 'aimTracking:track(camera, ray, target, dt, os.clock())' in client
+assert client.index('aimTracking:track(camera, ray, target, dt, os.clock())') < client.index('presentation:step(math.min(dt,.1))')
+assert 'touchAimToggled and mobileMode == "Combat"' in client
 print('PASS: draft panel alone blocks pointer input; gameplay and spectator Tab remain available')
 assert "place(self.evo,16,70,200,30)" in hud
 assert "function Hud:setSpectateName(name)" in hud and "escapeRichText(tostring(name))" in hud

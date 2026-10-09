@@ -4,6 +4,12 @@ return {
     MobileFireDragSensitivity = .18,
     MobileFireDragVerticalSensitivity = .18,
     MobileFireDragPitchLimit = 80,
+    -- Mobile AIM only: acquire close to the reticle, retain briefly for moving
+    -- targets, and drift no faster than a gentle player-controlled camera turn.
+    MobileAssistAcquireDegrees = 6, MobileAssistKeepDegrees = 9,
+    MobileAssistRange = 140, MobileAssistScanInterval = .08,
+    MobileAssistResponse = 3.0, MobileAssistMaxDegreesPerSecond = 13,
+    MobileAssistManualPause = .28,
     -- Fixed pools; local shots have reserved capacity so BOT fire cannot evict them.
     TracerPool = 24, LocalTracerPool = 8, ImpactPool = 16, LocalImpactPool = 8,
     TracerLife = .20, RemoteTracerLife = .12, TracerWidth = .13,
