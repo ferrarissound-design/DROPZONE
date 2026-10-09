@@ -20,6 +20,10 @@
       "WeaponModels": {
         "$className": "Folder",
         "$ignoreUnknownInstances": true
+      },
+      "BotModels": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true
       }
     },
     "StarterPlayer": {
