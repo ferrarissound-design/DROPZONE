@@ -55,6 +55,8 @@ function Bots:step()
             local params = RaycastParams.new()
             params.FilterType = Enum.RaycastFilterType.Exclude
             params.FilterDescendantsInstances = {a.model}
+            -- Use the same query-only cover as player shots.
+            params.RespectCanCollide = false
             local opening = now - (a.startTime or now) < Config.BotOpeningSeconds
             local retaliating = (a.lastDamage or 0) > (a.startTime or math.huge)
             local target, distance
