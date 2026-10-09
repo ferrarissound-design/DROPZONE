@@ -82,6 +82,7 @@ function presentation:setCombatAim(value) self.combatAimHeld=value end
 function presentation:isAiming() return self.aimHeld end
 local weapons=assert(loadfile(ROOT.."/src/shared/Weapons.lua"))()
 local modules={Weapons=weapons,VisualTheme=theme,Hud={new=function() return hud end},Effects={new=function() return effects end},DamageFeedback={new=function() return numbers end},Presentation={new=function() return presentation end}}
+modules.MobileAimTracking=assert(loadfile(ROOT.."/src/client/MobileAimTracking.lua"))()
 CFrame=assert(loadfile(ROOT.."/tests/aim_math.lua"))()(Vector3)
 math.clamp=function(x,a,b) return math.max(a,math.min(b,x)) end
 math.atan2=function(y,x) return math.atan(y,x) end
@@ -91,7 +92,7 @@ require=function(name) return assert(modules[name],name) end
 local shared={WaitForChild=function(_,name) return name end}
 local replicated={WaitForChild=function(_,name) return name=="DropzoneShared" and shared or remotes end}
 game={GetService=function(_,name) return ({Players={LocalPlayer=player},UserInputService=input,RunService=run,ReplicatedStorage=replicated})[name] end}
-script={Parent={Hud="Hud",Effects="Effects",DamageFeedback="DamageFeedback",Presentation="Presentation",FireDrag="FireDrag"},Destroying=signal()}
+script={Parent={Hud="Hud",Effects="Effects",DamageFeedback="DamageFeedback",Presentation="Presentation",FireDrag="FireDrag",MobileAimTracking="MobileAimTracking"},Destroying=signal()}
 local aimFilter
 workspace={CurrentCamera={CFrame={},ScreenPointToRay=function() return {Origin=Vector3.new(0,5,10),Direction=Vector3.new(0,0,-1)} end},Raycast=function(_,_,_,params) aimFilter=params.FilterDescendantsInstances end}
 assert(loadfile(ROOT.."/src/client/Main.client.lua"))()
@@ -460,8 +461,8 @@ input.InputEnded:emit(t);presentation:undoCamera()
 presentation.undoCamera,presentation.step=oldUndo,oldStep
 check(bindings.DropzonePresentationBefore.priority<100 and bindings.DropzonePresentationAfter.priority>100,"drag and recoil bracket standard camera priority")
 
--- Existing aim assistance follows the rotated ray; visible candidates within the
--- cone are assisted, occluded/out-of-cone/out-of-range candidates are not.
+-- Mobile AIM continues to correct the firing direction along the tracked ray;
+-- visible candidates in range are assisted, occluded/out-of-cone targets are not.
 camera.CFrame=CFrame.lookAt(Vector3.new(0,1.4,10),camera.Focus.Position)
 t=touch(820,220);begin(t);move(t,920,220);frame()
 input.InputEnded:emit(t)
@@ -472,7 +473,7 @@ state.targets={{model=model}}
 local block={IsDescendantOf=function() return false end}
 workspace.Raycast=function() return nil end
 local assistedDirection=clientFire()
-check(near(assistedDirection,(assisted-root.Position-Vector3.new(0,1.4,0)).Unit),"existing 5-degree Aim Assist works with dragged camera")
+check(near(assistedDirection,(assisted-root.Position-Vector3.new(0,1.4,0)).Unit),"mobile AIM correction follows tracked ray after FireDrag")
 workspace.Raycast=function(_,origin,delta)
     -- Aim trace length 300; candidate LOS length approximately 80.
     if delta.Magnitude<180 then return {Instance=block,Position=origin+delta*.5} end
@@ -482,7 +483,7 @@ check(not near(blockedDirection,assistedDirection) and near(blockedDirection,ray
 workspace.Raycast=function() return nil end
 for _,position in ipairs({ray.Origin+ray.Direction*80+camera.CFrame.RightVector*20,ray.Origin+ray.Direction*200+camera.CFrame.RightVector*3}) do
     model.FindFirstChild=function() return {Position=position-Vector3.new(0,.8,0)} end
-    check(near(clientFire(),ray.Direction),"existing assist cone and max distance remain enforced")
+    check(near(clientFire(),ray.Direction),"AIM acquire cone and max distance remain enforced")
 end
 state.targets={};input.TouchEnabled=false
 camera.CameraType="Scriptable";t=touch(820,220);begin(t);move(t,920,220)
@@ -539,4 +540,4 @@ input.TouchEnabled=false
 n=#requests
 input.InputBegan:emit({KeyCode="X"},false);input.InputBegan:emit({KeyCode="Q"},false)
 check(#requests==n+1 and requests[#requests][2]=="Build" and requests[#requests][3]=="Floor","PC X/Q retains direct selection and placement")
-print("PASS: "..count.." client/server assertions including FireDrag ownership, camera math, lifecycle, UI and Aim Assist")
+print("PASS: "..count.." client/server assertions including FireDrag ownership, camera math, lifecycle, UI and mobile AIM")
