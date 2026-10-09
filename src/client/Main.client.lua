@@ -9,7 +9,10 @@ local Effects = require(script.Parent.Effects)
 local DamageFeedback = require(script.Parent.DamageFeedback)
 local Presentation = require(script.Parent.Presentation)
 local FireDrag = require(script.Parent.FireDrag)
-local fireDrag = FireDrag.new(require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("PresentationConfig")))
+local MobileAimTracking = require(script.Parent.MobileAimTracking)
+local presentationConfig = require(ReplicatedStorage:WaitForChild("DropzoneShared"):WaitForChild("PresentationConfig"))
+local fireDrag = FireDrag.new(presentationConfig)
+local aimTracking = MobileAimTracking.new(presentationConfig)
 local player = Players.LocalPlayer
 local remotes = ReplicatedStorage:WaitForChild("DropzoneRemotes")
 local action = remotes:WaitForChild("Action")
@@ -43,6 +46,7 @@ send = function(command, argument)
 end
 local function cancelAim()
     touchAimToggled = false
+    aimTracking:clear()
     presentation:cancelAim()
     if aimButton then
         aimButton.Text = "AIM"
@@ -120,12 +124,24 @@ UserInputService.InputChanged:Connect(function(input)
     if input.UserInputState == Enum.UserInputState.Cancel then stopFireTouch(); return end
     if not playing() then stopFireTouch(); return end
     -- Intentionally accept processed input: our captured Fire GUI touch is sunk.
+    local previous = fireDrag.position
+    if previous and (input.Position - previous).Magnitude > 2 then
+        aimTracking:manualLook(os.clock())
+    end
     fireDrag:move(input)
+end)
+-- Standard right-side look gestures always take precedence over camera assist.
+UserInputService.InputChanged:Connect(function(input, processed)
+    if UserInputService.TouchEnabled and input.UserInputType == Enum.UserInputType.Touch
+        and input ~= fireDrag.input and not processed then
+        aimTracking:manualLook(os.clock())
+    end
 end)
 aimButton = hud:button("Aim", "AIM", 590, 320, 76, 56)
 aimButton.Activated:Connect(function()
     if not playing() or mobileMode == "Build" then return end
     touchAimToggled = not touchAimToggled
+    if not touchAimToggled then aimTracking:clear() end
     presentation:setAimHeld(touchAimToggled)
     if touchAimToggled and state.me.sprinting then requestSprint(false) end
     aimButton.Text = touchAimToggled and "AIM\nON" or "AIM"
@@ -238,7 +254,13 @@ aim = function()
     local aimStart = ray.Origin + ray.Direction * math.max(0, (origin - ray.Origin):Dot(ray.Direction))
     local hit = workspace:Raycast(aimStart, ray.Direction * 300, params)
     local target = hit and hit.Position or aimStart + ray.Direction * 300
-    -- Modest mobile assistance only inside the reticle cone and with line of sight.
+    if UserInputService.TouchEnabled and touchAimToggled and mobileMode == "Combat"
+        and presentation:isAiming() then
+        -- Recheck LOS on each actual shot, even between throttled camera scans.
+        local tracked = aimTracking:scan(ray, origin, state.targets, character, effects.folder, os.clock(), true)
+        if tracked then target = tracked end
+    end
+    -- Existing weak hip-fire correction remains available without AIM.
     if UserInputService.TouchEnabled then
         local best = math.cos(math.rad(5))
         for _, candidate in ipairs(state.targets) do
@@ -382,6 +404,20 @@ RunService:BindToRenderStep("DropzonePresentationBefore", Enum.RenderPriority.Ca
     if playing() then fireDrag:apply(workspace.CurrentCamera) else stopFireTouch() end
 end)
 RunService:BindToRenderStep("DropzonePresentationAfter", Enum.RenderPriority.Camera.Value+1, function(dt)
+    -- Adjust the Roblox-owned base camera BEFORE the presentation recoil.
+    -- The next frame's undoCamera then removes recoil without fighting tracking.
+    if UserInputService.TouchEnabled and touchAimToggled and mobileMode == "Combat"
+        and playing() and presentation:isAiming() then
+        local camera, character = workspace.CurrentCamera, player.Character
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        if camera and root then
+            local center = hud.crosshair.AbsolutePosition + hud.crosshair.AbsoluteSize / 2
+            local ray = camera:ScreenPointToRay(center.X, center.Y)
+            local origin = root.Position + Vector3.new(0, 1.4, 0)
+            local target = aimTracking:scan(ray, origin, state.targets, character, effects.folder, os.clock(), false)
+            aimTracking:track(camera, ray, target, dt, os.clock())
+        end
+    end
     presentation:step(math.min(dt,.1))
     if playing() and (presentation:isAiming() or (presentation.aimBlend or 0) > .001) then
         local _, target = aim()
