@@ -554,11 +554,16 @@ function Hud:update(s, onEvolutionPick)
         end
         self.result.TextSize = active and 15 or 19
     end
-    local function mapPosition(p) return UDim2.fromOffset(61 + p.X / 720 * 78, 39 + p.Z / 720 * 78) end
+    -- Use the current minimap dimensions: mobile is 104x66, desktop 122x78.
+    -- Keep a uniform world-to-pixel scale so zone rings remain circular.
+    local mapWidth, mapHeight = self.mini.Size.X.Offset, self.mini.Size.Y.Offset
+    local function mapPosition(p)
+        return UDim2.fromOffset(mapWidth / 2 + p.X / 720 * mapHeight,
+            mapHeight / 2 + p.Z / 720 * mapHeight)
+    end
     for _, pair in ipairs({{self.currentCircle, z.center, z.radius}, {self.nextCircle, z.nextCenter, z.nextRadius}}) do
         pair[1].Position = mapPosition(pair[2])
-        -- Fixed stud-to-pixel scale keeps circles circular on this rectangular panel.
-        pair[1].Size = UDim2.fromOffset(pair[3] / 360 * 78, pair[3] / 360 * 78)
+        pair[1].Size = UDim2.fromOffset(pair[3] / 360 * mapHeight, pair[3] / 360 * mapHeight)
     end
     local char = Players.LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
