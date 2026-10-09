@@ -23,7 +23,11 @@ for _,size in ipairs({{640,320},{760,360},{844,350},{932,390},{1024,768},{390,76
                 check(not overlap(a[2],visible[j][2]),a[1].." overlaps "..visible[j][1])
             end
         end
-        if size[1]>=640 then check(buttons.Aim[3]*scale>=48,"landscape primary touch target >=48 px") end
+        if size[1]>=640 then
+            check(buttons.Fire[3]*scale>=48,"landscape FIRE touch target >=48 px")
+            check(buttons.Aim[3]*scale>=40,"landscape auxiliary touch target >=40 px")
+        end
+        check(buttons.Build[2]-(buttons.Fire[2]+buttons.Fire[4])>=22,"FIRE/build separated by deliberate gap")
         local draft = {16,104,math.min(w-304,540),132}
         for _,a in ipairs(visible) do check(not overlap(draft,a[2]),"Draft overlaps "..a[1]) end
     end

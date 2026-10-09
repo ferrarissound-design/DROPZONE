@@ -105,6 +105,8 @@ for _,key in ipairs(shared:GetChildren()) do modules[key]=modules[key.Name] end
 local Cosmetics=load("Cosmetics","server/Cosmetics.lua")
 local MapVisuals=load("MapVisuals","server/MapVisuals.lua")
 load("Town","server/Town.lua")
+script.Parent.CrouchPose = "CrouchPose"
+load("CrouchPose","server/CrouchPose.lua")
 load("Movement","server/Movement.lua")
 local evolutionDelayed={}
 task={delay=function(_,callback) evolutionDelayed[#evolutionDelayed+1]=callback end}
@@ -202,6 +204,9 @@ s.roundId=2;s.me=nil;s.phase="Intermission";hud:update(s)
 check(not hud.draft.Visible and hud.hpBar.Size.X.Scale==0 and hud.energyBar.Size.X.Scale==0,"new round clears visuals/bars")
 s.phase="Active";s.me=me;me.alive=true
 for _,name in ipairs({"Fire","Aim","Reload","Build","Wall","Floor","Ramp","Place","Combat","Slot1"}) do hud:button(name,"",0,0,1,1) end
+check(hud.buttons.Fire.BackgroundColor3==Theme.Orange and hud.buttons.Fire.BackgroundTransparency==.25,"mobile FIRE has orange emphasis")
+check(hud.buttons.Aim.BackgroundTransparency==.62 and hud.buttons.Build.BackgroundTransparency==.62,"auxiliary controls reveal more of the world")
+check(hud.mini.Size.X.Offset==104 and hud.mini.Size.Y.Offset==66,"mobile minimap is reduced")
 hud:update(s)
 hud:setMobileMode("Build")
 check(not hud.buttons.Fire.Visible and not hud.buttons.Fire.Active and hud.buttons.Place.Visible and hud.buttons.Place.Active,"real HUD hides/disables Fire and exposes PLACE immediately")

@@ -1,5 +1,6 @@
 local Config = require(game.ReplicatedStorage.DropzoneShared.Config)
 local Rules = require(game.ReplicatedStorage.DropzoneShared.Rules)
+local CrouchPose = require(script.Parent.CrouchPose)
 local Movement = {}
 local function grounded(a)
     local floor = a.humanoid and a.humanoid.FloorMaterial
@@ -19,13 +20,15 @@ local function capVelocity(a, speed)
 end
 function Movement.initialize(a)
     a.baseHipHeight = a.humanoid.HipHeight
+    a.crouchPose = CrouchPose.capture(a.model, a.root)
     a.crouching, a.sliding, a.sprinting = false, false, false
     a.slideUntil, a.nextSlide, a.nextCrouch, a.nextSprint = 0, 0, 0, 0
 end
 function Movement.applyPosture(a)
     if not a.humanoid then return end
     local base = a.baseHipHeight or a.humanoid.HipHeight or 0
-    a.humanoid.HipHeight = math.max(-1, base - ((a.crouching or a.sliding) and Config.CrouchHipDrop or 0))
+    a.humanoid.HipHeight = base
+    CrouchPose.apply(a.crouchPose, a.crouching or a.sliding)
     a.humanoid.AutoRotate = not a.sliding
 end
 function Movement.speedMultiplier(a)
