@@ -74,6 +74,18 @@ check(World.townLootPosition(-130,-130).Z == -108, "town loot is outside the +Z 
 check(#Town.Layout==9 and #Town.WarehouseLayout==4, "bounded town and warehouse building counts")
 check(Town.FallbackBudget.collisionParts==91 and Town.FallbackBudget.visualParts==106,
     "fallback town has an explicit static part budget")
+-- A template's visible geometry blocks weapon and BOT rays independently of
+-- its simplified movement colliders. Invisible helpers and explicit exceptions do not.
+local function coverPart(transparency, passThrough)
+    return {Transparency=transparency, GetAttribute=function(_,name)
+        return name=="TownBulletPassThrough" and passThrough == true
+    end}
+end
+check(Town.blocksShots(coverPart(0), false), "opaque imported wall stops shots")
+check(Town.blocksShots(coverPart(0.5), false), "visible glass stops shots")
+check(not Town.blocksShots(coverPart(1), false), "invisible non-collision helper does not block shots")
+check(not Town.blocksShots(coverPart(0, true), false), "explicit non-collision decoration passes shots")
+check(Town.blocksShots(coverPart(1, true), true), "explicit solid collider always blocks shots")
 local roles={}
 for _,entry in ipairs(Town.Layout) do roles[entry.role]=(roles[entry.role] or 0)+1 end
 check(roles.House==5 and roles.Shop==3 and roles.Office==1,
