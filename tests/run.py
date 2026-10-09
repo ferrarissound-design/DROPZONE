@@ -59,6 +59,7 @@ if "--client-only" in sys.argv:
 source = (ROOT / 'tests' / 'regression.lua').read_text(encoding='utf-8')
 source = 'ROOT = ' + repr(ROOT.as_posix()) + '\n' + source
 run(source, 'regression.lua', True)
+run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests' / 'bot_soldier.lua').read_text(encoding='utf-8'), 'bot_soldier.lua', True)
 visual_source = 'ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests' / 'visuals.lua').read_text(encoding='utf-8')
 run(visual_source, 'visuals.lua', True)
 run('ROOT = ' + repr(ROOT.as_posix()) + '\n' + (ROOT / 'tests/client.lua').read_text(encoding='utf-8'), 'client.lua', True)
@@ -83,6 +84,10 @@ print('PASS: a new round clears the submitted Evolution draft token')
 
 actors_source = (ROOT / 'src' / 'server' / 'Actors.lua').read_text(encoding='utf-8')
 assert 'descendant.CanQuery = false' in actors_source and 'descendant.CanTouch = false' in actors_source
+for required in ('ServerStorage:FindFirstChild("BotModels")', 'templates:FindFirstChild("Soldier")',
+                 'return rejectSoldier(', 'if soldier then return soldier end'):
+    assert required in actors_source
+print('PASS: Studio soldier model registration, safety/fallback and original drone construction checks')
 print('PASS: eliminated actors are removed from raycast and touch queries')
 
 world_source = (ROOT / 'src' / 'server' / 'World.lua').read_text(encoding='utf-8')
@@ -310,8 +315,8 @@ for required in ('ServerStorage:FindFirstChild("WeaponModels")', 'if anchor and 
     assert required in cosmetics_source
 for required in ('VectorForce=true', 'AlignPosition=true', 'BodyVelocity=true', 'item:IsA("Constraint")', 'DropzoneWeaponWeld', 'weld.Part0, weld.Part1, weld.Parent = root, part, root', 'item:IsA("JointInstance")'):
     assert required in cosmetics_source
-assert project_source.count('"$ignoreUnknownInstances": true') == 2
-assert '"TownTemplates"' in project_source and '"WeaponModels"' in project_source
+assert project_source.count('"$ignoreUnknownInstances": true') == 3
+assert '"TownTemplates"' in project_source and '"WeaponModels"' in project_source and '"BotModels"' in project_source
 assert '"ServerStorage": {\n      "$ignoreUnknownInstances"' not in project_source
 print('PASS: shoulder aim restoration, safe weapon templates, scoped Rojo retention and procedural fallback are present')
 

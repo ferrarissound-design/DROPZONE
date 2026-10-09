@@ -104,6 +104,10 @@ PRマージ後は `git switch main` → `git pull --ff-only origin main` → `ro
 6. ゲーム設定の最大プレイヤー数を20以下にしてください。新規Placeではまず12推奨。
 7. 検証後に**Robloxに公開**します。Rojoの同期だけでは公開中のゲームは更新されません。
 
+### ツールボックスの兵士をBOTにする
+
+Studioで `ServerStorage > BotModels > Soldier` に兵士の**Humanoid付きR6/R15モデル**を移すと、試合中のBOTとして複製されます。兵士が未登録・無効な場合は旧型ドローンが代わりに出現します。Rojoは`BotModels`を保持しますが、**兵士モデル本体はGitHubには含まれない**ので、StudioのPlaceを必ず保存してください。安全な登録方法と警告の対処は [兵士モデルの設定](docs/BOT_SOLDIER_SETUP.md) を参照。
+
 同期せずにファイルとして開く場合：
 
 ```powershell
