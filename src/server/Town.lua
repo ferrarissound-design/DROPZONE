@@ -51,6 +51,15 @@ local function isCollisionPart(part, root)
     return false
 end
 
+-- Imported visual meshes may be non-collidable so doors and paths stay open,
+-- but visible surfaces must still stop server bullet and BOT sight raycasts.
+-- Explicit movement colliders always block, including invisible colliders.
+function Town.blocksShots(part, collision)
+    if collision then return true end
+    if part:GetAttribute("TownBulletPassThrough") == true then return false end
+    return part.Transparency < 0.95
+end
+
 -- Toolbox content never enters Workspace directly. A clone is stripped while it
 -- is still detached, then accepted only when it has an explicit collision set.
 function Town.sanitizeTemplate(source)
@@ -58,7 +67,7 @@ function Town.sanitizeTemplate(source)
     local ok, clone = pcall(function() return source:Clone() end)
     if not ok or not clone then return nil, "Cloneできません" end
     clone.Parent = nil
-    local report = {removed=0, parts=0, meshParts=0, collisionParts=0}
+    local report = {removed=0, parts=0, meshParts=0, collisionParts=0, raycastVisualParts=0}
     for _, descendant in ipairs(clone:GetDescendants()) do
         if forbiddenClasses[descendant.ClassName]
             or descendant:IsA("Constraint") or descendant:IsA("JointInstance") then
@@ -71,9 +80,16 @@ function Town.sanitizeTemplate(source)
             descendant.Anchored = true
             descendant.CanTouch = false
             descendant.CanCollide = collision
-            descendant.CanQuery = collision
+            local blocksShots = Town.blocksShots(descendant, collision)
+            descendant.CanQuery = blocksShots
             descendant.Massless = not collision
-            if collision then report.collisionParts = report.collisionParts + 1 end
+            if collision then
+                report.collisionParts = report.collisionParts + 1
+            elseif blocksShots then
+                -- Building placement can also recognize this visual-only cover.
+                descendant:SetAttribute("TownBulletCover", true)
+                report.raycastVisualParts = report.raycastVisualParts + 1
+            end
         end
     end
     local limits = Town.TemplateLimits
