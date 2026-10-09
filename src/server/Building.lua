@@ -32,7 +32,8 @@ function Building:place(a, kind)
     sightParams.FilterType = Enum.RaycastFilterType.Exclude
     sightParams.FilterDescendantsInstances = {a.model}
     local obstruction = workspace:Raycast(sightOrigin, cf.Position-sightOrigin, sightParams)
-    if obstruction and obstruction.Instance.CanCollide then return end
+    if obstruction and (obstruction.Instance.CanCollide
+        or obstruction.Instance:GetAttribute("TownBulletCover") == true) then return end
     -- Reject intersections with buildings, players, and other builds; avoid entombing actors.
     local params = OverlapParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
