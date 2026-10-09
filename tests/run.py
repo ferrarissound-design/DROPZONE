@@ -103,7 +103,10 @@ for unsafe_class in ('Script=true', 'LocalScript=true', 'ModuleScript=true', 'Re
                      'ParticleEmitter=true', 'PointLight=true', 'Sound=true',
                      'ClickDetector=true', 'ProximityPrompt=true'):
     assert unsafe_class in town_source
-assert 'descendant.CanQuery = collision' in town_source
+assert 'descendant.CanQuery = blocksShots' in town_source
+assert 'local blocksShots = Town.blocksShots(descendant, collision)' in town_source
+assert 'descendant:SetAttribute("TownBulletCover", true)' in town_source
+assert 'part:GetAttribute("TownBulletPassThrough") == true' in town_source
 assert 'descendant.CanTouch = false' in town_source
 assert 'descendant.Anchored = true' in town_source
 assert 'CollisionフォルダまたはTownCollision属性が必要です' in town_source
@@ -114,7 +117,7 @@ for silhouette in ('GableRoof', 'ButterflyRoof', 'MonoPitchRoof'):
     assert silhouette in town_source
 project = (ROOT / 'default.project.json').read_text(encoding='utf-8')
 assert '"TownTemplates"' in project and '"$ignoreUnknownInstances": true' in project
-print('PASS: Toolbox town templates are stripped, bounded and explicit about collision/query ownership')
+print('PASS: imported town surfaces block bullet rays without changing movement colliders')
 
 server_source = (ROOT / 'src' / 'server' / 'Main.server.lua').read_text(encoding='utf-8')
 assert 'ReplicatedStorage:GetChildren()' in server_source and 'child.Name == "DropzoneRemotes"' in server_source
@@ -151,6 +154,9 @@ effects_src = (ROOT / 'src/client/Effects.lua').read_text(encoding='utf-8')
 assert 'function Combat:stopFire(a)' in combat_src
 assert 'if command == "FireStop" then' in server_src and server_src.index('if command == "FireStop" then') < server_src.index('local now = os.clock()')
 assert 'local obstruction = workspace:Raycast(sightOrigin, cf.Position-sightOrigin, sightParams)' in building_src
+assert 'obstruction.Instance:GetAttribute("TownBulletCover") == true' in building_src
+assert 'params.RespectCanCollide = false' in combat_src
+assert 'params.RespectCanCollide = false' in (ROOT / 'src/server/Bots.lua').read_text(encoding='utf-8')
 assert 'Rules.facingShot' not in combat_src
 assert 'function Bots.faceTarget(a, delta)' in (ROOT / 'src/server/Bots.lua').read_text(encoding='utf-8')
 assert 'DropzoneWeaponWeld' in (ROOT / 'src/server/Cosmetics.lua').read_text(encoding='utf-8')
