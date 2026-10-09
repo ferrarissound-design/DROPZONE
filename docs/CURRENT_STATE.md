@@ -9,6 +9,7 @@
 ## 2026-10-09 スマホUI・しゃがみ修正
 
 - ブランチ: `fix/mobile-ui-grounded-crouch-20261009`。補助操作ボタン64→52（18.75%縮小）、背景透明度.35→.62。FIREは72を維持しオレンジ背景、建築切替との縦間隔8→22。AIM/FIRE独立とFireDrag入力処理は維持。ミニマップ122×78→104×66。安全領域・可変キャンバス・PCのHUD/入力は変更しない。
+- PR #34 Codex P2対応: ミニマップを縮小した後も固定中心(61,39)/倍率78のままだった問題を修正。Hudの現行Minimap Sizeから中心・等方倍率を算出し、現/次Zone円とマーカーを同じ座標系で描画する。モバイル104×66とPC122×78の中心・座標投影・リング直径の回帰テストを追加。Studio実画面での見た目は未確認。
 - 根本原因: Crouch/SlideアニメーションIDが空のままHipHeightを1.15下げていたため、脚を曲げず身体全体を地面へ沈めていた。HipHeightを初期値に保ち、CrouchPoseでR15の股関節/膝/足首、R6の股関節を曲げる。リグ寸法と関節C0/C1から脚の短縮量・足の最下点を計算し、胴体だけを下げ、両足の静止時の高さと水平位置を補正する。
 - RootPartのCFrame・速度・衝突サイズを姿勢のために書き換えず、接地/斜面/段差は既存Humanoidへ委ねる。C0は状態切替時だけ更新、立つ/Jump/Sprint/死亡/リセットで元値を復元。R6は膝なしのため簡易姿勢。標準Motor6Dチェーンのないカスタム/AnimationConstraintリグはHipHeight維持の安全fallback（視覚的なしゃがみは未対応）。未確認Asset IDを追加しない。
 - 自動検証: `python3 tests/run.py` PASS。R6/R15×3体格×5回切替で足最下点/水平位置/全C0復元など307 assertions。画面サイズ別配置1054 assertions、既存戦闘/建築/移動/射撃/AIM/次戦回帰もPASS。`python3 tests/preplay_analysis.py`・`git diff --check` PASS。
