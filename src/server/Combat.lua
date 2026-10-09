@@ -110,6 +110,8 @@ function Combat:fire(a, direction)
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {a.model}
+    -- Query-only imported walls block shots even when movement collision is off.
+    params.RespectCanCollide = false
     local basis = CFrame.lookAt(Vector3.zero, direction.Unit)
     local spread = math.rad(spec.spread * math.max(0.76, 1 - Evolution.total(a, "HunterEyes")))
     local endpoints, impacts, hitEnemy, damageByVictim = {}, {}, false, {}
