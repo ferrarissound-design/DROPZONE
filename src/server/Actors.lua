@@ -101,7 +101,85 @@ function Actors:clear()
     end
     self.list, self.byPlayer, self.byModel, self.connections = {}, {}, {}, {}
 end
+-- Toolbox assets are never run as-is. Only a validated humanoid rig from
+-- ServerStorage/BotModels/Soldier may replace the procedural BOT.
+-- The name, movement logic, hit detection and network ownership stay unchanged.
+local ServerStorage = game:GetService("ServerStorage")
+local unsafeBotClasses = {
+    Script=true, LocalScript=true, ModuleScript=true, Tool=true,
+    RemoteEvent=true, RemoteFunction=true, BindableEvent=true, BindableFunction=true,
+    ForceField=true, Explosion=true, Fire=true, Smoke=true, Sparkles=true,
+    Sound=true, ParticleEmitter=true, Trail=true, Beam=true,
+    PointLight=true, SpotLight=true, SurfaceLight=true,
+    ClickDetector=true, ProximityPrompt=true,
+    BodyVelocity=true, BodyPosition=true, BodyGyro=true, BodyForce=true,
+    BodyAngularVelocity=true, BodyThrust=true, RocketPropulsion=true,
+    VectorForce=true, LinearVelocity=true, AngularVelocity=true,
+    AlignPosition=true, AlignOrientation=true, Torque=true,
+}
+local warnedSoldier
+local function rejectSoldier(reason, model)
+    if model then model:Destroy() end
+    if warnedSoldier ~= reason then
+        warnedSoldier = reason
+        warn("[DROPZONE] BotModels/Soldier: " .. reason .. "; procedural BOT fallback")
+    end
+    return nil
+end
+local function soldierModel(parent, index)
+    local templates = ServerStorage:FindFirstChild("BotModels")
+    local source = templates and templates:FindFirstChild("Soldier")
+    if not source then return nil end -- Optional Studio model; ordinary drones remain valid.
+    if not source:IsA("Model") then return rejectSoldier("Soldier must be a Model") end
+    if #source:GetDescendants() > 160 then
+        return rejectSoldier("template is too large (max 160 descendants)")
+    end
+    local ok, model = pcall(function() return source:Clone() end)
+    if not ok or not model then return rejectSoldier("cannot clone template") end
+    model.Parent = nil
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    local root = model:FindFirstChild("HumanoidRootPart")
+    local head = model:FindFirstChild("Head")
+    local torso = model:FindFirstChild("LowerTorso") or model:FindFirstChild("Torso") or model:FindFirstChild("UpperTorso")
+    if not humanoid or not root or not root:IsA("BasePart")
+        or not head or not head:IsA("BasePart")
+        or not torso or not torso:IsA("BasePart") then
+        return rejectSoldier("requires Humanoid, HumanoidRootPart, Head and torso", model)
+    end
+    local parts, rootedJoint = 0, false
+    for _, descendant in ipairs(model:GetDescendants()) do
+        if unsafeBotClasses[descendant.ClassName]
+            or descendant:IsA("Constraint")
+            or descendant:IsA("BodyMover") then
+            descendant:Destroy()
+        elseif descendant:IsA("BasePart") then
+            parts = parts + 1
+            descendant.Anchored = false
+            descendant.CanTouch = false
+            -- Accessories/armor do not push players or interfere with navigation.
+            -- Body cover remains queryable for Combat:fromPart() and BOT LOS.
+            descendant.CanCollide = descendant == torso
+            descendant.CanQuery = true
+            descendant.Massless = descendant ~= torso and descendant ~= root
+        elseif descendant:IsA("Motor6D")
+            and (descendant.Part0 == root or descendant.Part1 == root) then
+            rootedJoint = true
+        end
+    end
+    if parts > 80 or parts < 6 or not rootedJoint then
+        return rejectSoldier("requires a connected R6/R15 humanoid rig (6-80 parts)", model)
+    end
+    root.Transparency = 1
+    humanoid.DisplayName = "SOLDIER " .. index
+    model.Name = "Drone" .. index
+    model.PrimaryPart = root
+    model.Parent = parent
+    return model
+end
+
 function Actors.botModel(parent, index)
+    local soldier = soldierModel(parent, index)
+    if soldier then return soldier end
     local model = Instance.new("Model")
     model.Name = "Drone" .. index
     local parts = {}
